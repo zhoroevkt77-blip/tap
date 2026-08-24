@@ -1,169 +1,43 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-TAP! — Telegram бот. КОШУМЧА КИТЕПКАНА КЕРЕК ЭМЕС.
+TAP! — Telegram бот.
 
-Иштетүү:
-    1) Токенди жаз:  echo "СЕНИН_ТОКЕНИҢ" > token.txt
-    2) Ботту иштет:  python bot.py
-
-Бот tap.py менен бир эле базаны колдонот (tap.db).
-Ботко коюлган жарыя сайтта дароо көрүнөт.
+Токен: TELEGRAM_BOT_TOKEN чөйрө өзгөрмөсү, же token.txt файлы.
+Иштетүү: python bot.py
 """
 
-import json, os, sqlite3, time, urllib.parse, urllib.request, mimetypes
-import ssl
+import json, os, ssl, time, urllib.parse, urllib.request, mimetypes
 
-BASE = os.path.dirname(os.path.abspath(__file__))
-DB = os.path.join(BASE, "tap.db")
-MEDIA = os.path.join(BASE, "media")
-TOKEN_FILE = os.path.join(BASE, "token.txt")
-STATE_FILE = os.path.join(BASE, "bot_state.json")
+import core
+from core import (CATS, SUBS, MEDIA, SITE_URL, sub_title, used_regions, price_label)
 
-# Сайттын дареги. Интернетке чыгаргандан кийин бул жерди өз доменине алмаштыр.
-SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
-
-CATS = {
-    "transport": ("Транспорт", "🚗"),
-    "realty":    ("Кыймылсыз мүлк", "🏠"),
-    "personal":  ("Жеке буюмдар", "👕"),
-    "service":   ("Кызматтар", "🔧"),
-    "shop":      ("Магазиндер", "🛍"),
-    "business":  ("Бизнес", "🤝"),
-}
-
-
-# ---- Латын / кириллица издөө ----
-# Кыргызстанда "батир" деп да, "batir" деп да жазышат.
-# Ошондуктан ар бир жарыянын латынча жазылышын да сактайбыз,
-# издөөдө болсо суроону эки формада тең текшеребиз.
-
-_TR = {
-    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "yo",
-    "ж": "j", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m",
-    "н": "n", "ң": "ng", "о": "o", "ө": "o", "п": "p", "р": "r", "с": "s",
-    "т": "t", "у": "u", "ү": "u", "ф": "f", "х": "h", "ц": "c", "ч": "ch",
-    "ш": "sh", "щ": "sh", "ъ": "", "ы": "y", "ь": "", "э": "e", "ю": "yu",
-    "я": "ya",
-}
-
-# Латынча жазуунун ар кандай варианттарын бир формага келтирүү:
-# jantyk / zhantyk, han / khan, cai / tsai — баары бир болуп калсын.
-
-def translit(s):
-    """Кириллицаны латынга которот. Латын тамгалар тийбейт."""
-    return "".join(_TR.get(ch, ch) for ch in (s or "").lower())
-
-
-def fold(s):
-    """Латынча жазуунун варианттарын бир формага келтирет."""
-    s = (s or "").lower()
-    # ch/sh убактылуу белгиге — алардын ичиндеги тамгалар өзгөрбөш үчүн
-    s = s.replace("ch", "\x01").replace("sh", "\x02")
-    for a, b in (("zh", "j"), ("kh", "h"), ("ts", "k"), ("c", "k"),
-                 ("yo", "o"), ("yu", "u"), ("ya", "a"), ("ye", "e"),
-                 ("q", "k"), ("w", "v"), ("x", "ks"), ("y", "i")):
-        s = s.replace(a, b)
-    s = s.replace("\x01", "ch").replace("\x02", "sh")
-    # Кайталанган тамгаларды бирге түшүрөбүз: donggolok -> dongolok
-    out = []
-    for ch in s:
-        if not out or out[-1] != ch:
-            out.append(ch)
-    return "".join(out)
-
-
-def norm(s):
-    """Издөө үчүн бир формага келтирилген текст."""
-    return fold(translit(s))
-
-# Кыргызча-орусча синонимдер. Киши "квартира" деп издейт,
-# жарыяда "батир" деп жазылган болушу мүмкүн — экөө тең табылсын.
-SYNS = [
-    ["батир", "квартира"],
-    ["там", "үй", "дом"],
-    ["унаа", "машина", "авто", "автомобиль"],
-    ["телефон", "смартфон"],
-    ["дөңгөлөк", "резина", "шина", "колесо"],
-    ["эмерек", "мебель"],
-    ["кийим", "одежда"],
-    ["жер", "участок"],
-    ["иш", "жумуш", "работа", "вакансия"],
-    ["ижара", "аренда", "арендага"],
-    ["сатылат", "продается", "продам"],
-    ["компьютер", "ноутбук", "комп"],
-    ["курулуш", "стройка", "ремонт", "оңдоо"],
-]
-
-
-def expand(text):
-    """Тексттеги сөздөрдүн синонимдерин кошуп берет."""
-    low = (text or "").lower()
-    extra = []
-    for group in SYNS:
-        if any(w in low for w in group):
-            extra += group
-    return " ".join(extra)
-
-
-# Категориянын ичиндеги түрлөр.
-# Бул издөө үчүн эң маанилүү: эч ким жарыясына "телефон" деп жазбайт,
-# "Redmi Note 13" деп жазат. Түр тандалганда ошол сөз жарыяга байланат.
-SUBS = {
-    "transport": [("car", "Унаа"), ("parts", "Унаа тетиктери"), ("tire", "Дөңгөлөк"),
-                  ("moto", "Мотоцикл, велосипед"), ("truck", "Жүк техникасы")],
-    "realty":    [("flat", "Батир"), ("house", "Там, үй"), ("land", "Жер участок"),
-                  ("commerce", "Коммерциялык жай"), ("rent", "Ижарага")],
-    "personal":  [("phone", "Телефон"), ("comp", "Компьютер, ноутбук"),
-                  ("cloth", "Кийим-кече"), ("furn", "Эмерек"),
-                  ("tech", "Тиричилик техникасы"), ("kids", "Балдар буюмдары"),
-                  ("other", "Башка")],
-    "service":   [("build", "Оңдоо, курулуш"), ("transport", "Ташуу кызматы"),
-                  ("repair", "Техника оңдоо"), ("beauty", "Сулуулук, саламаттык"),
-                  ("teach", "Окутуу"), ("other", "Башка")],
-    "shop":      [("food", "Азык-түлүк"), ("cloth", "Кийим дүкөнү"),
-                  ("tech", "Техника дүкөнү"), ("build", "Курулуш материалдары"),
-                  ("other", "Башка")],
-    "business":  [("ready", "Даяр бизнес"), ("equip", "Жабдуу"),
-                  ("partner", "Өнөктөштүк"), ("other", "Башка")],
-}
-
-
-def sub_title(cat, code):
-    for c, n in SUBS.get(cat, []):
-        if c == code:
-            return n
-    return ""
-
-REGIONS = ["Жалал-Абад облусу", "Ош облусу", "Баткен облусу", "Чүй облусу",
-           "Ысык-Көл облусу", "Нарын облусу", "Талас облусу", "Бишкек", "Ош шаары"]
-
-PER_PAGE = 5   # издөөдө бир жолу канча жарыя көрсөтүлөт
+TOKEN_FILE = os.path.join(core.BASE, "token.txt")
+STATE_FILE = os.path.join(core.BASE, "bot_state.json")
+PER_PAGE = 5
 
 _ctx = ssl.create_default_context()
-
-
-# ==================== Telegram API ====================
-
-def token():
-    if os.path.exists(TOKEN_FILE):
-        t = open(TOKEN_FILE, encoding="utf-8").read().strip()
-        if t:
-            return t
-    t = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-    if not t:
-        raise SystemExit(
-            "\nТокен табылган жок!\n"
-            "Мындай кыл:  echo \"СЕНИН_ТОКЕНИҢ\" > token.txt\n")
-    return t
-
-
 TOKEN = None
 API = None
 
 
+# ==================== Telegram API ====================
+
+def read_token():
+    t = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    if t:
+        return t
+    if os.path.exists(TOKEN_FILE):
+        t = open(TOKEN_FILE, encoding="utf-8").read().strip()
+        if t:
+            return t
+    raise SystemExit(
+        "\nТокен табылган жок!\n"
+        "Railway'де: Variables ичине TELEGRAM_BOT_TOKEN кош.\n"
+        "Жергиликтүү: echo -n \"ТОКЕН\" > token.txt\n")
+
+
 def api(method, **params):
-    """Telegram API'ге кайрылуу."""
     data = urllib.parse.urlencode(
         {k: (json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else v)
          for k, v in params.items() if v is not None}).encode()
@@ -172,18 +46,20 @@ def api(method, **params):
         with urllib.request.urlopen(req, timeout=70, context=_ctx) as r:
             return json.loads(r.read().decode())
     except Exception as e:
-        print("  API катасы:", method, e)
+        print("  API катасы:", method, e, flush=True)
         return {"ok": False}
 
 
-def send(chat, text, kb=None, preview=False):
+def esc(s):
+    return (str(s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def send(chat, text, kb=None):
     return api("sendMessage", chat_id=chat, text=text, parse_mode="HTML",
-               disable_web_page_preview=not preview,
-               reply_markup=kb)
+               disable_web_page_preview=True, reply_markup=kb)
 
 
 def send_photo(chat, path, caption, kb=None):
-    """Сүрөттү multipart менен жөнөтөт."""
     if not os.path.isfile(path):
         return send(chat, caption, kb)
     bnd = "----TAPBOUNDARY7391"
@@ -206,24 +82,21 @@ def send_photo(chat, path, caption, kb=None):
     parts.append(open(path, "rb").read())
     parts.append(f"\r\n--{bnd}--\r\n".encode())
 
-    body = b"".join(parts)
-    req = urllib.request.Request(API + "sendPhoto", data=body)
+    req = urllib.request.Request(API + "sendPhoto", data=b"".join(parts))
     req.add_header("Content-Type", f"multipart/form-data; boundary={bnd}")
     try:
         with urllib.request.urlopen(req, timeout=90, context=_ctx) as r:
             return json.loads(r.read().decode())
     except Exception as e:
-        print("  Сүрөт жөнөтүлбөдү:", e)
+        print("  Сүрөт жөнөтүлбөдү:", e, flush=True)
         return send(chat, caption, kb)
 
 
 def download_photo(file_id, dest):
-    """Telegram'дан сүрөттү жүктөп алат."""
     r = api("getFile", file_id=file_id)
     if not r.get("ok"):
         return False
-    path = r["result"]["file_path"]
-    url = f"https://api.telegram.org/file/bot{TOKEN}/{path}"
+    url = f"https://api.telegram.org/file/bot{TOKEN}/{r['result']['file_path']}"
     try:
         with urllib.request.urlopen(url, timeout=90, context=_ctx) as resp:
             data = resp.read()
@@ -231,123 +104,11 @@ def download_photo(file_id, dest):
         open(dest, "wb").write(data)
         return True
     except Exception as e:
-        print("  Сүрөт жүктөлбөдү:", e)
+        print("  Сүрөт жүктөлбөдү:", e, flush=True)
         return False
 
 
-# ==================== База ====================
-
-def conn():
-    c = sqlite3.connect(DB)
-    c.row_factory = sqlite3.Row
-    return c
-
-
-def init_db():
-    with conn() as c:
-        c.execute("""CREATE TABLE IF NOT EXISTS listings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            category TEXT NOT NULL, region TEXT, title TEXT NOT NULL,
-            description TEXT, price TEXT, contact TEXT,
-            photo TEXT, tg_id TEXT, tg_name TEXT, stext TEXT, subcat TEXT,
-            views INTEGER DEFAULT 0, is_active INTEGER DEFAULT 1,
-            created_at TEXT DEFAULT (datetime('now')))""")
-        have = {r[1] for r in c.execute("PRAGMA table_info(listings)")}
-        for col in ("photo", "tg_id", "tg_name", "stext", "subcat"):
-            if col not in have:
-                c.execute(f"ALTER TABLE listings ADD COLUMN {col} TEXT")
-        # Эски жазуулардын издөө талаасын толтуруу
-        for r in c.execute("SELECT id,title,description FROM listings "
-                           "WHERE stext IS NULL").fetchall():
-            c.execute("UPDATE listings SET stext=? WHERE id=?",
-                      (mkstext(r["title"], r["description"]), r["id"]))
-    os.makedirs(MEDIA, exist_ok=True)
-
-
-def mkstext(title, desc, sub_name=""):
-    """Издөө үчүн кичине тамгага айландырылган текст.
-    SQLite'тын LIKE'ы кириллицада чоң-кичине тамганы айырмалайт,
-    ошондуктан издөөнү ушул талаа боюнча жүргүзөбүз."""
-    raw = f"{title or ''} {desc or ''} {sub_name or ''}".lower()
-    raw = raw + " " + expand(raw)            # синонимдер
-    return raw + " " + norm(raw)             # + латынча жазылышы
-
-
-def add_listing(d, tg_id, tg_name):
-    with conn() as c:
-        cur = c.execute(
-            """INSERT INTO listings
-               (category,subcat,title,price,region,description,contact,tg_id,tg_name,stext)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (d["category"], d.get("subcat"), d["title"], d.get("price", ""),
-             d.get("region", ""), d.get("description", ""), d.get("contact", ""),
-             str(tg_id), tg_name,
-             mkstext(d["title"], d.get("description", ""),
-                     sub_title(d["category"], d.get("subcat")))))
-        return cur.lastrowid
-
-
-def set_photo(lid, name):
-    with conn() as c:
-        c.execute("UPDATE listings SET photo=? WHERE id=?", (name, lid))
-
-
-def find(q=None, cat=None, region=None, sub=None, limit=PER_PAGE, offset=0):
-    sql = "SELECT * FROM listings WHERE is_active=1"
-    p = []
-    if cat:
-        sql += " AND category=?"; p.append(cat)
-    if sub:
-        sql += " AND subcat=?"; p.append(sub)
-    if region:
-        sql += " AND region=?"; p.append(region)
-    if q:
-        sql += " AND (stext LIKE ? OR stext LIKE ?)"
-        p += [f"%{q.lower()}%", f"%{norm(q)}%"]
-    sql += " ORDER BY id DESC LIMIT ? OFFSET ?"
-    p += [limit, offset]
-    with conn() as c:
-        return [dict(r) for r in c.execute(sql, p)]
-
-
-def count(q=None, cat=None, region=None, sub=None):
-    sql = "SELECT COUNT(*) n FROM listings WHERE is_active=1"
-    p = []
-    if cat:
-        sql += " AND category=?"; p.append(cat)
-    if sub:
-        sql += " AND subcat=?"; p.append(sub)
-    if region:
-        sql += " AND region=?"; p.append(region)
-    if q:
-        sql += " AND (stext LIKE ? OR stext LIKE ?)"
-        p += [f"%{q.lower()}%", f"%{norm(q)}%"]
-    with conn() as c:
-        return c.execute(sql, p).fetchone()["n"]
-
-
-def used_regions():
-    """Базада чындап жарыясы бар аймактар."""
-    with conn() as c:
-        return [r["region"] for r in c.execute(
-            "SELECT region, COUNT(*) n FROM listings WHERE is_active=1 "
-            "AND region IS NOT NULL AND region<>'' GROUP BY region ORDER BY n DESC")]
-
-
-def my_listings(tg_id):
-    with conn() as c:
-        return [dict(r) for r in c.execute(
-            "SELECT * FROM listings WHERE tg_id=? ORDER BY id DESC", (str(tg_id),))]
-
-
-def deactivate(lid, tg_id):
-    with conn() as c:
-        cur = c.execute("UPDATE listings SET is_active=0 WHERE id=? AND tg_id=?",
-                        (lid, str(tg_id)))
-        return cur.rowcount > 0
-
-
-# ==================== Абалдарды сактоо ====================
+# ==================== Абалдар ====================
 
 def load_state():
     if os.path.exists(STATE_FILE):
@@ -359,17 +120,19 @@ def load_state():
 
 
 def save_state(st):
-    tmp = STATE_FILE + ".tmp"
-    json.dump(st, open(tmp, "w", encoding="utf-8"), ensure_ascii=False)
-    os.replace(tmp, STATE_FILE)
+    try:
+        tmp = STATE_FILE + ".tmp"
+        json.dump(st, open(tmp, "w", encoding="utf-8"), ensure_ascii=False)
+        os.replace(tmp, STATE_FILE)
+    except Exception:
+        pass   # диск жазылбаса да бот иштей берсин
 
 
 # ==================== Баскычтар ====================
 
 MENU = {"keyboard": [
     [{"text": "📢 Жарыя берем"}, {"text": "🔍 Издеймин"}],
-    [{"text": "📋 Менин жарыяларым"}]],
-    "resize_keyboard": True}
+    [{"text": "📋 Менин жарыяларым"}]], "resize_keyboard": True}
 
 SKIP = {"keyboard": [[{"text": "⏭ Өткөрүү"}], [{"text": "❌ Жокко чыгаруу"}]],
         "resize_keyboard": True}
@@ -383,14 +146,12 @@ def cat_kb(prefix, with_all=False):
         rows.append([{"text": "🔎 Бардыгы", "callback_data": f"{prefix}:all"}])
     items = list(CATS.items())
     for i in range(0, len(items), 2):
-        row = [{"text": f"{ic} {nm}", "callback_data": f"{prefix}:{code}"}
-               for code, (nm, ic) in items[i:i + 2]]
-        rows.append(row)
+        rows.append([{"text": f"{ic} {nm}", "callback_data": f"{prefix}:{c}"}
+                     for c, (nm, ic) in items[i:i + 2]])
     return {"inline_keyboard": rows}
 
 
 def sub_kb(cat, prefix, with_all=False):
-    """Категориянын ичиндеги түрлөр."""
     rows = []
     if with_all:
         rows.append([{"text": "🔎 Бардыгы", "callback_data": f"{prefix}:all"}])
@@ -403,7 +164,7 @@ def sub_kb(cat, prefix, with_all=False):
 
 def region_kb():
     rows, row = [], []
-    for r in REGIONS:
+    for r in core.REGIONS:
         row.append({"text": r})
         if len(row) == 2:
             rows.append(row); row = []
@@ -414,7 +175,6 @@ def region_kb():
 
 
 def find_region_kb():
-    """Издөөдө аймак тандоо. Базада жарыясы бар аймактар гана."""
     used = used_regions()
     rows = [[{"text": "🌍 Бүт Кыргызстан", "callback_data": "fr:all"}]]
     row = []
@@ -429,30 +189,25 @@ def find_region_kb():
 
 def phone_kb():
     return {"keyboard": [[{"text": "📱 Номеримди жиберүү", "request_contact": True}],
-                         [{"text": "❌ Жокко чыгаруу"}]],
-            "resize_keyboard": True}
+                         [{"text": "❌ Жокко чыгаруу"}]], "resize_keyboard": True}
 
 
-# ==================== Жарыяны форматтоо ====================
+# ==================== Жарыяны көрсөтүү ====================
 
 def fmt(r):
     nm, ic = CATS.get(r["category"], ("—", ""))
     sn = sub_title(r["category"], r.get("subcat"))
-    price = (r["price"] or "").strip() or "Келишимдүү"
     lines = [f"<b>{esc(r['title'])}</b>",
-             f"💰 {esc(price)}",
+             f"💰 {esc(price_label(r['price']))}",
              f"{ic} {esc(sn or nm)}   📍 {esc(r['region'] or '—')}"]
     if r.get("description"):
         d = r["description"]
         lines.append("\n" + esc(d[:300] + ("…" if len(d) > 300 else "")))
     if r.get("contact"):
         lines.append(f"\n☎️ {esc(r['contact'])}")
-    lines.append(f"\n🌐 {SITE_URL}/e/{r['id']}")
+    if SITE_URL and "localhost" not in SITE_URL:
+        lines.append(f"\n🌐 {SITE_URL}/e/{r['id']}")
     return "\n".join(lines)
-
-
-def esc(s):
-    return (str(s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
 def show_results(chat, rows, total, shown):
@@ -470,17 +225,15 @@ def show_results(chat, rows, total, shown):
         send(chat, "Баары ушул.", MENU)
 
 
-# ==================== Негизги логика ====================
+# ==================== Билдирүүлөр ====================
 
 def handle_message(msg, st):
     chat = msg["chat"]["id"]
     uid = str(msg["from"]["id"])
     name = msg["from"].get("first_name", "")
-    users = st["users"]
-    u = users.setdefault(uid, {"step": None, "data": {}})
+    u = st["users"].setdefault(uid, {"step": None, "data": {}})
     text = (msg.get("text") or "").strip()
 
-    # --- сүрөт келсе ---
     if msg.get("photo") and u["step"] == "photo":
         u["data"]["photo_file_id"] = msg["photo"][-1]["file_id"]
         u["step"] = "contact"
@@ -488,17 +241,14 @@ def handle_message(msg, st):
                    "<i>мисалы: +996700123456</i>", phone_kb())
         return
 
-    # --- контакт келсе ---
     if msg.get("contact") and u["step"] == "contact":
         text = msg["contact"].get("phone_number", "")
 
-    # --- жокко чыгаруу ---
     if text in ("❌ Жокко чыгаруу", "/cancel"):
         u["step"] = None; u["data"] = {}
         send(chat, "Жокко чыгарылды.", MENU)
         return
 
-    # --- /start ---
     if text in ("/start", "/help"):
         u["step"] = None; u["data"] = {}
         send(chat, "Салам! Бул <b>TAP!</b> — жарыя ботту.\n\n"
@@ -554,21 +304,22 @@ def handle_message(msg, st):
             send(chat, "Байланыш номерин жазыңыз:")
             return
         u["data"]["contact"] = text[:120]
-        lid = add_listing(u["data"], uid, name)
+        d = u["data"]
+        lid = core.add_listing(d, uid, name)
 
-        fid = u["data"].get("photo_file_id")
+        fid = d.get("photo_file_id")
         if fid:
             fn = f"{lid}.jpg"
             if download_photo(fid, os.path.join(MEDIA, fn)):
-                set_photo(lid, fn)
+                core.set_photo(lid, fn)
 
-        d = u["data"]
         u["step"] = None; u["data"] = {}
+        link = (f"\n\n🌐 {SITE_URL}/e/{lid}"
+                if SITE_URL and "localhost" not in SITE_URL else "")
         send(chat, f"✅ <b>Жарыя коюлду!</b>  №{lid}\n\n"
                    f"📦 {esc(d['title'])}\n"
-                   f"💰 {esc(d.get('price') or 'Келишимдүү')}\n"
-                   f"📍 {esc(d.get('region') or '—')}\n\n"
-                   f"🌐 {SITE_URL}/e/{lid}", MENU)
+                   f"💰 {esc(price_label(d.get('price')))}\n"
+                   f"📍 {esc(d.get('region') or '—')}{link}", MENU)
         return
 
     # ---------- Издөө ----------
@@ -580,16 +331,15 @@ def handle_message(msg, st):
     if u["step"] == "find_q":
         q = None if text.lower() in ("бардыгы", "баары", "все", "-") else text
         u["data"]["q"] = q
-        cat, reg = u["data"].get("cat"), u["data"].get("reg")
-        sub = u["data"].get("sub")
-        total = count(q, cat, reg, sub)
+        cat, reg, sub = u["data"].get("cat"), u["data"].get("reg"), u["data"].get("sub")
+        total = core.count(q, cat, reg, sub)
         if not total:
             u["step"] = None
             where = f" ({reg})" if reg else ""
             send(chat, f"Эч нерсе табылган жок{esc(where)} 😔\n"
                        "Башка сөз менен, же башка аймактан аракет кылып көрүңүз.", MENU)
             return
-        rows = find(q, cat, reg, sub, limit=PER_PAGE)
+        rows = core.find(q, cat, reg, sub, limit=PER_PAGE)
         u["step"] = "browsing"
         place = f" · 📍 {esc(reg)}" if reg else ""
         send(chat, f"🔎 <b>{total} жарыя табылды</b>{place}")
@@ -599,7 +349,7 @@ def handle_message(msg, st):
     # ---------- Менин жарыяларым ----------
     if text == "📋 Менин жарыяларым":
         u["step"] = None
-        rows = my_listings(uid)
+        rows = core.my_listings(uid)
         if not rows:
             send(chat, "Сизде азырынча жарыя жок.", MENU)
             return
@@ -611,12 +361,24 @@ def handle_message(msg, st):
                   if r["is_active"] else None)
             send(chat, f"{status} №{r['id']}\n"
                        f"📦 {esc(r['title'])}\n"
-                       f"💰 {esc(r['price'] or 'Келишимдүү')}   👁 {r['views']}\n"
-                       f"🌐 {SITE_URL}/e/{r['id']}", kb)
+                       f"💰 {esc(price_label(r['price']))}   👁 {r['views']}", kb)
         return
 
-    # ---------- Түшүнбөдү ----------
     send(chat, "Менюдан тандаңыз 👇", MENU)
+
+
+# ==================== Баскыч басылганда ====================
+
+def _ask_region(chat, u):
+    regs = used_regions()
+    if len(regs) > 1:
+        u["step"] = "find_reg"
+        send(chat, "Кайсы аймактан издейли?", find_region_kb())
+    else:
+        u["data"]["reg"] = None
+        u["step"] = "find_q"
+        send(chat, "Ачкыч сөз жазыңыз.\n"
+                   "<i>Баарын көрүү үчүн «баары» деп жазыңыз</i>", CANCEL)
 
 
 def handle_callback(cb, st):
@@ -656,28 +418,12 @@ def handle_callback(cb, st):
             u["step"] = "find_sub"
             send(chat, "Эмнени издеп жатасыз?", sub_kb(code, "fs", with_all=True))
             return
-        regs = used_regions()
-        if len(regs) > 1:
-            u["step"] = "find_reg"
-            send(chat, "Кайсы аймактан издейли?", find_region_kb())
-        else:
-            u["data"]["reg"] = None
-            u["step"] = "find_q"
-            send(chat, "Ачкыч сөз жазыңыз.\n"
-                       "<i>Баарын көрүү үчүн «баары» деп жазыңыз</i>", CANCEL)
+        _ask_region(chat, u)
 
     elif data.startswith("fs:"):
         code = data[3:]
         u["data"]["sub"] = None if code == "all" else code
-        regs = used_regions()
-        if len(regs) > 1:
-            u["step"] = "find_reg"
-            send(chat, "Кайсы аймактан издейли?", find_region_kb())
-        else:
-            u["data"]["reg"] = None
-            u["step"] = "find_q"
-            send(chat, "Ачкыч сөз жазыңыз.\n"
-                       "<i>Баарын көрүү үчүн «баары» деп жазыңыз</i>", CANCEL)
+        _ask_region(chat, u)
 
     elif data.startswith("fr:"):
         code = data[3:]
@@ -694,17 +440,15 @@ def handle_callback(cb, st):
 
     elif data.startswith("more:"):
         shown = int(data[5:])
-        q = u["data"].get("q")
-        cat = u["data"].get("cat")
-        reg = u["data"].get("reg")
-        sub = u["data"].get("sub")
-        total = count(q, cat, reg, sub)
-        rows = find(q, cat, reg, sub, limit=PER_PAGE, offset=shown)
+        d = u["data"]
+        total = core.count(d.get("q"), d.get("cat"), d.get("reg"), d.get("sub"))
+        rows = core.find(d.get("q"), d.get("cat"), d.get("reg"), d.get("sub"),
+                         limit=PER_PAGE, offset=shown)
         show_results(chat, rows, total, shown + len(rows))
 
     elif data.startswith("del:"):
         lid = int(data[4:])
-        if deactivate(lid, uid):
+        if core.deactivate(lid, uid):
             api("editMessageText", chat_id=chat,
                 message_id=cb["message"]["message_id"],
                 text=f"🔴 Жарыя №{lid} өчүрүлдү.")
@@ -716,19 +460,19 @@ def handle_callback(cb, st):
 
 def main():
     global TOKEN, API
-    TOKEN = token()
+    TOKEN = read_token()
     API = f"https://api.telegram.org/bot{TOKEN}/"
 
-    init_db()
+    core.init_db()
     me = api("getMe")
     if not me.get("ok"):
-        raise SystemExit("Токен туура эмес окшойт. token.txt файлын текшериңиз.")
-    print(f"\n  Бот иштеп жатат: @{me['result'].get('username')}")
-    print(f"  Сайт дареги: {SITE_URL}")
-    print("  Токтотуу: CTRL+C\n")
+        raise SystemExit("Токен туура эмес окшойт.")
+
+    print(f"\n  Бот иштеп жатат: @{me['result'].get('username')}", flush=True)
+    print(f"  База: {'Postgres' if core.IS_PG else 'SQLite'}", flush=True)
+    print(f"  Сайт: {SITE_URL}\n", flush=True)
 
     st = load_state()
-
     while True:
         r = api("getUpdates", offset=st["offset"], timeout=50)
         if not r.get("ok"):
@@ -742,7 +486,7 @@ def main():
                 elif "callback_query" in up:
                     handle_callback(up["callback_query"], st)
             except Exception as e:
-                print("  Ката:", e)
+                print("  Ката:", e, flush=True)
             save_state(st)
 
 
@@ -751,3 +495,4 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("\n  Бот токтотулду.\n")
+
