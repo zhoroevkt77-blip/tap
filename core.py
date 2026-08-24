@@ -15,7 +15,11 @@ import sqlite3
 from datetime import datetime, timezone
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-MEDIA = os.path.join(BASE, "media")
+
+# Сүрөттөр сакталуучу папка.
+# Railway'де Volume кошулса, MEDIA_DIR аркылуу анын жолун көрсөтөбүз —
+# ошондо код кайра курулганда да сүрөттөр өчпөйт.
+MEDIA = (os.environ.get("MEDIA_DIR") or "").strip() or os.path.join(BASE, "media")
 DATABASE_URL = (os.environ.get("DATABASE_URL") or "").strip()
 IS_PG = DATABASE_URL.startswith(("postgres://", "postgresql://"))
 
@@ -368,3 +372,4 @@ DEAL_WORDS = {"келишимдүү", "келишим", "договорная", 
 
 def is_deal(price):
     return (price or "").strip().lower() in DEAL_WORDS
+
