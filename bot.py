@@ -458,6 +458,25 @@ def handle_callback(cb, st):
 
 # ==================== Негизги цикл ====================
 
+def start_site():
+    """Витринаны фондо жүргүзөт.
+
+    Railway'де эки кызмат түзүү телефондон кыйын болгондуктан,
+    бот менен сайт бир процессте иштейт. Экөө тең бир базаны колдонот.
+    Сайт керек болбосо: RUN_SITE=0 деп койсоң болот.
+    """
+    if os.environ.get("RUN_SITE", "1") == "0":
+        return
+    try:
+        import threading
+        import tap
+        srv = tap.Server(("0.0.0.0", tap.PORT), tap.H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        print(f"  Витрина ачык: порт {tap.PORT}", flush=True)
+    except Exception as e:
+        print("  Витрина иштебей калды:", e, flush=True)
+
+
 def main():
     global TOKEN, API
     TOKEN = read_token()
@@ -470,7 +489,9 @@ def main():
 
     print(f"\n  Бот иштеп жатат: @{me['result'].get('username')}", flush=True)
     print(f"  База: {'Postgres' if core.IS_PG else 'SQLite'}", flush=True)
-    print(f"  Сайт: {SITE_URL}\n", flush=True)
+    print(f"  Сайт: {SITE_URL}", flush=True)
+    start_site()
+    print("", flush=True)
 
     st = load_state()
     while True:
