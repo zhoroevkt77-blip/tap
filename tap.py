@@ -87,7 +87,7 @@ SCROLL_JS = ('<script>document.querySelectorAll(".cats,.regbar,.subbar")'
              'if(a)n.scrollLeft=Math.max(0,a.offsetLeft-16)})</script>')
 
 
-def page(body, title="TAP!"):
+def page(body, title="ТАП!"):
     return f"""<!DOCTYPE html><html lang="ky"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0B6E3F">
@@ -102,7 +102,7 @@ def header(q="", cat=None, reg=None):
     if reg:
         hidden += f'<input type="hidden" name="region" value="{esc(reg)}">'
     return f"""<header class="top"><div class="wrap">
-<div class="tin"><a href="/" class="logo">{TUNDUK}<span>TAP!</span></a>
+<div class="tin"><a href="/" class="logo">{TUNDUK}<span>ТАП!</span></a>
 <span class="pin"><b>&#9679;</b>{esc(reg or 'Бүт Кыргызстан')}</span></div>
 <form class="s" action="/">{hidden}
 <input type="search" name="q" value="{esc(q)}" placeholder="Жарыя издөө">
