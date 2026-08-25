@@ -535,6 +535,12 @@ def main():
     print(f"  База: {'Postgres' if core.IS_PG else 'SQLite'}", flush=True)
     print(f"  Сүрөттөр: {MEDIA}", flush=True)
     print(f"  Сайт: {SITE_URL}", flush=True)
+    try:
+        import whatsapp
+        print("  WhatsApp: %s" % ("туташкан" if whatsapp.ENABLED
+                                  else "өчүк (GREEN_* өзгөрмөлөрү жок)"), flush=True)
+    except Exception as e:
+        print("  WhatsApp жүктөлбөдү:", e, flush=True)
     start_site()
     print("", flush=True)
 

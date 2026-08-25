@@ -8,7 +8,7 @@ TAP! — витрина (сайт).
 Ачуу:    http://localhost:8000
 """
 
-import html, os, urllib.parse
+import html, json, os, urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
@@ -354,6 +354,26 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def do_POST(self):
+        """Green API'ден келген WhatsApp билдирүүсү."""
+        u = urllib.parse.urlparse(self.path)
+        if u.path != "/wa":
+            self._send("not found", 404)
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            body = json.loads(self.rfile.read(n).decode("utf-8")) if n else {}
+        except Exception:
+            body = {}
+        # Green API жоопту тез күтөт: адегенде «ok» деп жооп берип,
+        # анан иштетебиз — антпесе ал билдирүүнү кайра-кайра жиберет.
+        self._send("ok")
+        try:
+            import whatsapp
+            whatsapp.handle(body)
+        except Exception as e:
+            print("  WhatsApp катасы:", e, flush=True)
+
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         qs = urllib.parse.parse_qs(u.query)
@@ -391,6 +411,10 @@ class H(BaseHTTPRequestHandler):
             rows = [core.one(i, count_view=False) for i in ids]
             html = "".join(card(r) for r in rows if r)
             self._send(html)
+
+        elif u.path == "/wa":
+            import whatsapp
+            self._send("ok" if whatsapp.ENABLED else "whatsapp off")
 
         elif u.path == "/health":
             self._send("ok")
