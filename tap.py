@@ -57,8 +57,21 @@ def cat_labels(ad_type):
     return out
 
 
+# Бардык категориялардын аты — кайсы бөлүмдө болбосун табылсын.
+# (Базар жарыяларынын категориясы соода тизмесинен алынат, ошондуктан
+#  бир гана өз бөлүмүнөн издөө жетишсиз.)
+_ALL_LABELS = {}
+for _lst in _CAT_LISTS.values():
+    for _c in _lst:
+        _ALL_LABELS.setdefault(_c["id"], _ky(_c.get("label") or _c["id"]))
+
+
 def cat_label(ad_type, cat_id):
-    return cat_labels(ad_type).get(cat_id, _ky(cat_id))
+    if not cat_id:
+        return ""
+    return (cat_labels(ad_type).get(cat_id)
+            or _ALL_LABELS.get(cat_id)
+            or _ky(cat_id).replace("_", " ").capitalize())
 
 PORT = int(os.environ.get("PORT", 8000))
 
@@ -243,8 +256,8 @@ def home(q, at=None, cid=None, ob=None, di=None):
     cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
             f'<span class="ic">&#9635;</span><span class="lb">Баары</span></a>')
     for code, ic, name in SECTIONS:
-        if not sec_counts.get(code) and code != at:
-            continue          # жарыясы жок бөлүм көрсөтүлбөйт
+        # Жети бөлүм тең дайыма турат — бош болсо да. Колдонуучу
+        # платформада эмне бар экенин бир көз менен көрүшү керек.
         cats += (f'<a href="{link(at=code, cid=None)}" '
                  f'class="cat{" on" if at == code else ""}">'
                  f'<span class="ic">{ic}</span><span class="lb">{esc(name)}</span></a>')
@@ -271,10 +284,9 @@ def home(q, at=None, cid=None, ob=None, di=None):
     sbar = ""
     if at:
         cc = core.catid_counts(at, ob)
-        labels = cat_labels(at)
         chips = f'<a href="{link(cid=None)}" class="sb2{"" if cid else " on"}">Баары</a>'
         for code, n in sorted(cc.items(), key=lambda x: -x[1]):
-            nm = labels.get(code) or _ky(code)
+            nm = cat_label(at, code)
             chips += (f'<a href="{link(cid=code)}" class="sb2{" on" if cid == code else ""}">'
                       f'{esc(nm)} <em>{n}</em></a>')
         if chips.count("<a") > 1:
@@ -295,6 +307,11 @@ def home(q, at=None, cid=None, ob=None, di=None):
         main = (f'<div class="rl"><span class="rn">{len(rows)}</span>'
                 f'<span class="rlb">{lbl}</span>{clear}</div>'
                 f'<div class="g">{"".join(card(r) for r in rows)}</div>')
+    elif at and not q and not cid:
+        nm = SECTION_NAME.get(at, at)
+        main = (f'<div class="em"><i></i><h2>«{esc(nm)}» боюнча жарыя жок</h2>'
+                f'<p>Бул бөлүмгө биринчи болуп жарыя коюңуз — ботко жазсаңыз болот.</p>'
+                f'<a class="dk" href="/">Бардык жарыялар</a></div>')
     else:
         main = ('<div class="em"><i></i><h2>Эч нерсе табылган жок</h2>'
                 '<p>Башка сөз менен аракет кылып көрүңүз.</p>'
