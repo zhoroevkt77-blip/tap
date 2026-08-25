@@ -22,6 +22,8 @@
   --mist   #E4E9E5  чек сызыктар
 """
 
+import os
+
 FONTS = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
@@ -68,13 +70,24 @@ NAV_ICONS = {
                  '<path d="M4.8 20.4a7.2 7.2 0 0 1 14.4 0"/></svg>',
 }
 
-NAV = ('<nav class="nav">'
-       f'<a href="/" class="on">{NAV_ICONS["home"]}<span>Башкы бет</span></a>'
-       f'<a href="/">{NAV_ICONS["fav"]}<span>Тандалган</span></a>'
-       f'<a href="/">{NAV_ICONS["add"]}<span>Жарыя берүү</span></a>'
-       f'<a href="/">{NAV_ICONS["msg"]}<span>Билдирүү</span></a>'
-       f'<a href="/">{NAV_ICONS["me"]}<span>Кабинет</span></a>'
-       '</nav>')
+# Ботсуз иштей турган бет — «Тандалган» гана. Калган үчөө ботко алып барат,
+# анткени жарыя коюу, кат жазуу жана өз жарыяларын башкаруу ошол жерде болот.
+BOT = os.environ.get("BOT_USERNAME", "TapmeniBot").lstrip("@")
+
+
+def nav(active="home"):
+    items = [
+        ("home", "/",                                  NAV_ICONS["home"], "Башкы бет"),
+        ("fav",  "/fav",                               NAV_ICONS["fav"],  "Тандалган"),
+        ("add",  f"https://t.me/{BOT}?start=post",     NAV_ICONS["add"],  "Жарыя берүү"),
+        ("msg",  f"https://t.me/{BOT}",                NAV_ICONS["msg"],  "Билдирүү"),
+        ("me",   f"https://t.me/{BOT}?start=my",       NAV_ICONS["me"],   "Кабинет"),
+    ]
+    out = ""
+    for key, href, ic, label in items:
+        cls = ' class="on"' if key == active else ""
+        out += f'<a href="{href}"{cls}>{ic}<span>{label}</span></a>'
+    return f'<nav class="nav">{out}</nav>'
 
 
 CSS = """
@@ -174,10 +187,14 @@ svg{display:block}
 .ph i svg{width:100%;height:100%}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
 .c.nophoto .ph{aspect-ratio:16/9}
-.fav{position:absolute;top:9px;right:9px;width:32px;height:32px;border-radius:50%;
+.fav{position:absolute;top:9px;right:9px;width:33px;height:33px;border-radius:50%;
  background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;
- color:var(--faint);box-shadow:0 1px 4px rgba(16,35,26,.1)}
-.fav svg{width:17px;height:17px}
+ color:var(--faint);box-shadow:0 1px 4px rgba(16,35,26,.1);border:0;padding:0;
+ cursor:pointer;transition:.15s}
+.fav svg{width:17px;height:17px;transition:.15s}
+.fav.on{color:#E0483C}
+.fav.on svg{fill:#E0483C;transform:scale(1.12)}
+.fav:active{transform:scale(.88)}
 .cb{padding:11px 12px 13px;display:flex;flex-direction:column;flex:1}
 .p{font-family:"Manrope",system-ui,sans-serif;font-size:18px;font-weight:800;
  letter-spacing:-.4px;margin-bottom:5px;font-variant-numeric:tabular-nums}

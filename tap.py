@@ -17,7 +17,7 @@ from core import (CATS, SUBS, MEDIA, category_title, category_icon, sub_title,
                   price_label, is_deal, ago)
 from tap_catalog import (TRADE_CATEGORIES, SERVICE_CATEGORIES, RENTAL_CATEGORIES,
                          DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES)
-from design import CSS, NAV, FONTS, ICONS, NAV_ICONS, TUNDUK
+from design import CSS, nav, FONTS, ICONS, NAV_ICONS, TUNDUK, BOT
 
 
 # ==================== Жаңы таксономия ====================
@@ -82,17 +82,43 @@ def esc(s):
 
 
 # Тандалган чыпка тилкенин ичинде жашырылып калбасын — көрүнөр жерге жылдырат.
+# Тандалгандар браузердин өз эсинде сакталат: катталуунун кереги жок,
+# телефондон чыкпайт. Сервер аларды билбейт.
+FAV_JS = ("""<script>
+(function(){
+ var K="tap_fav";
+ function get(){try{return JSON.parse(localStorage.getItem(K))||[]}catch(e){return []}}
+ function set(v){try{localStorage.setItem(K,JSON.stringify(v))}catch(e){}}
+ window.tapFavs=get;
+ // Жаңы карточкалар кошулганда кайра чакырылат (мис. «Тандалган» бетинде)
+ window.tapBindFavs=function(root){
+   (root||document).querySelectorAll(".fav").forEach(function(b){
+     var id=b.getAttribute("data-id"); if(!id||b.dataset.bound)return;
+     b.dataset.bound="1";
+     if(get().indexOf(id)>=0)b.classList.add("on");
+     b.addEventListener("click",function(e){
+       e.preventDefault(); e.stopPropagation();
+       var f=get(), i=f.indexOf(id);
+       if(i>=0){f.splice(i,1);b.classList.remove("on")}else{f.push(id);b.classList.add("on")}
+       set(f);
+     });
+   });
+ };
+ window.tapBindFavs();
+})();
+</script>""")
+
 SCROLL_JS = ('<script>document.querySelectorAll(".cats,.regbar,.subbar")'
              '.forEach(function(n){var a=n.querySelector(".on");'
              'if(a)n.scrollLeft=Math.max(0,a.offsetLeft-16)})</script>')
 
 
-def page(body, title="ТАП!"):
+def page(body, title="ТАП!", tab="home"):
     return f"""<!DOCTYPE html><html lang="ky"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0B6E3F">
-<title>{esc(title)}</title>{FONTS}<style>{CSS}</style></head><body>{body}{NAV}
-{SCROLL_JS}</body></html>"""
+<title>{esc(title)}</title>{FONTS}<style>{CSS}</style></head><body>{body}{nav(tab)}
+{SCROLL_JS}{FAV_JS}</body></html>"""
 
 
 def header(q="", cat=None, reg=None):
@@ -119,7 +145,7 @@ def card(r):
     img = (f'<img src="/media/{esc(r["photo"])}" alt="" loading="lazy">'
            if has else f'<i>{TUNDUK}</i>')
     return f"""<a class="c{'' if has else ' nophoto'}" href="/e/{r['id']}">
-<div class="ph">{img}<span class="fav">{NAV_ICONS['fav']}</span></div>
+<div class="ph">{img}<button class="fav" data-id="{r['id']}" aria-label="Тандалганга кошуу">{NAV_ICONS['fav']}</button></div>
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(price_label(r['price']))}</div>
 <h2 class="t">{esc(r['title'])}</h2>
 <div class="m"><span>{esc(ago(r['created_at']))}</span>
@@ -260,6 +286,7 @@ def detail(r):
     if r.get("contact"):
         num = "".join(ch for ch in r["contact"] if ch.isdigit() or ch == "+")
         shown = pretty_phone(num)
+        num = shown.replace(" ", "") if shown.startswith("+996") else num
         tel = (f'<a class="btn" href="tel:{esc(num)}">{_PHONE}'
                f'<span>{esc(shown)}</span></a>')
     body = f"""<main class="wrap">
@@ -273,7 +300,39 @@ def detail(r):
 <div><b>Коюлган</b><span>{esc(ago(r['created_at']))}</span></div>
 <div><b>Көрүү</b><span>{r['views']}</span></div></div>
 </div>{desc}{tel}</main>"""
-    return page(header() + body, r["title"])
+    return page(header() + body, r["title"], tab="home")
+
+
+def fav_page():
+    """
+    Тандалгандар. Тизме браузердин эсинде турат, ошондуктан бет бош
+    жүктөлүп, номерлерин JS сурап алат.
+    """
+    body = f"""<main class="wrap">
+<div class="rl"><span class="rn" id="fn">·</span><span class="rlb">тандалган</span></div>
+<div class="g" id="fg"></div>
+<div class="em" id="fe" style="display:none"><i>{TUNDUK}</i>
+<h2>Тандалган жарыя жок</h2>
+<p>Жактырган жарыяңыздагы жүрөктү бассаңыз, ушул жерге түшөт.</p>
+<a class="dk" href="/">Жарыяларды кароо</a></div></main>
+<script>
+window.addEventListener("DOMContentLoaded",function(){{
+ var ids=[]; try{{ids=JSON.parse(localStorage.getItem("tap_fav"))||[]}}catch(err){{}}
+ var g=document.getElementById("fg"),e=document.getElementById("fe"),n=document.getElementById("fn");
+ if(!ids.length){{n.textContent="0";e.style.display="";return}}
+ fetch("/api/favs?ids="+encodeURIComponent(ids.join(",")))
+  .then(function(r){{return r.text()}})
+  .then(function(h){{
+    g.innerHTML=h;
+    if(window.tapBindFavs)window.tapBindFavs(g);
+    var c=g.querySelectorAll(".c").length;
+    n.textContent=c;
+    if(!c)e.style.display="";
+  }})
+  .catch(function(){{n.textContent="0";e.style.display=""}});
+}});
+</script>"""
+    return page(header() + body, "Тандалган — ТАП!", tab="fav")
 
 
 def empty_page(title, note):
@@ -318,6 +377,20 @@ class H(BaseHTTPRequestHandler):
                       "shop": "markets", "business": "job"}.get(old)
 
             self._send(home(q, at, cid, ob, di))
+
+        elif u.path == "/fav":
+            self._send(fav_page())
+
+        elif u.path == "/api/favs":
+            raw = (qs.get("ids", [""])[0])
+            ids = []
+            for part in raw.split(",")[:60]:
+                part = part.strip()
+                if part.isdigit():
+                    ids.append(int(part))
+            rows = [core.one(i, count_view=False) for i in ids]
+            html = "".join(card(r) for r in rows if r)
+            self._send(html)
 
         elif u.path == "/health":
             self._send("ok")

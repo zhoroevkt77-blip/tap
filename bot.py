@@ -312,6 +312,17 @@ def show_my(chat, uid, u):
 
 # ==================== Флоуну алдыга жылдыруу ====================
 
+def _apply_pending(u):
+    """Сайттан келген «/start post» сыяктуу тапшырманы аткарат."""
+    p = u.pop("pending", None)
+    if not p:
+        return
+    if p == "my":
+        u["step"] = "my_posts_phone"
+    else:
+        u["step"], u["data"] = advance("main_menu", p, dict(u["data"]))
+
+
 def step_forward(chat, uid, name, u, value):
     """Бир жоопту кабыл алып, кийинки кадамга өтөт."""
     try:
@@ -323,6 +334,9 @@ def step_forward(chat, uid, name, u, value):
         ask(chat, u)
         return
     u["picked"] = []
+
+    if u["step"] == "main_menu" and u.get("pending"):
+        _apply_pending(u)
 
     # Атайын кадамдар — база менен иштейт
     if u["step"] == "search_results":
@@ -364,8 +378,20 @@ def handle_message(msg, st):
     if msg.get("contact"):
         text = msg["contact"].get("phone_number", "") or text
 
-    if text in ("/start", "/help"):
+    # Сайттагы ылдыйкы баскычтар ботко «/start post» же «/start my» деп
+    # келет — ошолорду түз керектүү кадамга алып барабыз.
+    if text in ("/lang", "/til", "/язык"):
         reset(u, full=True)
+        ask(chat, u)
+        return
+
+    if text.startswith("/start") or text == "/help":
+        payload = text[6:].strip() if text.startswith("/start") else ""
+        had_lang = bool((u.get("data") or {}).get("uiLanguage"))
+        reset(u, full=not had_lang)
+        u["pending"] = payload if payload in ("post", "search", "my") else None
+        if u["pending"] and had_lang:
+            _apply_pending(u)
         ask(chat, u)
         return
 
