@@ -18,6 +18,7 @@ from core import (CATS, SUBS, MEDIA, category_title, category_icon, sub_title,
 from tap_catalog import (TRADE_CATEGORIES, SERVICE_CATEGORIES, RENTAL_CATEGORIES,
                          DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES)
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, TUNDUK, BOT
+from strings import T, L
 
 
 # ==================== Жаңы таксономия ====================
@@ -33,6 +34,7 @@ SECTIONS = [
     ("taxi",     ICONS["taxi"],     "Такси"),
 ]
 
+SECTION_CODES = [c for c, _, _ in SECTIONS]
 SECTION_NAME = {code: name for code, _, name in SECTIONS}
 
 _CAT_LISTS = {
@@ -45,34 +47,39 @@ _CAT_LISTS = {
 }
 
 
-def _ky(text):
-    """Эки тилдүү жазуунун кыргызча бөлүгү."""
-    return str(text or "").split(" / ")[0].strip()
+def _ky(text, lang="ky"):
+    """Эки тилдүү жазуунун керектүү бөлүгү."""
+    return L(text, lang)
 
 
-def cat_labels(ad_type):
+def cat_labels(ad_type, lang="ky"):
     """Бөлүмдүн ичиндеги категориялардын аттары: {id: аты}"""
     out = {}
     for c in _CAT_LISTS.get(ad_type) or []:
-        out[c["id"]] = _ky(c.get("label") or c["id"])
+        out[c["id"]] = _ky(c.get("label") or c["id"], lang)
     return out
 
 
 # Бардык категориялардын аты — кайсы бөлүмдө болбосун табылсын.
 # (Базар жарыяларынын категориясы соода тизмесинен алынат, ошондуктан
 #  бир гана өз бөлүмүнөн издөө жетишсиз.)
-_ALL_LABELS = {}
+_ALL_RAW = {}
 for _lst in _CAT_LISTS.values():
     for _c in _lst:
-        _ALL_LABELS.setdefault(_c["id"], _ky(_c.get("label") or _c["id"]))
+        _ALL_RAW.setdefault(_c["id"], _c.get("label") or _c["id"])
 
 
-def cat_label(ad_type, cat_id):
+def cat_label(ad_type, cat_id, lang="ky"):
     if not cat_id:
         return ""
-    return (cat_labels(ad_type).get(cat_id)
-            or _ALL_LABELS.get(cat_id)
-            or _ky(cat_id).replace("_", " ").capitalize())
+    return (cat_labels(ad_type, lang).get(cat_id)
+            or _ky(_ALL_RAW.get(cat_id, ""), lang)
+            or str(cat_id).replace("_", " ").capitalize())
+
+
+def section_name(code, lang="ky"):
+    return T(code, lang) if code in ("trade", "service", "rental", "delivery",
+                                     "job", "markets", "taxi") else code
 
 PORT = int(os.environ.get("PORT", 8000))
 
@@ -108,31 +115,58 @@ FAV_JS = ("""<script>
 })();
 </script>""")
 
+# Категория чиби басылганда ошол катардын ичи гана жаңыланат.
+SHELF_JS = ("""<script>
+document.addEventListener("click",function(e){
+ var b=e.target.closest(".shchips .sb2"); if(!b)return;
+ var sec=b.getAttribute("data-sec"), cid=b.getAttribute("data-cid")||"";
+ var row=document.getElementById("row-"+sec); if(!row)return;
+ b.parentNode.querySelectorAll(".sb2").forEach(function(x){x.classList.remove("on")});
+ b.classList.add("on");
+ row.classList.add("load");
+ fetch("/api/ads?at="+encodeURIComponent(sec)+"&cid="+encodeURIComponent(cid))
+  .then(function(r){return r.text()})
+  .then(function(h){
+    row.innerHTML=h||"";
+    row.scrollLeft=0;
+    row.classList.remove("load");
+    if(window.tapBindFavs)window.tapBindFavs(row);
+  })
+  .catch(function(){row.classList.remove("load")});
+});
+</script>""")
+
 SCROLL_JS = ('<script>document.querySelectorAll(".cats,.regbar,.subbar")'
              '.forEach(function(n){var a=n.querySelector(".on");'
              'if(a)n.scrollLeft=Math.max(0,a.offsetLeft-16)})</script>')
 
 
-def page(body, title="ТАП!", tab="home"):
-    return f"""<!DOCTYPE html><html lang="ky"><head><meta charset="utf-8">
+def page(body, title="ТАП!", tab="home", lang="ky"):
+    return f"""<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0B6E3F">
-<title>{esc(title)}</title>{FONTS}<style>{CSS}</style></head><body>{body}{nav(tab)}
-{SCROLL_JS}{FAV_JS}</body></html>"""
+<title>{esc(title)}</title>{FONTS}<style>{CSS}</style></head><body>{body}{nav(tab, lang)}
+{SCROLL_JS}{FAV_JS}{SHELF_JS}</body></html>"""
 
 
-def header(q="", cat=None, reg=None):
-    hidden = ""
-    if cat:
-        hidden += f'<input type="hidden" name="cat" value="{esc(cat)}">'
-    if reg:
-        hidden += f'<input type="hidden" name="region" value="{esc(reg)}">'
+def _lang_switch(lang):
+    """Тил алмаштыруу. Тандоо cookie'ге жазылат, ошол бойдон калат."""
+    out = ""
+    for code, label in (("ky", "KG"), ("ru", "RU")):
+        on = " on" if lang == code else ""
+        out += f'<a class="lg{on}" href="/lang/{code}" rel="nofollow">{label}</a>'
+    return f'<span class="lgs">{out}</span>'
+
+
+def header(q="", at=None, reg=None, lang="ky"):
+    hidden = f'<input type="hidden" name="at" value="{esc(at)}">' if at else ""
     return f"""<header class="top"><div class="wrap">
 <div class="tin"><a href="/" class="logo">{TUNDUK}<span>ТАП!</span></a>
-<span class="pin"><b>&#9679;</b>{esc(reg or 'Бүт Кыргызстан')}</span></div>
+<span class="pin"><b>&#9679;</b>{esc(reg or T("all_kg", lang))}</span>
+{_lang_switch(lang)}</div>
 <form class="s" action="/">{hidden}
-<input type="search" name="q" value="{esc(q)}" placeholder="Жарыя издөө">
-<button>Изде</button></form></div></header>"""
+<input type="search" name="q" value="{esc(q)}" placeholder="{T("search_ph", lang)}">
+<button>{T("search_btn", lang)}</button></form></div></header>"""
 
 
 _EYE = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">'
@@ -140,29 +174,98 @@ _EYE = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width
         '<circle cx="12" cy="12" r="3.1"/></svg>')
 
 
-def card(r):
+def card(r, lang="ky"):
     has = bool(r.get("photo"))
     img = (f'<img src="/media/{esc(r["photo"])}" alt="" loading="lazy">'
            if has else f'<i>{TUNDUK}</i>')
     return f"""<a class="c{'' if has else ' nophoto'}" href="/e/{r['id']}">
 <div class="ph">{img}<button class="fav" data-id="{r['id']}" aria-label="Тандалганга кошуу">{NAV_ICONS['fav']}</button></div>
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(price_label(r['price']))}</div>
-<h2 class="t">{esc(r['title'])}</h2>
+<h2 class="t">{esc(L(r['title'], lang))}</h2>
 <div class="m"><span>{esc(ago(r['created_at']))}</span>
 <span class="vw">{_EYE}{r['views']}</span></div>
 </div></a>"""
 
 
-def home(q, at=None, cid=None, ob=None, di=None):
+def _filter_bars(link, at, cid, ob, di, lang):
+    """Аймак жана категория чыпкаларынын тилкелери."""
+    rb = (f'<a href="{link(ob=None, di=None)}" class="rg{"" if ob else " on"}">'
+          f'{T("all_kg", lang)}</a>')
+    for rg in core.used_oblasts():
+        rb += (f'<a href="{link(ob=rg, di=None)}" '
+               f'class="rg{" on" if ob == rg else ""}">{esc(rg)}</a>')
+    out = f'<nav class="regbar">{rb}</nav>'
+
+    if ob:
+        ds = core.used_districts(ob)
+        if ds:
+            chips = (f'<a href="{link(di=None)}" class="rg{"" if di else " on"}">'
+                     f'{T("all_oblast", lang)}</a>')
+            for x in ds:
+                chips += (f'<a href="{link(di=x)}" '
+                          f'class="rg{" on" if di == x else ""}">{esc(x)}</a>')
+            out += f'<nav class="regbar">{chips}</nav>'
+
+    if at:
+        cc = core.catid_counts(at, ob)
+        chips = (f'<a href="{link(cid=None)}" class="sb2{"" if cid else " on"}">'
+                 f'{T("all", lang)}</a>')
+        for code, n in sorted(cc.items(), key=lambda x: -x[1]):
+            chips += (f'<a href="{link(cid=code)}" '
+                      f'class="sb2{" on" if cid == code else ""}">'
+                      f'{esc(cat_label(at, code, lang))} <em>{n}</em></a>')
+        if chips.count("<a") > 1:
+            out += f'<nav class="subbar">{chips}</nav>'
+    return out
+
+
+def _sections_strip(link, at, lang):
+    cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
+            f'<span class="ic">{ICONS["all"]}</span>'
+            f'<span class="lb">{T("all", lang)}</span></a>')
+    for code, ic, _name in SECTIONS:
+        cats += (f'<a href="{link(at=code, cid=None)}" '
+                 f'class="cat{" on" if at == code else ""}">'
+                 f'<span class="ic">{ic}</span>'
+                 f'<span class="lb">{esc(section_name(code, lang))}</span></a>')
+    return f'<nav class="cats">{cats}</nav>'
+
+
+def shelves(lang="ky"):
+    """
+    Башкы бет: ар бир бөлүм өзүнчө катар болуп турат, жарыялары оңго-солго
+    сүрүлөт. Категория чиптерин басканда ошол катардын ичи алмашат —
+    бет кайра жүктөлбөйт.
+    """
+    out = []
+    for code, _ic, _n in SECTIONS:
+        rows = core.find(limit=12, ad_type=code)
+        if not rows:
+            continue
+        cc = core.catid_counts(code)
+        chips = (f'<button class="sb2 on" data-sec="{code}" data-cid="">'
+                 f'{T("all", lang)}</button>')
+        for cid, n in sorted(cc.items(), key=lambda x: -x[1])[:12]:
+            chips += (f'<button class="sb2" data-sec="{code}" data-cid="{esc(cid)}">'
+                      f'{esc(cat_label(code, cid, lang))} <em>{n}</em></button>')
+        out.append(
+            f'<section class="shelf" id="sh-{code}">'
+            f'<div class="shead"><h2>{esc(section_name(code, lang))}</h2>'
+            f'<a href="/?at={code}" class="more">{T("show_all", lang)} ›</a></div>'
+            f'<nav class="subbar shchips">{chips}</nav>'
+            f'<div class="srow" id="row-{code}">'
+            f'{"".join(card(r, lang) for r in rows)}</div></section>')
+    return "".join(out)
+
+
+def home(q, at=None, cid=None, ob=None, di=None, lang="ky"):
     """
     Башкы бет.
       at  — бөлүм (trade/service/…)
       cid — бөлүмдүн ичиндеги категория
       ob  — облус,  di — район
+    Эч кандай чыпка жок болсо — бөлүмдөр катар-катар болуп көрүнөт.
     """
-    rows = core.find(q, limit=60, ad_type=at, cat_id=cid, oblast=ob, district=di)
-    sec_counts = core.adtype_counts(ob)
-
     def link(**kw):
         """Учурдагы чыпкаларды сактап, бирөөнү гана өзгөрткөн шилтеме."""
         prm = {"q": q or None, "at": at, "cid": cid, "ob": ob, "di": di}
@@ -170,73 +273,42 @@ def home(q, at=None, cid=None, ob=None, di=None):
         prm = {k: v for k, v in prm.items() if v}
         return ("/?" + urllib.parse.urlencode(prm)) if prm else "/"
 
-    # ── Бөлүмдөр ────────────────────────────────────────────
-    cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
-            f'<span class="ic">{ICONS["all"]}</span><span class="lb">Баары</span></a>')
-    for code, ic, name in SECTIONS:
-        # Жети бөлүм тең дайыма турат — бош болсо да. Колдонуучу
-        # платформада эмне бар экенин бир көз менен көрүшү керек.
-        cats += (f'<a href="{link(at=code, cid=None)}" '
-                 f'class="cat{" on" if at == code else ""}">'
-                 f'<span class="ic">{ic}</span><span class="lb">{esc(name)}</span></a>')
+    top = header(q, at, di or ob, lang) + _sections_strip(link, at, lang)
 
-    # ── Облустар ────────────────────────────────────────────
-    rb = f'<a href="{link(ob=None, di=None)}" class="rg{"" if ob else " on"}">Бүт Кыргызстан</a>'
-    for rg in core.used_oblasts():
-        rb += (f'<a href="{link(ob=rg, di=None)}" '
-               f'class="rg{" on" if ob == rg else ""}">{esc(rg)}</a>')
-    rb = f'<nav class="regbar">{rb}</nav>'
+    # Чыпкасыз башкы бет — катар-катар тизме
+    if not (q or at or cid or ob or di):
+        return page(top + f'<main class="wrap">{shelves(lang)}</main>',
+                    "ТАП!", "home", lang)
 
-    # ── Райондор — облус тандалганда ────────────────────────
-    dbar = ""
-    if ob:
-        ds = core.used_districts(ob)
-        if ds:
-            chips = f'<a href="{link(di=None)}" class="rg{"" if di else " on"}">Бүт облус</a>'
-            for d in ds:
-                chips += (f'<a href="{link(di=d)}" '
-                          f'class="rg{" on" if di == d else ""}">{esc(d)}</a>')
-            dbar = f'<nav class="regbar">{chips}</nav>'
+    rows = core.find(q, limit=60, ad_type=at, cat_id=cid, oblast=ob, district=di)
+    body = _filter_bars(link, at, cid, ob, di, lang)
 
-    # ── Категориялар — бөлүм тандалганда ────────────────────
-    sbar = ""
-    if at:
-        cc = core.catid_counts(at, ob)
-        chips = f'<a href="{link(cid=None)}" class="sb2{"" if cid else " on"}">Баары</a>'
-        for code, n in sorted(cc.items(), key=lambda x: -x[1]):
-            nm = cat_label(at, code)
-            chips += (f'<a href="{link(cid=code)}" class="sb2{" on" if cid == code else ""}">'
-                      f'{esc(nm)} <em>{n}</em></a>')
-        if chips.count("<a") > 1:
-            sbar = f'<nav class="subbar">{chips}</nav>'
-
-    # ── Тизме ───────────────────────────────────────────────
     if rows:
         if q:
-            lbl = f"«{esc(q)}» боюнча"
+            lbl = f"«{esc(q)}» {T('by_word', lang)}"
         elif cid and at:
-            lbl = esc(cat_label(at, cid))
+            lbl = esc(cat_label(at, cid, lang))
         elif at:
-            lbl = esc(SECTION_NAME.get(at, at))
+            lbl = esc(section_name(at, lang))
         else:
-            lbl = "жарыя"
-        clear = ('<a href="/" class="cl">Тазалоо</a>'
-                 if (q or at or cid or ob or di) else "")
+            lbl = T("ads", lang)
         main = (f'<div class="rl"><span class="rn">{len(rows)}</span>'
-                f'<span class="rlb">{lbl}</span>{clear}</div>'
-                f'<div class="g">{"".join(card(r) for r in rows)}</div>')
+                f'<span class="rlb">{lbl}</span>'
+                f'<a href="/" class="cl">{T("clear", lang)}</a></div>'
+                f'<div class="g">{"".join(card(r, lang) for r in rows)}</div>')
     elif at and not q and not cid:
-        nm = SECTION_NAME.get(at, at)
-        main = (f'<div class="em"><i>{TUNDUK}</i><h2>«{esc(nm)}» боюнча жарыя жок</h2>'
-                f'<p>Бул бөлүмгө биринчи болуп жарыя коюңуз — ботко жазсаңыз болот.</p>'
-                f'<a class="dk" href="/">Бардык жарыялар</a></div>')
+        nm = section_name(at, lang)
+        main = (f'<div class="em"><i>{TUNDUK}</i>'
+                f'<h2>«{esc(nm)}» {T("empty_sec", lang)}</h2>'
+                f'<p>{T("be_first", lang)}</p>'
+                f'<a class="dk" href="/">{T("all_ads", lang)}</a></div>')
     else:
-        main = (f'<div class="em"><i>{TUNDUK}</i><h2>Эч нерсе табылган жок</h2>'
-                '<p>Башка сөз менен аракет кылып көрүңүз.</p>'
-                '<a class="dk" href="/">Бардык жарыялар</a></div>')
+        main = (f'<div class="em"><i>{TUNDUK}</i><h2>{T("nothing", lang)}</h2>'
+                f'<p>{T("try_other", lang)}</p>'
+                f'<a class="dk" href="/">{T("all_ads", lang)}</a></div>')
 
-    return page(header(q, at, di or ob) + f'<nav class="cats">{cats}</nav>' +
-                rb + dbar + sbar + f'<main class="wrap">{main}</main>')
+    return page(top + body + f'<main class="wrap">{main}</main>',
+                "ТАП!", "home", lang)
 
 
 _PHONE = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" '
@@ -263,14 +335,15 @@ def pretty_phone(num):
     return num
 
 
-def detail(r):
+def detail(r, lang="ky"):
     at = r.get("ad_type")
     if at:
         ic = next((i for c, i, _ in SECTIONS if c == at), "")
-        name = SECTION_NAME.get(at, at)
-        sname = cat_label(at, r.get("cat_id")) if r.get("cat_id") else ""
+        name = section_name(at, lang)
+        sname = cat_label(at, r.get("cat_id"), lang) if r.get("cat_id") else ""
         if r.get("sub_id"):
-            sname = (sname + " · " + _ky(r["sub_id"])) if sname else _ky(r["sub_id"])
+            sub = _ky(r["sub_id"], lang)
+            sname = (sname + " · " + sub) if sname else sub
         back = f"/?at={at}"
     else:
         # Эски жарыялар — мурунку категориялар боюнча
@@ -295,26 +368,104 @@ def detail(r):
 <div class="dcard">
 <div class="eb">{ic}{esc(sname or name)} · №{r['id']}</div>
 <div class="dp{' dpd' if is_deal(r['price']) else ''}">{esc(price_label(r['price']))}</div>
-<h1>{esc(r['title'])}</h1>
-<div class="f"><div><b>Аймак</b><span>{esc(r['region'] or '—')}</span></div>
-<div><b>Коюлган</b><span>{esc(ago(r['created_at']))}</span></div>
-<div><b>Көрүү</b><span>{r['views']}</span></div></div>
+<h1>{esc(L(r['title'], lang))}</h1>
+<div class="f"><div><b>{T("region", lang)}</b><span>{esc(r['region'] or '—')}</span></div>
+<div><b>{T("posted", lang)}</b><span>{esc(ago(r['created_at']))}</span></div>
+<div><b>{T("views", lang)}</b><span>{r['views']}</span></div></div>
 </div>{desc}{tel}</main>"""
-    return page(header() + body, r["title"], tab="home")
+    return page(header("", None, None, lang) + body,
+                L(r["title"], lang), tab="home", lang=lang)
 
 
-def fav_page():
+def find_page(ob=None, di=None, lang="ky"):
+    """
+    Аймак боюнча издөө: облус → район → айыл, анан аталыш боюнча.
+    Ар бир кадамда жарыясы бар аймактар гана көрсөтүлөт.
+    """
+    def link(**kw):
+        prm = {"ob": ob, "di": di}
+        prm.update(kw)
+        prm = {k: v for k, v in prm.items() if v}
+        return ("/find?" + urllib.parse.urlencode(prm)) if prm else "/find"
+
+    # Кайсы кадамда турабыз
+    if not ob:
+        title, items = T("find_oblast", lang), [
+            (x, link(ob=x, di=None)) for x in core.used_oblasts()]
+    elif not di:
+        title, items = T("find_district", lang), [
+            (x, link(di=x)) for x in core.used_districts(ob)]
+    else:
+        title, items = T("find_village", lang), [
+            (x, "/?" + urllib.parse.urlencode({"ob": ob, "di": di, "q": ""}))
+            for x in core.used_villages(ob, di)]
+
+    crumbs = ""
+    if ob:
+        crumbs += (f'<a href="{link(ob=None, di=None)}" class="rg">✕ {esc(ob)}</a>')
+    if di:
+        crumbs += f'<a href="{link(di=None)}" class="rg">✕ {esc(di)}</a>'
+    if crumbs:
+        crumbs = f'<nav class="regbar">{crumbs}</nav>'
+
+    lst = "".join(f'<a class="frow" href="{href}">{esc(nm)}'
+                  f'<span class="fchev">›</span></a>' for nm, href in items)
+    if not lst:
+        lst = f'<p class="fnote">{T("nothing", lang)}</p>'
+
+    # Аталыш боюнча издөө — тандалган аймактын ичинде
+    hidden = ""
+    if ob:
+        hidden += f'<input type="hidden" name="ob" value="{esc(ob)}">'
+    if di:
+        hidden += f'<input type="hidden" name="di" value="{esc(di)}">'
+    skip = (f'<a class="dk fskip" href="/?{urllib.parse.urlencode({k: v for k, v in {"ob": ob, "di": di}.items() if v})}">'
+            f'{T("find_skip", lang)}</a>') if ob else ""
+
+    body = f"""<main class="wrap">
+<h1 class="ftitle">{T("find_title", lang)}</h1>
+<p class="flead">{T("find_lead", lang)}</p>
+{crumbs}
+<form class="fsearch" action="/">{hidden}
+<input type="search" name="q" placeholder="{T("find_word_ph", lang)}">
+<button>{T("find_go", lang)}</button></form>
+<div class="fstep">{T("find_word", lang) if False else esc(title)}</div>
+<div class="flist">{lst}</div>
+{skip}</main>"""
+    return page(header("", None, di or ob, lang) + body,
+                T("find_title", lang) + " — ТАП!", "home", lang)
+
+
+def msg_page(lang="ky"):
+    """Байланыш: сайтта кат жазышуу жок, кантип байланышуу керектиги."""
+    blocks = ""
+    for h, p in [("msg_h1", "msg_p1"), ("msg_h2", "msg_p2"),
+                 ("msg_h3", "msg_p3"), ("msg_h4", "msg_p4")]:
+        blocks += (f'<div class="dcard"><h3 class="qh">{T(h, lang)}</h3>'
+                   f'<p class="qp">{T(p, lang)}</p></div>')
+    body = f"""<main class="wrap">
+<h1 class="ftitle">{T("msg_title", lang)}</h1>
+<p class="flead">{T("msg_lead", lang)}</p>
+{blocks}
+<a class="btn" href="https://t.me/{BOT}">{NAV_ICONS['msg']}
+<span>{T("msg_btn", lang)}</span></a></main>"""
+    return page(header("", None, None, lang) + body,
+                T("msg_title", lang) + " — ТАП!", "msg", lang)
+
+
+def fav_page(lang="ky"):
     """
     Тандалгандар. Тизме браузердин эсинде турат, ошондуктан бет бош
     жүктөлүп, номерлерин JS сурап алат.
     """
     body = f"""<main class="wrap">
-<div class="rl"><span class="rn" id="fn">·</span><span class="rlb">тандалган</span></div>
+<div class="rl"><span class="rn" id="fn">·</span>
+<span class="rlb">{T("fav_title", lang)}</span></div>
 <div class="g" id="fg"></div>
 <div class="em" id="fe" style="display:none"><i>{TUNDUK}</i>
-<h2>Тандалган жарыя жок</h2>
-<p>Жактырган жарыяңыздагы жүрөктү бассаңыз, ушул жерге түшөт.</p>
-<a class="dk" href="/">Жарыяларды кароо</a></div></main>
+<h2>{T("fav_empty", lang)}</h2>
+<p>{T("fav_hint", lang)}</p>
+<a class="dk" href="/">{T("fav_look", lang)}</a></div></main>
 <script>
 window.addEventListener("DOMContentLoaded",function(){{
  var ids=[]; try{{ids=JSON.parse(localStorage.getItem("tap_fav"))||[]}}catch(err){{}}
@@ -332,27 +483,49 @@ window.addEventListener("DOMContentLoaded",function(){{
   .catch(function(){{n.textContent="0";e.style.display=""}});
 }});
 </script>"""
-    return page(header() + body, "Тандалган — ТАП!", tab="fav")
+    return page(header("", None, None, lang) + body,
+                T("nav_fav", lang) + " — ТАП!", tab="fav", lang=lang)
 
 
-def empty_page(title, note):
-    return page(header() + f'<main class="wrap"><div class="em"><i>{TUNDUK}</i>'
+def empty_page(title, note, lang="ky"):
+    return page(header("", None, None, lang) + f'<main class="wrap"><div class="em"><i>{TUNDUK}</i>'
                 f'<h2>{esc(title)}</h2><p>{esc(note)}</p>'
-                f'<a class="dk" href="/">Башкы бетке</a></div></main>')
+                f'<a class="dk" href="/">{T("nav_home", lang)}</a></div></main>',
+                title, "home", lang)
 
 
 # ==================== Сервер ====================
 
+def _lang(handler):
+    """Тил cookie'де сакталат — ар бир шилтемеге тиркөөнүн кереги жок."""
+    raw = handler.headers.get("Cookie") or ""
+    for part in raw.split(";"):
+        k, _, v = part.strip().partition("=")
+        if k == "lang" and v in ("ky", "ru"):
+            return v
+    return "ky"
+
+
 class H(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
-    def _send(self, body, code=200):
+    def _send(self, body, code=200, cookie=None):
         data = body.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
         self.end_headers()
         self.wfile.write(data)
+
+    def _go(self, url, cookie=None):
+        self.send_response(303)
+        self.send_header("Location", url)
+        self.send_header("Content-Length", "0")
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
+        self.end_headers()
 
     def do_POST(self):
         """Green API'ден келген WhatsApp билдирүүсү."""
@@ -378,6 +551,29 @@ class H(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         qs = urllib.parse.parse_qs(u.query)
 
+        lang = _lang(self)
+
+        if u.path.startswith("/lang/"):
+            new = u.path[6:]
+            if new not in ("ky", "ru"):
+                new = "ky"
+            ref = self.headers.get("Referer") or "/"
+            if "://" in ref:
+                ref = "/" + ref.split("/", 3)[-1] if ref.count("/") > 2 else "/"
+            self._go(ref or "/",
+                     "lang=%s; Path=/; Max-Age=31536000; SameSite=Lax" % new)
+            return
+
+        if u.path == "/find":
+            ob = (qs.get("ob", [""])[0]).strip() or None
+            di = (qs.get("di", [""])[0]).strip() or None
+            self._send(find_page(ob, di, lang))
+            return
+
+        if u.path == "/msg":
+            self._send(msg_page(lang))
+            return
+
         if u.path == "/":
             q = (qs.get("q", [""])[0]).strip()
             at = qs.get("at", [None])[0]
@@ -396,10 +592,18 @@ class H(BaseHTTPRequestHandler):
                       "personal": "trade", "service": "service",
                       "shop": "markets", "business": "job"}.get(old)
 
-            self._send(home(q, at, cid, ob, di))
+            self._send(home(q, at, cid, ob, di, lang))
 
         elif u.path == "/fav":
-            self._send(fav_page())
+            self._send(fav_page(lang))
+
+        elif u.path == "/api/ads":
+            at = (qs.get("at", [""])[0]).strip() or None
+            if at not in SECTION_NAME:
+                at = None
+            cid = (qs.get("cid", [""])[0]).strip() or None
+            rows = core.find(limit=12, ad_type=at, cat_id=cid)
+            self._send("".join(card(r, _lang(self)) for r in rows))
 
         elif u.path == "/api/favs":
             raw = (qs.get("ids", [""])[0])
@@ -425,10 +629,9 @@ class H(BaseHTTPRequestHandler):
             except ValueError:
                 r = None
             if r:
-                self._send(detail(r))
+                self._send(detail(r, lang))
             else:
-                self._send(empty_page("Бул жарыя жок",
-                                      "Шилтеме туура эмес болушу мүмкүн."), 404)
+                self._send(empty_page(T("no_page", lang), T("bad_link", lang), lang), 404)
 
         elif u.path.startswith("/media/"):
             name = os.path.basename(urllib.parse.unquote(u.path[7:]))
@@ -447,7 +650,7 @@ class H(BaseHTTPRequestHandler):
                 self.end_headers()
 
         else:
-            self._send(empty_page("Барак жок", "Мындай дарек жок."), 404)
+            self._send(empty_page(T("no_url", lang), T("no_such", lang), lang), 404)
 
     def log_message(self, *a):
         pass

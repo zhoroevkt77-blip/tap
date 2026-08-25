@@ -6,7 +6,7 @@ set -e
 
 REPO="$HOME/tap"
 DL="$HOME/storage/downloads"
-FILES="tap_catalog.py tap_flow.py bridge.py core.py bot.py"
+FILES="tap_catalog.py taxi_geo.py tap_flow.py bridge.py icons.py strings.py design.py core.py bot.py tap.py whatsapp.py"
 
 echo
 echo "════════════════════════════════════════"
@@ -40,7 +40,7 @@ cd "$REPO"
 # ── 3. Эски нускасын сактап коёбуз ─────────────────
 STAMP=$(date +%Y%m%d-%H%M)
 mkdir -p "eski-$STAMP"
-for f in core.py bot.py; do
+for f in core.py bot.py tap.py; do
   [ -f "$f" ] && cp "$f" "eski-$STAMP/"
 done
 echo "💾 Эски core.py менен bot.py сакталды: eski-$STAMP/"
@@ -62,14 +62,17 @@ for f in $FILES; do
 done
 
 python - <<'PY' || { echo "❌ Импорт катасы. Push кылынбады."; exit 1; }
-import tap_catalog, tap_flow, bridge
+import tap_catalog, taxi_geo, tap_flow, bridge, icons, strings, design, tap, whatsapp
 from tap_flow import render, advance, START_STEP
 s, d = START_STEP, {}
 for v in ["ky", "post", "trade"]:
     s, d = advance(s, v, d)
 assert render(s, d)["options"], "меню бош"
-print("   ✓ меню иштейт, %d облус, %d соода категориясы"
+assert len(tap.SECTIONS) == 7, "сайтта жети бөлүм жок"
+assert len(icons.ICONS) == 8, "эмблемалар толук эмес"
+print("   ✓ бот менюсу иштейт, %d облус, %d соода категориясы"
       % (len(tap_catalog.OBLASTS), len(tap_catalog.TRADE_CATEGORIES)))
+print("   ✓ сайт жети бөлүмдү тааныйт")
 PY
 
 # ── 6. GitHub'ка ───────────────────────────────────
@@ -82,7 +85,7 @@ echo
 echo "📤 GitHub'ка жөнөтүлүүдө..."
 git add .gitignore
 git rm -r --cached __pycache__ >/dev/null 2>&1 || true
-git add tap_catalog.py tap_flow.py bridge.py core.py bot.py
+git add tap_catalog.py taxi_geo.py tap_flow.py bridge.py icons.py strings.py design.py core.py bot.py tap.py whatsapp.py
 git add "eski-$STAMP" 2>/dev/null || true
 
 if git diff --cached --quiet; then
@@ -90,7 +93,7 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
-git commit -m "Толук меню: 7 бөлүм, GEO дарагы, Volume колдоо"
+git commit -m "Эки тил, аймак боюнча издөө, бөлүм катарлары"
 
 if ! git pull --rebase; then
   echo

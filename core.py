@@ -283,8 +283,13 @@ def _backfill_old_rows():
     ошондо алар жаңы издөөдө да көрүнөт. Бир жолу гана иштейт.
     """
     try:
+        # Жаңы жарыялар өз тилкелерин өзү толтурат. Айрыкча таксиде
+        # `region` — маршрут («Нарын → Бишкек»), ал облус эмес; аны
+        # көчүрсөк, аймак тизмесине маршрут болуп кирип кетет.
         query("UPDATE listings SET oblast=region "
-              "WHERE (oblast IS NULL OR oblast='') AND region IS NOT NULL AND region<>''")
+              "WHERE (oblast IS NULL OR oblast='') "
+              "AND (ad_type IS NULL OR ad_type='') "
+              "AND region IS NOT NULL AND region<>''")
     except Exception:
         pass
 
@@ -323,7 +328,7 @@ def set_photo(lid, name):
 
 
 def _filters(q=None, cat=None, region=None, sub=None,
-             ad_type=None, cat_id=None, oblast=None, district=None):
+             ad_type=None, cat_id=None, oblast=None, district=None, village=None):
     sql, p = "", []
     if cat:
         sql += " AND category=?"; p.append(cat)
@@ -339,6 +344,9 @@ def _filters(q=None, cat=None, region=None, sub=None,
         sql += " AND oblast=?"; p.append(oblast)
     if district:
         sql += " AND district=?"; p.append(district)
+    if village:
+        sql += " AND (village=? OR (COALESCE(village,'')='' AND locality=?))"
+        p.extend([village, village])
     if q and q.strip():
         sql += " AND (stext LIKE ? OR stext LIKE ?)"
         p += [f"%{q.lower()}%", f"%{norm(q)}%"]
@@ -346,16 +354,16 @@ def _filters(q=None, cat=None, region=None, sub=None,
 
 
 def find(q=None, cat=None, region=None, sub=None, limit=30, offset=0,
-         ad_type=None, cat_id=None, oblast=None, district=None):
-    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast, district)
+         ad_type=None, cat_id=None, oblast=None, district=None, village=None):
+    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast, district, village)
     return query(
         "SELECT * FROM listings WHERE is_active=1" + where +
         " ORDER BY id DESC LIMIT ? OFFSET ?", tuple(p + [limit, offset]), fetch="all")
 
 
 def count(q=None, cat=None, region=None, sub=None,
-          ad_type=None, cat_id=None, oblast=None, district=None):
-    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast, district)
+          ad_type=None, cat_id=None, oblast=None, district=None, village=None):
+    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast, district, village)
     r = query("SELECT COUNT(*) AS n FROM listings WHERE is_active=1" + where,
               tuple(p), fetch="one")
     return (r or {}).get("n", 0)
@@ -438,6 +446,17 @@ def used_districts(oblast):
                  "AND oblast=? AND district IS NOT NULL AND district<>'' "
                  "GROUP BY district ORDER BY n DESC", (oblast,), fetch="all")
     return [r["district"] for r in rows]
+
+
+def used_villages(oblast, district):
+    """Тандалган райондо жарыясы бар айылдар/кичи райондор."""
+    rows = query(
+        "SELECT COALESCE(NULLIF(village,''), locality) AS v, COUNT(*) AS n "
+        "FROM listings WHERE is_active=1 AND oblast=? AND district=? "
+        "AND (COALESCE(NULLIF(village,''), locality)) IS NOT NULL "
+        "AND (COALESCE(NULLIF(village,''), locality)) <> '' "
+        "GROUP BY v ORDER BY n DESC", (oblast, district), fetch="all")
+    return [r["v"] for r in rows]
 
 
 def used_regions():

@@ -75,13 +75,14 @@ NAV_ICONS = {
 BOT = os.environ.get("BOT_USERNAME", "TapmeniBot").lstrip("@")
 
 
-def nav(active="home"):
+def nav(active="home", lang="ky"):
+    from strings import T
     items = [
-        ("home", "/",                                  NAV_ICONS["home"], "Башкы бет"),
-        ("fav",  "/fav",                               NAV_ICONS["fav"],  "Тандалган"),
-        ("add",  f"https://t.me/{BOT}?start=post",     NAV_ICONS["add"],  "Жарыя берүү"),
-        ("msg",  f"https://t.me/{BOT}",                NAV_ICONS["msg"],  "Билдирүү"),
-        ("me",   f"https://t.me/{BOT}?start=my",       NAV_ICONS["me"],   "Кабинет"),
+        ("home", "/",                              NAV_ICONS["home"], T("nav_home", lang)),
+        ("fav",  "/fav",                           NAV_ICONS["fav"],  T("nav_fav", lang)),
+        ("add",  f"https://t.me/{BOT}?start=post", NAV_ICONS["add"],  T("nav_add", lang)),
+        ("msg",  "/msg",                           NAV_ICONS["msg"],  T("nav_msg", lang)),
+        ("me",   f"https://t.me/{BOT}?start=my",   NAV_ICONS["me"],   T("nav_me", lang)),
     ]
     out = ""
     for key, href, ic, label in items:
@@ -116,9 +117,18 @@ svg{display:block}
 .logo svg{width:23px;height:23px;opacity:.9;flex:none}
 .pin{font-size:13px;font-weight:500;background:rgba(255,255,255,.15);
  border:1px solid rgba(255,255,255,.14);padding:6px 12px;border-radius:15px;
- display:flex;align-items:center;gap:5px;max-width:57%;
+ display:flex;align-items:center;gap:5px;max-width:44%;min-width:0;
  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pin b{font-weight:400;opacity:.85;font-size:12px}
+/* Тил алмаштыруу — оң четте, кичине, бирок басууга ыңгайлуу */
+.lgs{margin-left:auto;display:flex;background:rgba(255,255,255,.14);
+ border:1px solid rgba(255,255,255,.16);border-radius:13px;padding:2px;flex:none}
+.lg{padding:4px 9px;font-size:11.5px;font-weight:600;border-radius:11px;
+ color:rgba(255,255,255,.78);letter-spacing:.3px;line-height:1.3}
+.lg.on{background:#fff;color:var(--moss)}
+.lang{margin-left:auto;flex:none;font-size:12px;font-weight:700;letter-spacing:.4px;
+ background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.2);
+ padding:6px 11px;border-radius:14px}
 .s{display:flex;align-items:center;background:#fff;border-radius:26px;
  padding:0 5px 0 17px;height:48px;box-shadow:0 3px 14px rgba(6,52,30,.16)}
 .s input{flex:1;min-width:0;border:0;font-size:16px;font-family:inherit;
@@ -181,12 +191,12 @@ svg{display:block}
 .c{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
  overflow:hidden;display:flex;flex-direction:column;transition:.16s}
 .c:active{transform:scale(.985)}
-.ph{position:relative;aspect-ratio:4/3;background:#EDF1EE;
+.ph{position:relative;aspect-ratio:16/11;background:#EDF1EE;
  display:flex;align-items:center;justify-content:center;color:#C2D2C8}
-.ph i{display:block;width:34px;height:34px;opacity:.5}
+.ph i{display:block;width:30px;height:30px;opacity:.45}
 .ph i svg{width:100%;height:100%}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
-.c.nophoto .ph{aspect-ratio:16/9}
+.c.nophoto .ph{aspect-ratio:5/2}
 .fav{position:absolute;top:9px;right:9px;width:33px;height:33px;border-radius:50%;
  background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;
  color:var(--faint);box-shadow:0 1px 4px rgba(16,35,26,.1);border:0;padding:0;
@@ -208,6 +218,22 @@ svg{display:block}
 .m .vw{margin-left:auto;display:flex;align-items:center;gap:3px}
 .m .vw svg{width:13px;height:13px}
 
+/* ---- Бөлүмдөрдүн катарлары (башкы бет) ---- */
+.shelf{padding:20px 0 4px}
+.shead{display:flex;align-items:baseline;gap:10px;padding:0 0 9px}
+.shead h2{font-size:17px;font-weight:700;margin:0;letter-spacing:-.3px}
+.shead .more{margin-left:auto;font-size:13px;color:var(--leaf);font-weight:600;
+ white-space:nowrap}
+.shchips{padding:0 0 11px;margin:0}
+.shchips .sb2{font-family:inherit;cursor:pointer}
+.srow{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x proximity;
+ padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.srow::-webkit-scrollbar{display:none}
+.srow>.c{flex:0 0 46%;scroll-snap-align:start}
+@media(min-width:620px){.srow>.c{flex:0 0 30%}}
+@media(min-width:900px){.srow>.c{flex:0 0 23%}}
+.srow.load{opacity:.45;transition:.15s}
+
 /* ---- Толук барак ---- */
 .back{display:inline-flex;align-items:center;gap:6px;padding:15px 0 9px;
  font-size:14px;color:var(--leaf);font-weight:600}
@@ -216,7 +242,7 @@ svg{display:block}
  justify-content:center;min-height:150px;color:#C2D2C8}
 .dph i{display:block;width:52px;height:52px;opacity:.55}
 .dph i svg{width:100%;height:100%}
-.dph img{width:100%;height:auto;display:block}
+.dph img{width:100%;height:auto;max-height:56vh;object-fit:contain;display:block}
 .dcard{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
  padding:16px;margin-bottom:11px}
 .eb{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;
@@ -244,6 +270,47 @@ svg{display:block}
 .btn span{font-family:"Manrope",system-ui,sans-serif;font-weight:700;
  font-variant-numeric:tabular-nums;letter-spacing:.2px}
 .btn:active{transform:scale(.985)}
+
+/* ---- Аймак боюнча издөө жана Билдирүү барагы ---- */
+.ftitle{font-size:23px;font-weight:700;letter-spacing:-.5px;margin:20px 0 6px}
+.flead{font-size:14.5px;color:var(--soft);margin:0 0 16px;line-height:1.5}
+.fsearch{display:flex;gap:8px;margin:0 0 20px}
+.fsearch input{flex:1;min-width:0;height:46px;border:1px solid var(--mist);
+ border-radius:15px;padding:0 15px;font-size:15px;font-family:inherit;
+ background:var(--card);color:var(--ink)}
+.fsearch input:focus{outline:none;border-color:var(--leaf)}
+.fsearch input::placeholder{color:var(--faint)}
+.fsearch button{border:0;background:var(--ink);color:#fff;height:46px;padding:0 20px;
+ border-radius:15px;font-size:14.5px;font-weight:600;font-family:inherit;flex:none}
+.fstep{font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;
+ letter-spacing:.6px;margin:0 0 9px}
+.flist{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
+ overflow:hidden;margin-bottom:16px}
+.frow{display:flex;align-items:center;gap:12px;padding:15px 16px;font-size:15px;
+ border-bottom:1px solid var(--mist)}
+.frow:last-child{border-bottom:0}
+.frow:active{background:#F2F6F3}
+.fchev{margin-left:auto;color:var(--faint);font-size:20px;line-height:1}
+.fnote{font-size:14px;color:var(--soft);padding:18px 16px;margin:0}
+.fskip{display:block;text-align:center;margin-bottom:20px}
+.qh{font-size:15.5px;font-weight:600;margin:0 0 7px;letter-spacing:-.1px}
+.qp{font-size:14.5px;line-height:1.55;color:#2A3B32;margin:0}
+
+/* ---- Бөлүм катарлары (башкы бет) ---- */
+.shelf{margin:26px 0 4px}
+.shead{display:flex;align-items:baseline;gap:10px;padding:0 0 10px}
+.shead h2{font-size:19px;font-weight:700;letter-spacing:-.4px;margin:0}
+.more{margin-left:auto;font-size:13px;font-weight:600;color:var(--leaf);
+ white-space:nowrap;flex:none}
+.shchips{padding:0 0 11px!important;margin:0!important}
+.shchips .sb2{border:1px solid #D2E8DC;cursor:pointer;font-family:inherit}
+.srow{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x proximity;
+ scrollbar-width:none;padding-bottom:4px;transition:opacity .15s}
+.srow::-webkit-scrollbar{display:none}
+.srow.load{opacity:.4}
+.srow .c{flex:0 0 47%;scroll-snap-align:start}
+@media(min-width:620px){.srow .c{flex:0 0 31%}}
+@media(min-width:900px){.srow .c{flex:0 0 23%}}
 
 /* ---- Бош барак ---- */
 .em{text-align:center;padding:52px 22px 34px}
