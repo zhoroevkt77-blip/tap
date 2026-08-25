@@ -16,10 +16,19 @@ from datetime import datetime, timezone
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
-# Сүрөттөр сакталуучу папка.
-# Railway'де Volume кошулса, MEDIA_DIR аркылуу анын жолун көрсөтөбүз —
-# ошондо код кайра курулганда да сүрөттөр өчпөйт.
-MEDIA = (os.environ.get("MEDIA_DIR") or "").strip() or os.path.join(BASE, "media")
+# Туруктуу диск. Railway'де Volume /data'га тиркелет; MEDIA_DIR коюлбаса,
+# Railway өзү берген RAILWAY_VOLUME_MOUNT_PATH колдонулат; экөө тең жок болсо
+# (жергиликтүү Termux) — долбоордун ичиндеги media/ папкасы.
+_VOL = (os.environ.get("MEDIA_DIR")
+        or os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+        or "").strip()
+if _VOL:
+    MEDIA = _VOL if _VOL.rstrip("/").endswith("media") else os.path.join(_VOL, "media")
+    DATA_DIR = os.path.dirname(MEDIA.rstrip("/")) or BASE
+else:
+    MEDIA = os.path.join(BASE, "media")
+    DATA_DIR = BASE
+
 DATABASE_URL = (os.environ.get("DATABASE_URL") or "").strip()
 IS_PG = DATABASE_URL.startswith(("postgres://", "postgresql://"))
 
@@ -215,7 +224,9 @@ CREATE TABLE IF NOT EXISTS listings (
     photo TEXT, tg_id TEXT, tg_name TEXT, stext TEXT,
     views INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL)
+    created_at TEXT NOT NULL,
+    ad_type TEXT, cat_id TEXT, sub_id TEXT,
+    oblast TEXT, district TEXT, locality TEXT, village TEXT)
 """
 
 SCHEMA_PG = """
@@ -226,16 +237,56 @@ CREATE TABLE IF NOT EXISTS listings (
     photo TEXT, tg_id TEXT, tg_name TEXT, stext TEXT,
     views INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL)
+    created_at TEXT NOT NULL,
+    ad_type TEXT, cat_id TEXT, sub_id TEXT,
+    oblast TEXT, district TEXT, locality TEXT, village TEXT)
 """
+
+
+NEW_COLUMNS = ["ad_type", "cat_id", "sub_id",
+               "oblast", "district", "locality", "village"]
+
+
+def _add_missing_columns():
+    """
+    Мурунтан бар базага жаңы тилкелерди кошот. Маалымат жоголбойт,
+    эски жарыялар ордунда калат (жаңы тилкелери бош болот).
+    """
+    for col in NEW_COLUMNS:
+        try:
+            if IS_PG:
+                query("ALTER TABLE listings ADD COLUMN IF NOT EXISTS %s TEXT" % col)
+            else:
+                query("ALTER TABLE listings ADD COLUMN %s TEXT" % col)
+        except Exception:
+            pass   # тилке мурунтан бар — баары жайында
 
 
 def init_db():
     """Таблицаны түзөт. Кайра-кайра чакырса коопсуз."""
     os.makedirs(MEDIA, exist_ok=True)
     query(SCHEMA_PG if IS_PG else SCHEMA_SQLITE)
+    _add_missing_columns()
     query("CREATE INDEX IF NOT EXISTS idx_active ON listings(is_active)")
     query("CREATE INDEX IF NOT EXISTS idx_cat ON listings(category)")
+    try:
+        query("CREATE INDEX IF NOT EXISTS idx_adtype ON listings(ad_type)")
+        query("CREATE INDEX IF NOT EXISTS idx_oblast ON listings(oblast)")
+    except Exception:
+        pass
+    _backfill_old_rows()
+
+
+def _backfill_old_rows():
+    """
+    Эски жарыялардын `region` жазуусун жаңы `oblast` тилкесине көчүрөт,
+    ошондо алар жаңы издөөдө да көрүнөт. Бир жолу гана иштейт.
+    """
+    try:
+        query("UPDATE listings SET oblast=region "
+              "WHERE (oblast IS NULL OR oblast='') AND region IS NOT NULL AND region<>''")
+    except Exception:
+        pass
 
 
 def now_str():
@@ -246,17 +297,24 @@ def now_str():
 
 def add_listing(d, tg_id, tg_name):
     """Жаңы жарыя кошот, номерин кайтарат."""
+    stext = mkstext(
+        d["title"],
+        " ".join([d.get("description", "") or "",
+                  d.get("sub_id", "") or "",
+                  d.get("region", "") or ""]),
+        sub_title(d["category"], d.get("subcat")))
     return query(
         """INSERT INTO listings
            (category, subcat, region, title, description, price, contact,
-            tg_id, tg_name, stext, created_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            tg_id, tg_name, stext, created_at,
+            ad_type, cat_id, sub_id, oblast, district, locality, village)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (d["category"], d.get("subcat"), d.get("region", ""), d["title"],
          d.get("description", ""), d.get("price", ""), d.get("contact", ""),
-         str(tg_id), tg_name,
-         mkstext(d["title"], d.get("description", ""),
-                 sub_title(d["category"], d.get("subcat"))),
-         now_str()),
+         str(tg_id), tg_name, stext, now_str(),
+         d.get("ad_type", ""), d.get("cat_id", ""), d.get("sub_id", ""),
+         d.get("oblast", ""), d.get("district", ""),
+         d.get("locality", ""), d.get("village", "")),
         fetch="id")
 
 
@@ -264,7 +322,8 @@ def set_photo(lid, name):
     query("UPDATE listings SET photo=? WHERE id=?", (name, lid))
 
 
-def _filters(q=None, cat=None, region=None, sub=None):
+def _filters(q=None, cat=None, region=None, sub=None,
+             ad_type=None, cat_id=None, oblast=None):
     sql, p = "", []
     if cat:
         sql += " AND category=?"; p.append(cat)
@@ -272,21 +331,29 @@ def _filters(q=None, cat=None, region=None, sub=None):
         sql += " AND subcat=?"; p.append(sub)
     if region:
         sql += " AND region=?"; p.append(region)
+    if ad_type:
+        sql += " AND ad_type=?"; p.append(ad_type)
+    if cat_id:
+        sql += " AND cat_id=?"; p.append(cat_id)
+    if oblast:
+        sql += " AND oblast=?"; p.append(oblast)
     if q and q.strip():
         sql += " AND (stext LIKE ? OR stext LIKE ?)"
         p += [f"%{q.lower()}%", f"%{norm(q)}%"]
     return sql, p
 
 
-def find(q=None, cat=None, region=None, sub=None, limit=30, offset=0):
-    where, p = _filters(q, cat, region, sub)
+def find(q=None, cat=None, region=None, sub=None, limit=30, offset=0,
+         ad_type=None, cat_id=None, oblast=None):
+    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast)
     return query(
         "SELECT * FROM listings WHERE is_active=1" + where +
         " ORDER BY id DESC LIMIT ? OFFSET ?", tuple(p + [limit, offset]), fetch="all")
 
 
-def count(q=None, cat=None, region=None, sub=None):
-    where, p = _filters(q, cat, region, sub)
+def count(q=None, cat=None, region=None, sub=None,
+          ad_type=None, cat_id=None, oblast=None):
+    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast)
     r = query("SELECT COUNT(*) AS n FROM listings WHERE is_active=1" + where,
               tuple(p), fetch="one")
     return (r or {}).get("n", 0)
@@ -372,4 +439,3 @@ DEAL_WORDS = {"келишимдүү", "келишим", "договорная", 
 
 def is_deal(price):
     return (price or "").strip().lower() in DEAL_WORDS
-
