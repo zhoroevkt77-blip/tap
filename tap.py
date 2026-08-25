@@ -18,6 +18,7 @@ from core import (CATS, SUBS, MEDIA, category_title, category_icon, sub_title,
 from tap_catalog import (TRADE_CATEGORIES, SERVICE_CATEGORIES, RENTAL_CATEGORIES,
                          DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES)
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, TUNDUK, BOT
+from scenes import SCENES
 from strings import T, L
 
 
@@ -25,13 +26,13 @@ from strings import T, L
 # Бот кайсы бөлүмдөрдү колдонсо, сайт да ошолорду көрсөтөт.
 
 SECTIONS = [
-    ("trade",    ICONS["trade"],    "Соода-сатык"),
-    ("service",  ICONS["service"],  "Кызмат көрсөтүү"),
-    ("rental",   ICONS["rental"],   "Ижарага берүү"),
-    ("delivery", ICONS["delivery"], "Жеткирүү"),
-    ("job",      ICONS["job"],      "Жумуш берүү"),
-    ("markets",  ICONS["markets"],  "Базарлар"),
-    ("taxi",     ICONS["taxi"],     "Такси"),
+    ("trade",    SCENES["trade"],    "Соода-сатык"),
+    ("service",  SCENES["service"],  "Кызмат көрсөтүү"),
+    ("rental",   SCENES["rental"],   "Ижарага берүү"),
+    ("delivery", SCENES["delivery"], "Жеткирүү"),
+    ("job",      SCENES["job"],      "Жумуш берүү"),
+    ("markets",  SCENES["markets"],  "Базарлар"),
+    ("taxi",     SCENES["taxi"],     "Такси"),
 ]
 
 SECTION_CODES = [c for c, _, _ in SECTIONS]
@@ -221,7 +222,7 @@ def _filter_bars(link, at, cid, ob, di, lang):
 
 def _sections_strip(link, at, lang):
     cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
-            f'<span class="ic">{ICONS["all"]}</span>'
+            f'<span class="ic">{SCENES["all"]}</span>'
             f'<span class="lb">{T("all", lang)}</span></a>')
     for code, ic, _name in SECTIONS:
         cats += (f'<a href="{link(at=code, cid=None)}" '

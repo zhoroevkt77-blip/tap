@@ -6,7 +6,7 @@ set -e
 
 REPO="$HOME/tap"
 DL="$HOME/storage/downloads"
-FILES="tap_catalog.py taxi_geo.py tap_flow.py bridge.py icons.py strings.py design.py core.py bot.py tap.py whatsapp.py"
+FILES="tap_catalog.py taxi_geo.py tap_flow.py bridge.py icons.py scenes.py strings.py design.py core.py bot.py tap.py whatsapp.py"
 
 echo
 echo "════════════════════════════════════════"
@@ -62,7 +62,7 @@ for f in $FILES; do
 done
 
 python - <<'PY' || { echo "❌ Импорт катасы. Push кылынбады."; exit 1; }
-import tap_catalog, taxi_geo, tap_flow, bridge, icons, strings, design, tap, whatsapp
+import tap_catalog, taxi_geo, tap_flow, bridge, icons, scenes, strings, design, tap, whatsapp
 from tap_flow import render, advance, START_STEP
 s, d = START_STEP, {}
 for v in ["ky", "post", "trade"]:
@@ -85,7 +85,7 @@ echo
 echo "📤 GitHub'ка жөнөтүлүүдө..."
 git add .gitignore
 git rm -r --cached __pycache__ >/dev/null 2>&1 || true
-git add tap_catalog.py taxi_geo.py tap_flow.py bridge.py icons.py strings.py design.py core.py bot.py tap.py whatsapp.py
+git add tap_catalog.py taxi_geo.py tap_flow.py bridge.py icons.py scenes.py strings.py design.py core.py bot.py tap.py whatsapp.py
 git add "eski-$STAMP" 2>/dev/null || true
 
 if git diff --cached --quiet; then
@@ -93,7 +93,7 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
-git commit -m "Эки тил, аймак боюнча издөө, бөлүм катарлары"
+git commit -m "Бөлүм такталары — толук көрүнүш"
 
 if ! git pull --rebase; then
   echo

@@ -140,19 +140,20 @@ svg{display:block}
 .s button:active{transform:scale(.97)}
 
 /* ---- Бөлүмдөр ---- */
-.cats{display:flex;gap:6px;overflow-x:auto;padding:16px 14px 8px;
+.cats{display:flex;gap:8px;overflow-x:auto;padding:16px 14px 10px;
  scrollbar-width:none;max-width:1040px;margin:0 auto}
 .cats::-webkit-scrollbar{display:none}
-.cat{flex:none;width:76px;text-align:center;font-size:11.5px;line-height:1.25;
- color:var(--soft);font-weight:500}
-.cat .ic{width:58px;height:58px;border-radius:20px;
- background:linear-gradient(160deg,#FFFFFF 0%,#F4F7F4 100%);
- border:1px solid #E7EDE8;display:flex;align-items:center;justify-content:center;
- margin:0 auto 7px;transition:.18s;
- box-shadow:0 2px 5px rgba(16,35,26,.06),0 8px 18px -8px rgba(16,35,26,.14)}
-.cat .ic svg{width:34px;height:34px}
+.cat{flex:none;width:94px;border-radius:15px;overflow:hidden;background:var(--card);
+ border:1px solid var(--mist);transition:.18s;
+ box-shadow:0 2px 5px rgba(16,35,26,.05),0 10px 20px -12px rgba(16,35,26,.18)}
+.cat .ic{display:block;width:94px;height:74px;overflow:hidden}
+.cat .ic svg{width:100%;height:100%;display:block}
 .cat .lb{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
- overflow:hidden;height:29px}
+ overflow:hidden;padding:7px 6px 8px;font-size:11.5px;line-height:1.22;
+ font-weight:600;color:var(--ink);text-align:center;min-height:38px}
+.cat.on{border-color:var(--moss);
+ box-shadow:0 0 0 2px var(--moss),0 10px 22px -12px rgba(16,72,42,.55)}
+.cat.on .lb{background:var(--moss);color:#fff}
 .cat.on .ic{background:linear-gradient(160deg,#2F7C4E 0%,#1F5C39 100%);
  border-color:#1F5C39;
  box-shadow:0 4px 10px rgba(16,72,42,.3),0 12px 26px -10px rgba(16,72,42,.5)}
