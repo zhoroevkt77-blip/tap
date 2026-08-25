@@ -26,6 +26,10 @@ API (болгону эки функция):
 Бир нече тандоо (multi) учурунда `value` — үтүр менен бөлүнгөн сап.
 """
 
+from taxi_geo import (REGIONS as TX_REGIONS, REGION_LIST as TX_REGION_LIST,
+                      DISTRICTS as TX_DISTRICTS,
+                      DISTRICT_OBLASTS as TX_OBLASTS,
+                      steps_of, day_hours, date_label)
 from tap_catalog import (
     GREETING, MAIN_OPTIONS, OBLASTS, STANDALONE, GEO,
     TRADE_CATEGORIES, HEATING_FUEL_SUBS, TRADE_PRICE_PRESETS, TRADE_CONDITION,
@@ -33,7 +37,6 @@ from tap_catalog import (
     VEHICLE_BODY_TYPES, VEHICLE_ENGINE_TYPES, VEHICLE_CATEGORIES, VEHICLE_SUBS,
     MARKETS_TYPES, MARKETS_GROUPS, MARKETS_SUBS_BY_TYPE,
     RENTAL_CATEGORIES, SERVICE_CATEGORIES, JOB_CATEGORIES, DELIVERY_CATEGORIES,
-    TAXI_REGIONS, TAXI_REGIONS_EXTENDED, TAXI_CITIES,
     DURATION_PLANS, SERVICE_PRICE_PRESETS, JOB_SALARY_PRESETS, CALL_TIME_PRESETS,
     GROUP_TABLES, SERVICE_GROUP_TABLES,
     get_districts, get_localities, get_villages,
@@ -559,95 +562,117 @@ def render(step, data=None):
         return _view("🔍 Издөө натыйжалары / Результаты поиска", final=True)
 
     # ── Такси ───────────────────────────────────────────────
-    if step == "taxi_type_select":
-        return _view("Такси боюнча эмне кыласыз? / Что делаете по такси?",
-                     _opts([("🚖 Айдоочумун, жүргүнчү издейм / Я водитель, ищу пассажиров", "driver"),
-                            ("🧍 Жүргүнчүмүн, такси издейм / Я пассажир, ищу такси", "passenger")]))
+    # Флоу «Такси роБОТ» ботундагыдай: адегенде ким экениң,
+    # анан багыт (Бишкекке / район аралык), анан маршрут, анан суроолор.
 
-    if step == "taxi_direction":
-        return _view("🚕 Такси кандай багытта? / Такси в каком направлении?",
-                     _opts([("🏙 Облустардан Бишкекке жана тескерисинче / Из областей в Бишкек и обратно", "regional"),
-                            ("🏘 Район/шаарлар аралык / Между районами и городами", "intercity"),
-                            ("🌾 Айылдардан район/шаар борборлоруна / Из сёл в райцентры", "village")]))
+    if step == "taxi_role":
+        return _view("🚕 Такси боюнча ким болуп жарыя бересиз? / "
+                     "Кем вы в этом объявлении?",
+                     _opts([("🚖 Айдоочумун / Я водитель", "driver"),
+                            ("🧍 Жүргүнчүмүн / Я пассажир", "passenger")]))
+
+    if step == "taxi_mode":
+        return _view("Кайсы багытта жарыя бересиз? / В каком направлении?",
+                     _opts([("Облустардын район/шаарларынан Бишкекке жана кайтуу",
+                             "bishkek"),
+                            ("Район/шаар аралык", "local")]))
+
+    if step == "taxi_dir":
+        return _view("Багытты тандаңыз: / Выберите направление:",
+                     _opts([("🚕 Бишкекке барам", "to_bishkek"),
+                            ("🚕 Бишкектен кайтам", "from_bishkek")]))
 
     if step == "taxi_region":
-        return _view("Кайсы облус? / Какая область?", _from_list(TAXI_REGIONS))
+        q = ("Кайсы облуска барасыз?" if d.get("taxiDir") == "from_bishkek"
+             else "Кайсы облустан чыгасыз?")
+        return _view("🗺 " + q, _from_list(TX_REGION_LIST))
 
     if step == "taxi_city":
-        return _view("Кайсы шаар/райондон? / Из какого города/района?",
-                     _from_list(TAXI_CITIES.get(d.get("taxiRegion"), [])))
+        reg = d.get("taxiRegion")
+        return _view("📍 %s\nШаар/район тандаңыз:" % reg,
+                     _from_list(TX_REGIONS.get(reg, [])))
 
-    if step == "taxi_ic_from_oblast":
-        return _view("Кайдан? Облусту тандаңыз / Откуда? Выберите область:",
-                     _from_list(TAXI_REGIONS_EXTENDED))
+    if step == "taxi_lo_oblast":
+        return _view("🗺 Кайсы облустан чыгасыз?", _from_list(TX_OBLASTS))
 
-    if step == "taxi_ic_from_district":
-        return _view("Кайсы район/шаардан? / Из какого района/города?",
-                     [{"label": "%s / %s" % (x, ru_name(x)), "value": x}
-                      for x in get_districts(d.get("taxiFromOblast"))])
+    if step == "taxi_lo_from":
+        ob = d.get("taxiLoOblast")
+        return _view("📍 %s\nКайсы райондон/шаардан чыгасыз?" % ob,
+                     _from_list(TX_DISTRICTS.get(ob, [])))
 
-    if step == "taxi_ic_to_oblast":
-        return _view("Кайда? Облусту тандаңыз / Куда? Выберите область:",
-                     _from_list(TAXI_REGIONS_EXTENDED))
+    if step == "taxi_lo_to_oblast":
+        return _view("📍 Чыгуу: %s\n🗺 Кайсы облуска барасыз?" % d.get("taxiFrom"),
+                     _from_list(TX_OBLASTS))
 
-    if step == "taxi_ic_to_district":
-        return _view("Кайсы район/шаарга? / В какой район/город?",
-                     [{"label": "%s / %s" % (x, ru_name(x)), "value": x}
-                      for x in get_districts(d.get("taxiToOblast"))])
+    if step == "taxi_lo_to":
+        ob = d.get("taxiLoToOblast")
+        items = [c for c in TX_DISTRICTS.get(ob, []) if c != d.get("taxiFrom")]
+        return _view("📍 %s\nКайсы районго/шаарга барасыз?" % ob, _from_list(items))
 
-    if step == "taxi_v_oblast":
-        return _view("Кайсы облус? / Какая область?", _from_list(TAXI_REGIONS))
-
-    if step == "taxi_v_district_from":
-        return _view("Кайсы райондон? / Из какого района?",
-                     [{"label": "%s / %s" % (x, ru_name(x)), "value": x}
-                      for x in get_districts(d.get("taxiVOblast"))])
-
-    if step == "taxi_v_ayil_aimak":
-        return _view("Кайсы айыл аймактан? / Из какого аильного округа?",
-                     _from_list(get_localities(d.get("taxiVOblast"), d.get("taxiVDistrictFrom"))))
-
-    if step == "taxi_v_village":
-        return _view("Кайсы айылдан? / Из какого села?",
-                     _from_list(get_villages(d.get("taxiVOblast"),
-                                             d.get("taxiVDistrictFrom"),
-                                             d.get("taxiVAyilAimak"))))
-
-    if step == "taxi_v_district_to":
-        return _view("Кайсы район/шаар борборуна? / В какой райцентр/город?",
-                     [{"label": "%s / %s" % (x, ru_name(x)), "value": x}
-                      for x in get_districts(d.get("taxiVOblast"))])
+    # ── Суроолор ────────────────────────────────────────────
 
     if step == "taxi_name":
-        return _view("Атыңыз ким? / Как вас зовут?", input=True, placeholder="Мис: Азамат")
+        return _view("Атыңызды жазыңыз:", input=True, placeholder="Мис: Азамат")
 
     if step == "taxi_car":
-        return _view("🚗 Унааңыз кандай? / Какая у вас машина?",
-                     input=True, placeholder="Мис: Toyota Camry, ак / Например: Toyota Camry, белая")
+        return _view("Машинаңыздын маркасы жана модели:",
+                     input=True, placeholder="Мис: Toyota Camry, ак")
+
+    if step == "taxi_date":
+        return _view("📅 Качан жолго чыгасыз?",
+                     _opts([(date_label(0), "d0"), (date_label(1), "d1")]))
 
     if step == "taxi_time":
-        return _view("🕐 Качан жөнөйсүз? / Когда выезжаете?",
-                     input=True, placeholder="Мис: Бүгүн 14:00 / Например: Сегодня в 14:00")
-
-    if step == "taxi_price":
-        return _view("💰 Бир орундун баасы канча? / Стоимость одного места?",
-                     input=True, placeholder="Мис: 500 сом")
+        opts = [{"label": h, "value": h} for h in day_hours()]
+        if d.get("taxiRole") == "driver":
+            # Айдоочу так убакыт коё албаганда: орун толгондо чыгат.
+            # Кыргызстанда эң кеңири таралган иштөө ыкмасы.
+            opts.append({"label": "🚗 Орун толгондо чыгам", "value": "__full__"})
+        return _view("⏰ Саат канчада жолго чыгасыз?\n"
+                     "Тизмеде жок убакыт болсо — жазып жибериңиз "
+                     "(мис. 05:30 же 22:00).", opts)
 
     if step == "taxi_seats":
-        return _view("💺 Канча бош орун бар? / Сколько свободных мест?",
-                     _from_list(["1", "2", "3", "4", "5", "6+"]))
+        return _view("👥 Канча бош орун бар?",
+                     _from_list([str(i) for i in range(1, 8)]))
 
-    if step == "taxi_phone":
-        return _view("📱 Телефон номериңиз / Ваш номер телефона:",
-                     input=True, placeholder="700 000 000")
+    if step == "taxi_people":
+        return _view("👥 Канча киши жолго чыгасыңар?\n"
+                     "Салон болсо — «Салон» деп жазып жибериңиз.",
+                     _from_list([str(i) for i in range(1, 8)]))
+
+    if step == "taxi_baggage":
+        return _view("🎒 Багажыңыз барбы?\n"
+                     "Жок болсо — төмөнкү баскычты басыңыз.\n"
+                     "Бар болсо — жазып жибериңиз (мис. 2 чемодан).",
+                     _opts([("🚫 Жок", "__no__")]))
+
+    if step == "taxi_price":
+        return _view("💰 Жол киреси канча?\n"
+                     "Сумманы жазыңыз (мис. 1200), же төмөнкү баскычты басыңыз.",
+                     _opts([("🤝 Келишим баада", "__deal__")]))
 
     if step == "taxi_comment":
-        return _view("📝 Кошумча маалымат барбы? / Есть дополнительная информация?\n"
-                     "(болбосо — сызыкча коюңуз / если нет — прочерк):",
-                     input=True, placeholder="Мис: Жүк ташыйм / Например: Возьму груз")
+        q = ("📝 Кошумча комментарий (жазбасаңыз, «жок» деп жазыңыз):"
+             if d.get("taxiRole") == "driver"
+             else "📝 Айдоочуларга эмне деп жазасыз?")
+        return _view(q, input=True, placeholder="Мис: Жүк ташыйм")
+
+    if step == "taxi_phone":
+        return _view("📞 Мобилдик телефон номериңиз:",
+                     input=True, placeholder="700 000 000")
+
+    if step == "taxi_safety":
+        return _view(
+            "🚦 Коопсуздук эрежелерин окуп алыңыз!\n\n"
+            "Жолго чыгаардан мурун жүргүнчүнүн атын жана номерин жазып алыңыз, "
+            "жакындарыңызга маршрутуңузду билдирип коюңуз, түнкүсүн бейтааныш "
+            "жерде токтобоңуз.\n\n"
+            "Бул сиздин жана жүргүнчүлөрдүн өмүрү үчүн маанилүү.",
+            _opts([("✅ Түшүндүм, жарыялаймын", "confirm")]))
 
     if step == "taxi_preview":
-        return _view("Такси жарыяңыз даяр! Жарыялайлыбы? / Объявление такси готово! Публикуем?",
+        return _view("Такси жарыяңыз даяр! Жарыялайлыбы? / Объявление готово?",
                      _opts([("✅ Ооба, жарыялоо / Да, опубликовать", "confirm"),
                             ("🏠 Башкы меню / Главное меню", "cancel")]),
                      final=True)
@@ -684,6 +709,36 @@ def _after_subcategory(d):
     return "search_results"
 
 
+def _taxi_step_name(step):
+    """"taxi_name" -> "name" """
+    return step[5:] if step.startswith("taxi_") else step
+
+
+def _taxi_first_step(d):
+    """Маршрут тандалгандан кийинки биринчи суроо."""
+    return "taxi_" + steps_of(d.get("taxiRole"))[0]
+
+
+def _taxi_next(d, current):
+    """Тизмедеги кийинки суроо, же аягы."""
+    steps = steps_of(d.get("taxiRole"))
+    try:
+        i = steps.index(current)
+    except ValueError:
+        i = len(steps) - 1
+    if i < len(steps) - 1:
+        return "taxi_" + steps[i + 1]
+    # Айдоочуга коопсуздук эскертүүсү, жүргүнчүгө түз алдын ала көрүү
+    return "taxi_safety" if d.get("taxiRole") == "driver" else "taxi_preview"
+
+
+def _after_subcategory(d):
+    """Подкатегория тандалгандан кийин кайда барабыз."""
+    if d.get("action") == "post":
+        return "trade_title" if d.get("adType") in ("trade", "markets") else "post_name"
+    return "search_results"
+
+
 def advance(step, value, data=None):
     """Кийинки (step, data) жупту кайтарат."""
     d = dict(data or {})
@@ -704,7 +759,7 @@ def advance(step, value, data=None):
 
     if step == "type_select":
         if value == "taxi":
-            return go("taxi_type_select", adType="taxi")
+            return go("taxi_role", adType="taxi")
         if value == "markets":
             return go("markets_type", adType="markets")
         return go("oblast_select", adType=value)
@@ -989,71 +1044,94 @@ def advance(step, value, data=None):
         return "main_menu", {}
 
     # ── Такси ───────────────────────────────────────────────
-    if step == "taxi_type_select":
-        return go("taxi_direction", taxiRole=value)
+    # ── Такси ───────────────────────────────────────────────
 
-    if step == "taxi_direction":
-        d["taxiDirection"] = value
-        return {"regional": "taxi_region",
-                "intercity": "taxi_ic_from_oblast",
-                "village": "taxi_v_oblast"}[value], d
+    if step == "taxi_role":
+        return go("taxi_mode", taxiRole=value)
+
+    if step == "taxi_mode":
+        d["taxiMode"] = value
+        return ("taxi_lo_oblast" if value == "local" else "taxi_dir"), d
+
+    if step == "taxi_dir":
+        d["taxiDir"] = value
+        if value == "to_bishkek":
+            d["taxiTo"] = "Бишкек"
+        else:
+            d["taxiFrom"] = "Бишкек"
+        return "taxi_region", d
 
     if step == "taxi_region":
         return go("taxi_city", taxiRegion=value)
 
     if step == "taxi_city":
-        return go("taxi_name", taxiCity=value)
+        if d.get("taxiDir") == "to_bishkek":
+            d["taxiFrom"] = value
+        else:
+            d["taxiTo"] = value
+        return _taxi_first_step(d), d
 
-    if step == "taxi_ic_from_oblast":
-        return go("taxi_ic_from_district", taxiFromOblast=value)
+    if step == "taxi_lo_oblast":
+        return go("taxi_lo_from", taxiLoOblast=value)
 
-    if step == "taxi_ic_from_district":
-        return go("taxi_ic_to_oblast", taxiFromDistrict=value)
+    if step == "taxi_lo_from":
+        return go("taxi_lo_to_oblast", taxiFrom=value)
 
-    if step == "taxi_ic_to_oblast":
-        return go("taxi_ic_to_district", taxiToOblast=value)
+    if step == "taxi_lo_to_oblast":
+        return go("taxi_lo_to", taxiLoToOblast=value)
 
-    if step == "taxi_ic_to_district":
-        return go("taxi_name", taxiToDistrict=value)
+    if step == "taxi_lo_to":
+        d["taxiTo"] = value
+        return _taxi_first_step(d), d
 
-    if step == "taxi_v_oblast":
-        return go("taxi_v_district_from", taxiVOblast=value)
-
-    if step == "taxi_v_district_from":
-        return go("taxi_v_ayil_aimak", taxiVDistrictFrom=value)
-
-    if step == "taxi_v_ayil_aimak":
-        return go("taxi_v_village", taxiVAyilAimak=value)
-
-    if step == "taxi_v_village":
-        return go("taxi_v_district_to", taxiVVillage=value)
-
-    if step == "taxi_v_district_to":
-        return go("taxi_name", taxiVDistrictTo=value)
+    # Суроолор: ар бир жооптон кийин тизмедеги кийинкисине
 
     if step == "taxi_name":
-        return go("taxi_car", taxiName=value)
+        d["taxiName"] = value
+        return _taxi_next(d, "name"), d
 
     if step == "taxi_car":
-        return go("taxi_time", taxiCar=value)
+        d["taxiCar"] = value
+        return _taxi_next(d, "car"), d
+
+    if step == "taxi_date":
+        d["taxiDate"] = date_label(1 if value == "d1" else 0)
+        return _taxi_next(d, "date"), d
 
     if step == "taxi_time":
-        return go("taxi_price", taxiTime=value)
-
-    if step == "taxi_price":
-        return go("taxi_seats", taxiPrice=value)
+        d["taxiTime"] = ("Орун толгондо жолго чыгам" if value == "__full__"
+                         else "Саат %sдө жолго чыгам" % value)
+        return _taxi_next(d, "time"), d
 
     if step == "taxi_seats":
-        return go("taxi_phone", taxiSeats=value)
+        d["taxiSeats"] = value
+        return _taxi_next(d, "seats"), d
 
-    if step == "taxi_phone":
-        return go("taxi_comment", taxiPhone=value)
+    if step == "taxi_people":
+        d["taxiPeople"] = value
+        return _taxi_next(d, "people"), d
+
+    if step == "taxi_baggage":
+        d["taxiBaggage"] = "Жок" if value == "__no__" else value
+        return _taxi_next(d, "baggage"), d
+
+    if step == "taxi_price":
+        d["taxiPrice"] = "Келишим" if value == "__deal__" else value
+        return _taxi_next(d, "price"), d
 
     if step == "taxi_comment":
-        return go("taxi_preview", taxiComment=value)
+        d["taxiComment"] = value
+        return _taxi_next(d, "comment"), d
+
+    if step == "taxi_phone":
+        d["taxiPhone"] = value
+        return _taxi_next(d, "phone"), d
+
+    if step == "taxi_safety":
+        return ("taxi_preview", d) if value == "confirm" else ("main_menu", {})
 
     if step == "taxi_preview":
-        return (("post_done", d) if value == "confirm" else ("main_menu", {}))
+        return ("post_done", d) if value == "confirm" else ("main_menu", {})
 
     if step == "my_posts_phone":
         return go("my_posts", phone=value)
