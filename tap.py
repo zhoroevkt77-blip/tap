@@ -15,6 +15,50 @@ from socketserver import ThreadingMixIn
 import core
 from core import (CATS, SUBS, MEDIA, category_title, category_icon, sub_title,
                   price_label, is_deal, ago)
+from tap_catalog import (TRADE_CATEGORIES, SERVICE_CATEGORIES, RENTAL_CATEGORIES,
+                         DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES)
+
+
+# ==================== Жаңы таксономия ====================
+# Бот кайсы бөлүмдөрдү колдонсо, сайт да ошолорду көрсөтөт.
+
+SECTIONS = [
+    ("trade",    "&#128717;", "Соода-сатык"),
+    ("service",  "&#128736;", "Кызмат көрсөтүү"),
+    ("rental",   "&#128273;", "Ижарага берүү"),
+    ("delivery", "&#128230;", "Жеткирүү"),
+    ("job",      "&#128188;", "Жумуш берүү"),
+    ("markets",  "&#127978;", "Базарлар"),
+    ("taxi",     "&#128661;", "Такси"),
+]
+
+SECTION_NAME = {code: name for code, _, name in SECTIONS}
+
+_CAT_LISTS = {
+    "trade":    TRADE_CATEGORIES,
+    "service":  SERVICE_CATEGORIES,
+    "rental":   RENTAL_CATEGORIES,
+    "delivery": DELIVERY_CATEGORIES,
+    "job":      JOB_CATEGORIES,
+    "markets":  MARKETS_TYPES,
+}
+
+
+def _ky(text):
+    """Эки тилдүү жазуунун кыргызча бөлүгү."""
+    return str(text or "").split(" / ")[0].strip()
+
+
+def cat_labels(ad_type):
+    """Бөлүмдүн ичиндеги категориялардын аттары: {id: аты}"""
+    out = {}
+    for c in _CAT_LISTS.get(ad_type) or []:
+        out[c["id"]] = _ky(c.get("label") or c["id"])
+    return out
+
+
+def cat_label(ad_type, cat_id):
+    return cat_labels(ad_type).get(cat_id, _ky(cat_id))
 
 PORT = int(os.environ.get("PORT", 8000))
 
@@ -178,55 +222,76 @@ def card(r):
 </div></a>"""
 
 
-def home(q, cat, reg=None, sub=None):
-    rows = core.find(q, cat, reg, sub, limit=60)
-    cn = core.cat_counts(reg)
+def home(q, at=None, cid=None, ob=None, di=None):
+    """
+    Башкы бет.
+      at  — бөлүм (trade/service/…)
+      cid — бөлүмдүн ичиндеги категория
+      ob  — облус,  di — район
+    """
+    rows = core.find(q, limit=60, ad_type=at, cat_id=cid, oblast=ob, district=di)
+    sec_counts = core.adtype_counts(ob)
 
     def link(**kw):
         """Учурдагы чыпкаларды сактап, бирөөнү гана өзгөрткөн шилтеме."""
-        prm = {"q": q or None, "cat": cat, "region": reg, "sub": sub}
+        prm = {"q": q or None, "at": at, "cid": cid, "ob": ob, "di": di}
         prm.update(kw)
         prm = {k: v for k, v in prm.items() if v}
         return ("/?" + urllib.parse.urlencode(prm)) if prm else "/"
 
-    # Категориялар
-    cats = (f'<a href="{link(cat=None, sub=None)}" class="cat{"" if cat else " on"}">'
+    # ── Бөлүмдөр ────────────────────────────────────────────
+    cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
             f'<span class="ic">&#9635;</span><span class="lb">Баары</span></a>')
-    for code, (name, ic) in CATS.items():
-        cats += (f'<a href="{link(cat=code, sub=None)}" '
-                 f'class="cat{" on" if cat == code else ""}">'
+    for code, ic, name in SECTIONS:
+        if not sec_counts.get(code) and code != at:
+            continue          # жарыясы жок бөлүм көрсөтүлбөйт
+        cats += (f'<a href="{link(at=code, cid=None)}" '
+                 f'class="cat{" on" if at == code else ""}">'
                  f'<span class="ic">{ic}</span><span class="lb">{esc(name)}</span></a>')
 
-    # Аймактар
-    rb = f'<a href="{link(region=None)}" class="rg{"" if reg else " on"}">Бүт Кыргызстан</a>'
-    for rg in core.used_regions():
-        rb += (f'<a href="{link(region=rg)}" '
-               f'class="rg{" on" if reg == rg else ""}">{esc(rg)}</a>')
+    # ── Облустар ────────────────────────────────────────────
+    rb = f'<a href="{link(ob=None, di=None)}" class="rg{"" if ob else " on"}">Бүт Кыргызстан</a>'
+    for rg in core.used_oblasts():
+        rb += (f'<a href="{link(ob=rg, di=None)}" '
+               f'class="rg{" on" if ob == rg else ""}">{esc(rg)}</a>')
     rb = f'<nav class="regbar">{rb}</nav>'
 
-    # Түрлөр — категория тандалганда гана
+    # ── Райондор — облус тандалганда ────────────────────────
+    dbar = ""
+    if ob:
+        ds = core.used_districts(ob)
+        if ds:
+            chips = f'<a href="{link(di=None)}" class="rg{"" if di else " on"}">Бүт облус</a>'
+            for d in ds:
+                chips += (f'<a href="{link(di=d)}" '
+                          f'class="rg{" on" if di == d else ""}">{esc(d)}</a>')
+            dbar = f'<nav class="regbar">{chips}</nav>'
+
+    # ── Категориялар — бөлүм тандалганда ────────────────────
     sbar = ""
-    if cat and SUBS.get(cat):
-        sc = core.sub_counts(cat, reg)
-        chips = f'<a href="{link(sub=None)}" class="sb2{"" if sub else " on"}">Баары</a>'
-        for code, nm in SUBS[cat]:
-            if not sc.get(code):
-                continue
-            chips += (f'<a href="{link(sub=code)}" class="sb2{" on" if sub == code else ""}">'
-                      f'{esc(nm)} <em>{sc[code]}</em></a>')
+    if at:
+        cc = core.catid_counts(at, ob)
+        labels = cat_labels(at)
+        chips = f'<a href="{link(cid=None)}" class="sb2{"" if cid else " on"}">Баары</a>'
+        for code, n in sorted(cc.items(), key=lambda x: -x[1]):
+            nm = labels.get(code) or _ky(code)
+            chips += (f'<a href="{link(cid=code)}" class="sb2{" on" if cid == code else ""}">'
+                      f'{esc(nm)} <em>{n}</em></a>')
         if chips.count("<a") > 1:
             sbar = f'<nav class="subbar">{chips}</nav>'
 
+    # ── Тизме ───────────────────────────────────────────────
     if rows:
         if q:
             lbl = f"«{esc(q)}» боюнча"
-        elif sub and cat:
-            lbl = esc(sub_title(cat, sub))
-        elif cat:
-            lbl = esc(category_title(cat))
+        elif cid and at:
+            lbl = esc(cat_label(at, cid))
+        elif at:
+            lbl = esc(SECTION_NAME.get(at, at))
         else:
             lbl = "жарыя"
-        clear = '<a href="/" class="cl">Тазалоо</a>' if (q or cat or reg or sub) else ""
+        clear = ('<a href="/" class="cl">Тазалоо</a>'
+                 if (q or at or cid or ob or di) else "")
         main = (f'<div class="rl"><span class="rn">{len(rows)}</span>'
                 f'<span class="rlb">{lbl}</span>{clear}</div>'
                 f'<div class="g">{"".join(card(r) for r in rows)}</div>')
@@ -235,13 +300,24 @@ def home(q, cat, reg=None, sub=None):
                 '<p>Башка сөз менен аракет кылып көрүңүз.</p>'
                 '<a class="dk" href="/">Бардык жарыялар</a></div>')
 
-    return page(header(q, cat, reg) + f'<nav class="cats">{cats}</nav>' + rb + sbar +
-                f'<main class="wrap">{main}</main>')
+    return page(header(q, at, di or ob) + f'<nav class="cats">{cats}</nav>' +
+                rb + dbar + sbar + f'<main class="wrap">{main}</main>')
 
 
 def detail(r):
-    name, ic = CATS.get(r["category"], ("—", ""))
-    sname = sub_title(r["category"], r.get("subcat"))
+    at = r.get("ad_type")
+    if at:
+        ic = next((i for c, i, _ in SECTIONS if c == at), "")
+        name = SECTION_NAME.get(at, at)
+        sname = cat_label(at, r.get("cat_id")) if r.get("cat_id") else ""
+        if r.get("sub_id"):
+            sname = (sname + " · " + _ky(r["sub_id"])) if sname else _ky(r["sub_id"])
+        back = f"/?at={at}"
+    else:
+        # Эски жарыялар — мурунку категориялар боюнча
+        name, ic = CATS.get(r["category"], ("—", ""))
+        sname = sub_title(r["category"], r.get("subcat"))
+        back = f"/?cat={r['category']}"
     dimg = (f'<img src="/media/{esc(r["photo"])}" alt="">'
             if r.get("photo") else '<i></i>')
     desc = (f'<div class="dcard"><p class="d">{esc(r["description"])}</p></div>'
@@ -251,7 +327,7 @@ def detail(r):
         num = "".join(ch for ch in r["contact"] if ch.isdigit() or ch == "+")
         tel = f'<a class="btn" href="tel:{esc(num)}">&#9742; {esc(r["contact"])}</a>'
     body = f"""<main class="wrap">
-<a class="back" href="/?cat={r['category']}">← {esc(name)}</a>
+<a class="back" href="{back}">← {esc(name)}</a>
 <div class="dph">{dimg}</div>
 <div class="dcard">
 <div class="eb">{ic} {esc(sname or name)} · №{r['id']}</div>
@@ -289,12 +365,23 @@ class H(BaseHTTPRequestHandler):
 
         if u.path == "/":
             q = (qs.get("q", [""])[0]).strip()
-            cat = qs.get("cat", [None])[0]
-            if cat not in CATS:
-                cat = None
-            reg = (qs.get("region", [""])[0]).strip() or None
-            sub = (qs.get("sub", [""])[0]).strip() or None
-            self._send(home(q, cat, reg, sub))
+            at = qs.get("at", [None])[0]
+            if at not in SECTION_NAME:
+                at = None
+            cid = (qs.get("cid", [""])[0]).strip() or None
+            ob = (qs.get("ob", [""])[0]).strip() or None
+            di = (qs.get("di", [""])[0]).strip() or None
+
+            # Эски шилтемелер иштей берсин (/?cat=…&region=…)
+            if not ob:
+                ob = (qs.get("region", [""])[0]).strip() or None
+            if not at and qs.get("cat"):
+                old = qs["cat"][0]
+                at = {"transport": "trade", "realty": "rental",
+                      "personal": "trade", "service": "service",
+                      "shop": "markets", "business": "job"}.get(old)
+
+            self._send(home(q, at, cid, ob, di))
 
         elif u.path == "/health":
             self._send("ok")
