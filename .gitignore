@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+tap.db
+bot_state.json
+media/
+token.txt
