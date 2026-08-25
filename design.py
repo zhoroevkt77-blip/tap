@@ -48,59 +48,8 @@ TUNDUK = (
 )
 
 
-# ── Бөлүмдөрдүн белгилери ────────────────────────────────────
-# Баары 24x24, сызык 1.8, учтары жумшак.
+from icons import ICONS  # noqa: E402  (көлөмдүү эмблемалар)
 
-_S = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" '
-      'aria-hidden="true">')
-
-ICONS = {
-    # Баары — төрт квадрат
-    "all": _S + '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/>'
-                '<rect x="13.5" y="3.5" width="7" height="7" rx="2"/>'
-                '<rect x="3.5" y="13.5" width="7" height="7" rx="2"/>'
-                '<rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>',
-
-    # Соода-сатык — базар куржуну
-    "trade": _S + '<path d="M4 8h16l-1.3 11.2a2 2 0 0 1-2 1.8H7.3a2 2 0 0 1-2-1.8L4 8Z"/>'
-                  '<path d="M8.5 8V6a3.5 3.5 0 0 1 7 0v2"/>'
-                  '<path d="M9.5 12v1.5M14.5 12v1.5"/></svg>',
-
-    # Кызмат көрсөтүү — ачкыч менен балка
-    "service": _S + '<path d="M14.5 3.5a4.5 4.5 0 0 0-4 6.6L3.8 16.8a1.8 1.8 0 0 0 2.5 2.5l6.7-6.7'
-                    'a4.5 4.5 0 0 0 5.6-6.2l-2.6 2.6-2.4-.6-.6-2.4 2.6-2.6a4.5 4.5 0 0 0-1.1-.2Z"/>'
-                    '</svg>',
-
-    # Ижарага берүү — ачкыч
-    "rental": _S + '<circle cx="8" cy="8" r="4.5"/>'
-                   '<path d="M11.3 11.3 20 20"/><path d="M17 17l2-2"/>'
-                   '<path d="M14.5 14.5l2-2"/></svg>',
-
-    # Жеткирүү — куту
-    "delivery": _S + '<path d="M3.5 7.8 12 3.5l8.5 4.3v8.4L12 20.5l-8.5-4.3V7.8Z"/>'
-                     '<path d="M3.5 7.8 12 12l8.5-4.2"/><path d="M12 12v8.5"/>'
-                     '<path d="M7.7 5.6 16.3 10"/></svg>',
-
-    # Жумуш берүү — портфель
-    "job": _S + '<rect x="2.8" y="7" width="18.4" height="13" rx="2.4"/>'
-                '<path d="M8.6 7V5.4a2 2 0 0 1 2-2h2.8a2 2 0 0 1 2 2V7"/>'
-                '<path d="M2.8 12.4c2.8 1.4 5.8 2.1 9.2 2.1s6.4-.7 9.2-2.1"/>'
-                '<path d="M12 13.6v1.8"/></svg>',
-
-    # Базарлар — соода катарынын чатыры
-    "markets": _S + '<path d="M3.2 9.2 5 4.5h14l1.8 4.7"/>'
-                    '<path d="M3.2 9.2c0 1.5 1.1 2.6 2.5 2.6s2.5-1.1 2.5-2.6c0 1.5 1.1 2.6 2.5 2.6'
-                    's2.5-1.1 2.5-2.6c0 1.5 1.1 2.6 2.5 2.6s2.5-1.1 2.5-2.6"/>'
-                    '<path d="M5 11.8V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-7.2"/>'
-                    '<path d="M9.8 20.5v-4.3h4.4v4.3"/></svg>',
-
-    # Такси — үстүндө белгиси бар унаа
-    "taxi": _S + '<path d="M3.5 16.5v-3.2l1.9-4.2A2 2 0 0 1 7.2 8h9.6a2 2 0 0 1 1.8 1.1l1.9 4.2v3.2"/>'
-                 '<path d="M3.5 13.3h17"/>'
-                 '<circle cx="7.2" cy="16.6" r="1.6"/><circle cx="16.8" cy="16.6" r="1.6"/>'
-                 '<path d="M9.5 8V5.8h5V8"/></svg>',
-}
 
 # ── Ылдыйкы тилке ────────────────────────────────────────────
 
@@ -173,14 +122,24 @@ svg{display:block}
 .cats::-webkit-scrollbar{display:none}
 .cat{flex:none;width:76px;text-align:center;font-size:11.5px;line-height:1.25;
  color:var(--soft);font-weight:500}
-.cat .ic{width:56px;height:56px;border-radius:19px;background:var(--card);
- border:1px solid var(--mist);display:flex;align-items:center;justify-content:center;
- margin:0 auto 7px;color:var(--moss);transition:.18s}
-.cat .ic svg{width:25px;height:25px}
+.cat .ic{width:58px;height:58px;border-radius:20px;
+ background:linear-gradient(160deg,#FFFFFF 0%,#F4F7F4 100%);
+ border:1px solid #E7EDE8;display:flex;align-items:center;justify-content:center;
+ margin:0 auto 7px;transition:.18s;
+ box-shadow:0 2px 5px rgba(16,35,26,.06),0 8px 18px -8px rgba(16,35,26,.14)}
+.cat .ic svg{width:34px;height:34px}
 .cat .lb{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
  overflow:hidden;height:29px}
-.cat.on .ic{background:var(--moss);border-color:var(--moss);color:#fff;
- box-shadow:0 5px 14px rgba(11,110,63,.28)}
+.cat.on .ic{background:linear-gradient(160deg,#2F7C4E 0%,#1F5C39 100%);
+ border-color:#1F5C39;
+ box-shadow:0 4px 10px rgba(16,72,42,.3),0 12px 26px -10px rgba(16,72,42,.5)}
+/* Тандалганда белги караңгы тактын үстүндө жарык болуп калат —
+   үч катмар актын үч даражасына айланып, көлөмү сакталат. */
+.cat.on .ic svg [data-t="lite"]{fill:#FFFFFF;stroke:#FFFFFF}
+.cat.on .ic svg [data-t="mid"] {fill:#A9D5BC;stroke:#A9D5BC}
+.cat.on .ic svg [data-t="deep"]{fill:#164A31;stroke:#164A31}
+/* Тешик так менен бирдей түстө болсун — ичи көрүнүп турсун */
+.cat.on .ic svg [data-t="hole"]{fill:#255E3E}
 .cat.on{color:var(--ink);font-weight:600}
 
 /* ---- Чыпкалар ---- */
