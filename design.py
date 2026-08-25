@@ -198,7 +198,7 @@ svg{display:block}
 .cb{padding:11px 12px 13px;display:flex;flex-direction:column;flex:1}
 .p{font-family:"Manrope",system-ui,sans-serif;font-size:18px;font-weight:800;
  letter-spacing:-.4px;margin-bottom:5px;font-variant-numeric:tabular-nums}
-.pd{font-family:"Golos Text",system-ui,sans-serif;font-size:14.5px;font-weight:600;
+.pd{font-family:"Golos Text",system-ui,sans-serif;font-size:12.5px;font-weight:600;
  color:var(--leaf);letter-spacing:0}
 .t{font-size:13.5px;line-height:1.38;margin:0 0 10px;font-weight:400;color:var(--soft);
  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -224,8 +224,10 @@ svg{display:block}
 .eb svg{width:15px;height:15px}
 .dp{font-family:"Manrope",system-ui,sans-serif;font-size:29px;font-weight:800;
  letter-spacing:-1px;margin-bottom:5px;font-variant-numeric:tabular-nums}
-.dpd{font-family:"Golos Text",system-ui,sans-serif;font-size:21px;font-weight:600;
- color:var(--leaf);letter-spacing:-.2px}
+/* Толук баракта «Келишим баада» баа эмес, шарт — ошондуктан
+   категориянын атынан да кичине, басымсыз турат. */
+.dpd{font-family:"Golos Text",system-ui,sans-serif;font-size:15px;font-weight:600;
+ color:var(--leaf);letter-spacing:0;margin-bottom:9px}
 .dcard h1{font-size:18px;line-height:1.32;font-weight:600;margin:0 0 15px}
 .f{display:flex;flex-direction:column;gap:1px;background:var(--mist);
  border-radius:13px;overflow:hidden;border:1px solid var(--mist)}

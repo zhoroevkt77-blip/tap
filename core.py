@@ -472,11 +472,14 @@ def ago(ts):
     return f"{d // 365} жыл мурун"
 
 
+DEAL_WORDS = {"келишимдүү", "келишим", "келишимдуу", "келишим баада",
+              "договорная", "договорная цена", ""}
+
+
 def price_label(price):
-    return (price or "").strip() or "Келишимдүү"
-
-
-DEAL_WORDS = {"келишимдүү", "келишим", "договорная", "келишимдуу", ""}
+    """Баасы жазылбаса же келишим болсо — бир эле сөз менен."""
+    p = (price or "").strip()
+    return "Келишим баада" if p.lower() in DEAL_WORDS else p
 
 
 def is_deal(price):
