@@ -323,7 +323,7 @@ def set_photo(lid, name):
 
 
 def _filters(q=None, cat=None, region=None, sub=None,
-             ad_type=None, cat_id=None, oblast=None):
+             ad_type=None, cat_id=None, oblast=None, district=None):
     sql, p = "", []
     if cat:
         sql += " AND category=?"; p.append(cat)
@@ -337,6 +337,8 @@ def _filters(q=None, cat=None, region=None, sub=None,
         sql += " AND cat_id=?"; p.append(cat_id)
     if oblast:
         sql += " AND oblast=?"; p.append(oblast)
+    if district:
+        sql += " AND district=?"; p.append(district)
     if q and q.strip():
         sql += " AND (stext LIKE ? OR stext LIKE ?)"
         p += [f"%{q.lower()}%", f"%{norm(q)}%"]
@@ -344,16 +346,16 @@ def _filters(q=None, cat=None, region=None, sub=None,
 
 
 def find(q=None, cat=None, region=None, sub=None, limit=30, offset=0,
-         ad_type=None, cat_id=None, oblast=None):
-    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast)
+         ad_type=None, cat_id=None, oblast=None, district=None):
+    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast, district)
     return query(
         "SELECT * FROM listings WHERE is_active=1" + where +
         " ORDER BY id DESC LIMIT ? OFFSET ?", tuple(p + [limit, offset]), fetch="all")
 
 
 def count(q=None, cat=None, region=None, sub=None,
-          ad_type=None, cat_id=None, oblast=None):
-    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast)
+          ad_type=None, cat_id=None, oblast=None, district=None):
+    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast, district)
     r = query("SELECT COUNT(*) AS n FROM listings WHERE is_active=1" + where,
               tuple(p), fetch="one")
     return (r or {}).get("n", 0)
@@ -396,6 +398,46 @@ def sub_counts(cat, region=None):
     rows = query("SELECT subcat, COUNT(*) AS n FROM listings WHERE is_active=1"
                  + where + " GROUP BY subcat", tuple(p), fetch="all")
     return {r["subcat"]: r["n"] for r in rows if r["subcat"]}
+
+
+# ── Жаңы таксономия боюнча эсептөөлөр (сайт үчүн) ────────────
+
+def adtype_counts(oblast=None):
+    """Ар бир бөлүмдө канча жарыя бар."""
+    where, p = ("", [])
+    if oblast:
+        where, p = " AND oblast=?", [oblast]
+    rows = query("SELECT ad_type, COUNT(*) AS n FROM listings WHERE is_active=1"
+                 + where + " GROUP BY ad_type", tuple(p), fetch="all")
+    return {r["ad_type"]: r["n"] for r in rows if r["ad_type"]}
+
+
+def catid_counts(ad_type=None, oblast=None):
+    """Бөлүмдүн ичиндеги категориялар боюнча эсеп."""
+    where, p = ("", [])
+    if ad_type:
+        where += " AND ad_type=?"; p.append(ad_type)
+    if oblast:
+        where += " AND oblast=?"; p.append(oblast)
+    rows = query("SELECT cat_id, COUNT(*) AS n FROM listings WHERE is_active=1"
+                 + where + " GROUP BY cat_id", tuple(p), fetch="all")
+    return {r["cat_id"]: r["n"] for r in rows if r["cat_id"]}
+
+
+def used_oblasts():
+    """Базада чындап жарыясы бар облустар."""
+    rows = query("SELECT oblast, COUNT(*) AS n FROM listings WHERE is_active=1 "
+                 "AND oblast IS NOT NULL AND oblast<>'' GROUP BY oblast "
+                 "ORDER BY n DESC", (), fetch="all")
+    return [r["oblast"] for r in rows]
+
+
+def used_districts(oblast):
+    """Тандалган облуста жарыясы бар райондор."""
+    rows = query("SELECT district, COUNT(*) AS n FROM listings WHERE is_active=1 "
+                 "AND oblast=? AND district IS NOT NULL AND district<>'' "
+                 "GROUP BY district ORDER BY n DESC", (oblast,), fetch="all")
+    return [r["district"] for r in rows]
 
 
 def used_regions():
