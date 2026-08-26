@@ -120,6 +120,21 @@ def _regions():
     return [{"label": "%s / %s" % (o, ru_name(o)), "value": o} for o in OBLASTS]
 
 
+# Категориянын коду -> адам окуй турган аталышы.
+_CAT_LABELS = {}
+for _lst in (TRADE_CATEGORIES, RENTAL_CATEGORIES, SERVICE_CATEGORIES,
+             JOB_CATEGORIES, DELIVERY_CATEGORIES):
+    for _c in (_lst or []):
+        if isinstance(_c, dict) and _c.get("id"):
+            _CAT_LABELS[_c["id"]] = _c.get("label") or _c["id"]
+del _lst, _c
+
+
+def _cat_label(code):
+    """Категориянын аталышы. Табылбаса кодду өзүн кайтарат."""
+    return _CAT_LABELS.get(code, code or "")
+
+
 def _view(text, options=None, input=False, placeholder="", multi=False,
           photo=False, final=False, localized=False):
     return {
@@ -1023,7 +1038,7 @@ def advance(step, value, data=None):
                 d[p[0]] = value
                 if p[0] == "bazaarDelivery":
                     d["title"] = "%s | %s | Жеткирүү: %s" % (
-                        d.get("subcategory") or d.get("category"),
+                        d.get("subcategory") or _cat_label(d.get("category")),
                         d.get("bazaarQuality"), value)
                     d["price"] = d.get("bazaarPrice")
                     d["tradeBargain"] = ""
@@ -1057,7 +1072,7 @@ def advance(step, value, data=None):
             if d.get("tradeDelivery") is None:
                 d["tradeDelivery"] = value
                 d["title"] = "%s | %s | Жеткирүү: %s" % (
-                    d.get("subcategory") or d.get("category"), d.get("tradeWholesale"), value)
+                    d.get("subcategory") or _cat_label(d.get("category")), d.get("tradeWholesale"), value)
                 return "trade_price", d
 
         return go("trade_price", title=value)
