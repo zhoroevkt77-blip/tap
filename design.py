@@ -265,6 +265,21 @@ svg{display:block}
 .f b{font-weight:500;color:var(--faint)}
 .f span{font-weight:500;text-align:right}
 .d{margin:0;font-size:14.5px;line-height:1.55;white-space:pre-wrap;color:#2A3B32}
+/* ---- Байланыш баскычтары ---- */
+.cbar{display:flex;gap:8px;margin-bottom:16px}
+.cb1{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;
+ justify-content:center;gap:5px;height:64px;border-radius:15px;color:#fff;
+ font-size:12.5px;font-weight:600;text-align:center;padding:0 4px}
+.cb1 svg{width:22px;height:22px;flex:none}
+.cb1 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.cb1:active{transform:scale(.97)}
+.cb1.call{background:var(--leaf);box-shadow:0 4px 12px rgba(18,160,92,.26)}
+.cb1.wa{background:#22C15E;box-shadow:0 4px 12px rgba(34,193,94,.24)}
+.cb1.tg{background:#2AA3DA;box-shadow:0 4px 12px rgba(42,163,218,.24)}
+.cnum{text-align:center;font-family:"Manrope",system-ui,sans-serif;font-weight:800;
+ font-size:19px;letter-spacing:.2px;color:var(--ink);
+ font-variant-numeric:tabular-nums;margin:2px 0 10px}
+
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;
  background:var(--leaf);color:#fff;border-radius:15px;padding:15px;
  font-size:16px;font-weight:600;box-shadow:0 5px 16px rgba(18,160,92,.28);

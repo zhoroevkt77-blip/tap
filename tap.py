@@ -329,9 +329,55 @@ _PHONE = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
           'a1.8 1.8 0 0 1-.4 1.9l-1.1 1.1a14.4 14.4 0 0 0 5.3 5.3l1.1-1.1a1.8 1.8 0 0 1 1.9-.4'
           'c.9.3 1.8.5 2.7.6A1.8 1.8 0 0 1 21 16.4Z"/></svg>')
 
+_WA = ('<svg viewBox="0 0 24 24" fill="currentColor">'
+       '<path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm0 18.2'
+       'a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Z"/>'
+       '<path d="M16.6 14.3c-.3-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2'
+       '-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.1-.2 0-.4.1-.5l.4-.5c.1-.2.2-.3.3-.5 0-.2 0-.3'
+       '-.1-.4l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3c-.3.3-.9.9-.9 2.1s.9 2.5'
+       '1 2.6c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.2.7 3 .6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1'
+       '-1.2l-.5-.4Z"/></svg>')
+
+_TG = ('<svg viewBox="0 0 24 24" fill="currentColor">'
+       '<path d="M21.9 4.3 18.7 19c-.2 1-.9 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-1 .5'
+       'l.3-4.8 8.8-8c.4-.3-.1-.5-.6-.2L6.7 13.1l-4.7-1.5c-1-.3-1-1 .2-1.5L20.6 3'
+       'c.8-.3 1.6.2 1.3 1.3Z"/></svg>')
+
 _ARROW = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" '
           'stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px">'
           '<path d="M14.5 5.5 8 12l6.5 6.5"/></svg>')
+
+
+def contact_block(raw, lang="ky"):
+    """
+    Байланыш баскычтары: чалуу, WhatsApp, Telegram.
+
+    Кыргызстанда көпчүлүк WhatsApp менен жазышат, ошондуктан үчөө тең
+    керек. Telegram номер боюнча ачылат — ал номерде Telegram бар болсо.
+    """
+    if not raw:
+        return ""
+    digits = "".join(ch for ch in str(raw) if ch.isdigit())
+    if digits.startswith("996"):
+        digits = digits[3:]
+    elif digits.startswith("0"):
+        digits = digits[1:]
+    if len(digits) != 9:
+        # Кадимкидей эмес номер — чалуу баскычы гана
+        num = "".join(ch for ch in str(raw) if ch.isdigit() or ch == "+")
+        return (f'<a class="btn" href="tel:{esc(num)}">{_PHONE}'
+                f'<span>{esc(raw)}</span></a>')
+
+    intl = "996" + digits
+    shown = "+996 %s %s %s" % (digits[:3], digits[3:6], digits[6:])
+    return f"""<div class="cnum">{esc(shown)}</div>
+<div class="cbar">
+<a class="cb1 call" href="tel:+{intl}">{_PHONE}<span>{T("c_call", lang)}</span></a>
+<a class="cb1 wa" href="https://wa.me/{intl}" target="_blank" rel="noopener">
+{_WA}<span>WhatsApp</span></a>
+<a class="cb1 tg" href="https://t.me/+{intl}" target="_blank" rel="noopener">
+{_TG}<span>Telegram</span></a>
+</div>"""
 
 
 def pretty_phone(num):
@@ -366,13 +412,7 @@ def detail(r, lang="ky"):
             if r.get("photo") else f'<i>{_NOPHOTO}</i>')
     desc = (f'<div class="dcard"><p class="d">{esc(r["description"])}</p></div>'
             if r.get("description") else "")
-    tel = ""
-    if r.get("contact"):
-        num = "".join(ch for ch in r["contact"] if ch.isdigit() or ch == "+")
-        shown = pretty_phone(num)
-        num = shown.replace(" ", "") if shown.startswith("+996") else num
-        tel = (f'<a class="btn" href="tel:{esc(num)}">{_PHONE}'
-               f'<span>{esc(shown)}</span></a>')
+    tel = contact_block(r.get("contact"), lang)
     body = f"""<main class="wrap">
 <a class="back" href="{back}">{_ARROW}{esc(name)}</a>
 <div class="dph">{dimg}</div>
