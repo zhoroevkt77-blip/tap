@@ -343,6 +343,8 @@ def render(step, data=None):
 
     # ── Соода-сатык категориялары ───────────────────────────
     if step == "trade_category":
+        q = ("Кандай товар сатасыз? / Что продаёте?" if act == "post"
+             else "Кандай товар издеп жатасыз? / Какой товар ищете?")
         excluded = ["realestate", "vehicles", "agro_machinery"]
         mt = d.get("marketsType")
         if at == "markets" and mt == "car_market":
@@ -353,7 +355,7 @@ def render(step, data=None):
             cats = [c for c in TRADE_CATEGORIES if c["id"] not in excluded]
         else:
             cats = TRADE_CATEGORIES
-        return _view("Кандай товар сатасыз? / Что продаёте?",
+        return _view(q,
                      [{"label": "%s %s" % (c["emoji"], c["label"]), "value": c["id"]} for c in cats])
 
     if step == "trade_demographic":
@@ -369,6 +371,7 @@ def render(step, data=None):
     if step == "trade_item_type":
         subs = (get_footwear_subs() if d.get("category") == "footwear"
                 else get_clothing_subs(d.get("demographic"), d.get("season")))
+        # (тандоо экөөндө тең бирдей — түрүн тактоо)
         return _view("Түрүн тандаңыз / Выберите тип:", _from_list(subs), multi=True)
 
     if step == "trade_heating_fuel_select":
@@ -407,12 +410,17 @@ def render(step, data=None):
     # ── Кызмат/ижара/жумуш/жеткирүү категориялары ───────────
     if step == "category_select":
         cats = get_categories(at)
-        title = {
+        title = ({
             "service":  "Кандай кызмат көрсөтөсүз? / Какую услугу оказываете?",
             "rental":   "Эмнени ижарага бересиз? / Что сдаёте в аренду?",
             "job":      "Кайсы тармакта жумуш? / В какой сфере работа?",
             "delivery": "Эмнени жеткиресиз? / Что доставляете?",
-        }.get(at, "Категорияны тандаңыз / Выберите категорию:")
+        } if act == "post" else {
+            "service":  "Кандай кызмат керек? / Какая услуга нужна?",
+            "rental":   "Эмне ижарага керек? / Что хотите арендовать?",
+            "job":      "Кайсы тармактан жумуш издейсиз? / В какой сфере ищете работу?",
+            "delivery": "Эмнени жеткирүү керек? / Что нужно доставить?",
+        }).get(at, "Категорияны тандаңыз / Выберите категорию:")
         return _view(title,
                      [{"label": ("%s %s" % (c.get("emoji", ""), c["label"])).strip(),
                        "value": c["id"]} for c in cats])
@@ -566,13 +574,19 @@ def render(step, data=None):
     # анан багыт (Бишкекке / район аралык), анан маршрут, анан суроолор.
 
     if step == "taxi_role":
-        return _view("🚕 Такси боюнча ким болуп жарыя бересиз? / "
-                     "Кем вы в этом объявлении?",
-                     _opts([("🚖 Айдоочумун / Я водитель", "driver"),
-                            ("🧍 Жүргүнчүмүн / Я пассажир", "passenger")]))
+        if act == "post":
+            return _view("🚕 Такси боюнча ким болуп жарыя бересиз? / "
+                         "Кем вы в этом объявлении?",
+                         _opts([("🚖 Айдоочумун / Я водитель", "driver"),
+                                ("🧍 Жүргүнчүмүн / Я пассажир", "passenger")]))
+        return _view("🚕 Кимди издеп жатасыз? / Кого ищете?",
+                     _opts([("🚖 Айдоочу издейм / Ищу водителя", "driver"),
+                            ("🧍 Жүргүнчү издейм / Ищу пассажира", "passenger")]))
 
     if step == "taxi_mode":
-        return _view("Кайсы багытта жарыя бересиз? / В каком направлении?",
+        return _view(("Кайсы багытта жарыя бересиз? / В каком направлении?"
+                      if act == "post" else
+                      "Кайсы багыт боюнча издейсиз? / По какому направлению ищете?"),
                      _opts([("Облустардын район/шаарларынан Бишкекке жана кайтуу",
                              "bishkek"),
                             ("Район/шаар аралык", "local")]))
@@ -715,7 +729,12 @@ def _taxi_step_name(step):
 
 
 def _taxi_first_step(d):
-    """Маршрут тандалгандан кийинки биринчи суроо."""
+    """
+    Маршрут тандалгандан кийин кайда барабыз.
+    Издөө болсо — түз натыйжага; суроолор жарыя берүүгө гана таандык.
+    """
+    if d.get("action") != "post":
+        return "search_results"
     return "taxi_" + steps_of(d.get("taxiRole"))[0]
 
 
