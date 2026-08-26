@@ -53,6 +53,7 @@ START_STEP = "language_select"
 MENU_EXTRA = [
     {"label": "🌐 Биздин сайт / Наш сайт", "value": "tap_site"},
     {"label": "🆘 Жардам / Помощь",        "value": "tap_help"},
+    {"label": "🌐 Тил / Язык",             "value": "tap_lang"},
 ]
 
 
@@ -813,6 +814,9 @@ def advance(step, value, data=None):
             return go("site_info")
         if value == "tap_help":
             return go("help_menu")
+        if value == "tap_lang":
+            # Тилди кайра тандоо — башка маалымат сакталбайт.
+            return "language_select", {}
         if value == "myposts":
             return go("my_posts_phone")
         return go("type_select", action=value)
