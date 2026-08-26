@@ -197,7 +197,19 @@ MSG = {
                    "Выберите одну из кнопок ниже 👇"),
     "pick_one":   ("Жок дегенде бирөөнү тандаңыз.", "Выберите хотя бы один вариант."),
     "untitled":   ("Жарыя",                 "Объявление"),
+    "photo_need": ("📸 %d сүрөт жүктөлдү. Дагы %d керек.",
+                   "📸 Загружено фото: %d. Нужно ещё %d."),
+    "photo_ok":   ("📸 %d сүрөт жүктөлдү. Бүтсөңүз «Даяр» басыңыз.",
+                   "📸 Загружено фото: %d. Закончили — нажмите «Готово»."),
+    "photo_max":  ("📸 %d сүрөт — эң көбү ушул. «Даяр» басыңыз.",
+                   "📸 %d фото — это максимум. Нажмите «Готово»."),
+    "photo_few":  ("Жок дегенде %d сүрөт керек.", "Нужно минимум %d фото."),
+    "photo_done": ("✅ Даяр",                 "✅ Готово"),
 }
+
+# Бир жарыяга канча сүрөт. strings.py'дагы сандар менен бирдей.
+PHOTO_MIN = 5
+PHOTO_MAX = 10
 
 
 def ulang(u):
@@ -287,6 +299,43 @@ def flow_kb(view, picked=None, lang="ky"):
     if not has_home:
         rows.append([{"text": m("home_btn", lang), "callback_data": "home"}])
     return {"inline_keyboard": rows}
+
+
+def photo_status(chat, u):
+    """
+    Канча сүрөт жүктөлгөнүн бир билдирүүдө көрсөтөт жана аны
+    жаңыртып турат — албом келгенде он билдирүү жаадырбайт.
+    """
+    lang = ulang(u)
+    n = len(u["data"].get("photoFileIds") or [])
+    if n >= PHOTO_MAX:
+        txt = m("photo_max", lang, PHOTO_MAX)
+    elif n >= PHOTO_MIN:
+        txt = m("photo_ok", lang, n)
+    else:
+        txt = m("photo_need", lang, n, PHOTO_MIN - n)
+    kb = None
+    if n >= PHOTO_MIN:
+        kb = {"inline_keyboard": [[{"text": m("photo_done", lang),
+                                    "callback_data": "photodone"}]]}
+    mid = u.get("photoMsgId")
+    if mid:
+        r = api("editMessageText", chat_id=chat, message_id=mid,
+                text=txt, parse_mode="HTML", reply_markup=kb)
+        if r and r.get("ok"):
+            return
+    r = api("sendMessage", chat_id=chat, text=txt,
+            parse_mode="HTML", reply_markup=kb)
+    if r and r.get("ok"):
+        u["photoMsgId"] = r["result"]["message_id"]
+
+
+def add_photo(chat, u, fid):
+    """Келген сүрөттү тизмеге кошот."""
+    ids = u["data"].setdefault("photoFileIds", [])
+    if fid not in ids and len(ids) < PHOTO_MAX:
+        ids.append(fid)
+    photo_status(chat, u)
 
 
 def ask(chat, u, short=False):
@@ -390,11 +439,15 @@ def save_ad(chat, uid, name, u):
         row["title"] = m("untitled", lang)
     lid = core.add_listing(row, uid, name)
 
-    fid = d.get("photoFileId")
-    if fid:
-        fn = f"{lid}.jpg"
+    ids = d.get("photoFileIds") or (
+        [d["photoFileId"]] if d.get("photoFileId") else [])
+    saved = []
+    for i, fid in enumerate(ids[:PHOTO_MAX], 1):
+        fn = f"{lid}.jpg" if i == 1 else f"{lid}_{i}.jpg"
         if download_photo(fid, os.path.join(MEDIA, fn)):
-            core.set_photo(lid, fn)
+            saved.append(fn)
+    if saved:
+        core.set_photos(lid, saved)
 
     link = (f"\n\n🌐 {SITE_URL}/e/{lid}"
             if SITE_URL and "localhost" not in SITE_URL else "")
@@ -483,8 +536,8 @@ def handle_message(msg, st):
     # Сүрөт күтүлүп жатканда
     if msg.get("photo"):
         if view["photo"]:
-            u["data"]["photoFileId"] = msg["photo"][-1]["file_id"]
-            step_forward(chat, uid, name, u, "1")
+            add_photo(chat, u, msg["photo"][-1]["file_id"])
+            save(st)
         else:
             send(chat, m("no_photo", ulang(u)), None)
         return
@@ -517,7 +570,12 @@ def handle_message(msg, st):
 
     # Текст күтүлүп жатабы?
     if view["photo"]:
-        step_forward(chat, uid, name, u, text or "")
+        n = len(u["data"].get("photoFileIds") or [])
+        if n < PHOTO_MIN:
+            send(chat, m("photo_few", ulang(u), PHOTO_MIN))
+            return
+        u.pop("photoMsgId", None)
+        step_forward(chat, uid, name, u, str(n))
         return
 
     if view["input"]:
@@ -578,6 +636,15 @@ def handle_callback(cb, st):
         return
 
     view = render(u["step"], u["data"])
+
+    if data == "photodone" or (data.startswith("o:") and view["photo"]):
+        n = len(u["data"].get("photoFileIds") or [])
+        if n < PHOTO_MIN:
+            send(chat, m("photo_few", ulang(u), PHOTO_MIN))
+            return
+        u.pop("photoMsgId", None)
+        step_forward(chat, uid, name, u, str(n))
+        return
 
     if data == "done":
         if not view["multi"]:

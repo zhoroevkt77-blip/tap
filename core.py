@@ -10,6 +10,7 @@ TAP! — жалпы өзөк. bot.py да, tap.py да ушуну колдоно
 Ошондуктан код өзгөрбөй эле эки жерде тең иштейт.
 """
 
+import json
 import os
 import sqlite3
 from datetime import datetime, timezone
@@ -221,7 +222,7 @@ CREATE TABLE IF NOT EXISTS listings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     category TEXT NOT NULL, subcat TEXT, region TEXT,
     title TEXT NOT NULL, description TEXT, price TEXT, contact TEXT,
-    photo TEXT, tg_id TEXT, tg_name TEXT, stext TEXT,
+    photo TEXT, photos TEXT, tg_id TEXT, tg_name TEXT, stext TEXT,
     views INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
@@ -234,7 +235,7 @@ CREATE TABLE IF NOT EXISTS listings (
     id SERIAL PRIMARY KEY,
     category TEXT NOT NULL, subcat TEXT, region TEXT,
     title TEXT NOT NULL, description TEXT, price TEXT, contact TEXT,
-    photo TEXT, tg_id TEXT, tg_name TEXT, stext TEXT,
+    photo TEXT, photos TEXT, tg_id TEXT, tg_name TEXT, stext TEXT,
     views INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
@@ -244,7 +245,7 @@ CREATE TABLE IF NOT EXISTS listings (
 
 
 NEW_COLUMNS = ["ad_type", "cat_id", "sub_id",
-               "oblast", "district", "locality", "village"]
+               "oblast", "district", "locality", "village", "photos"]
 
 
 def _add_missing_columns():
@@ -320,6 +321,36 @@ def add_listing(d, tg_id, tg_name):
 
 def set_photo(lid, name):
     query("UPDATE listings SET photo=? WHERE id=?", (name, lid))
+
+
+def set_photos(lid, names):
+    """
+    Жарыянын бардык сүрөттөрүн жазат.
+
+    `photos` — JSON тизме, `photo` — биринчи сүрөт. Экинчиси эски
+    код (сайттын карточкалары, боттун тизмеси) үчүн сакталат.
+    """
+    names = [n for n in (names or []) if n]
+    if not names:
+        return
+    query("UPDATE listings SET photo=?, photos=? WHERE id=?",
+          (names[0], json.dumps(names, ensure_ascii=False), lid))
+
+
+def photo_list(row):
+    """Жарыянын сүрөттөрү. Эски жарыяларда бирөө гана."""
+    raw = row.get("photos") if hasattr(row, "get") else None
+    if raw:
+        try:
+            got = json.loads(raw)
+            if isinstance(got, list):
+                out = [str(x) for x in got if x]
+                if out:
+                    return out
+        except (ValueError, TypeError):
+            pass
+    one = row.get("photo") if hasattr(row, "get") else None
+    return [one] if one else []
 
 
 def _filters(q=None, cat=None, region=None, sub=None,
