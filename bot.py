@@ -15,6 +15,7 @@ import json, os, ssl, time, urllib.parse, urllib.request, mimetypes
 import core
 from core import MEDIA, SITE_URL, price_label
 import bridge
+from strings import L as _pick
 from tap_flow import render, advance, START_STEP
 
 TOKEN_FILE = os.path.join(core.BASE, "token.txt")
@@ -160,10 +161,103 @@ def reset(u, full=False):
 
 # ==================== Баскычтар ====================
 
-HOME = {"keyboard": [[{"text": "🏠 Башкы меню"}]], "resize_keyboard": True}
+# ==================== Тил ====================
+
+# Боттун өз жазуулары: (кыргызча, орусча)
+MSG = {
+    "home_btn":   ("🏠 Башкы меню",        "🏠 Главное меню"),
+    "done_btn":   ("✅ Тандап бүттүм",      "✅ Готово"),
+    "more_btn":   ("⬇️ Дагы көрсөт",       "⬇️ Показать ещё"),
+    "del_btn":    ("🗑 Өчүрүү",            "🗑 Удалить"),
+    "menu_short": ("Эмне кыласыз? 👇",     "Что делаете? 👇"),
+    "multi_hint": ("Бир нече тандаса болот — бүткөндөн кийин «Тандап бүттүм» басыңыз.",
+                   "Можно выбрать несколько — потом нажмите «Готово»."),
+    "photo_hint": ("Сүрөттү жөн эле жөнөтүңүз, же «Өткөрүү» деп жазыңыз.",
+                   "Просто отправьте фото, или напишите «Пропустить»."),
+    "more_left":  ("Дагы %d жарыя бар.",   "Ещё %d объявлений."),
+    "thats_all":  ("Баары ушул.",          "Это всё."),
+    "near":       ("Так дал келгени табылган жок, жакындарын көрсөтөм 👇",
+                   "Точных совпадений нет, показываю похожие 👇"),
+    "nothing":    ("Эч нерсе табылган жок 😔\n"
+                   "Башка сөз менен, же башка аймактан аракет кылып көрүңүз.",
+                   "Ничего не найдено 😔\n"
+                   "Попробуйте другое слово или другой регион."),
+    "found":      ("🔎 <b>%d жарыя табылды</b>", "🔎 <b>Найдено объявлений: %d</b>"),
+    "posted":     ("✅ <b>Жарыя коюлду!</b>  №%d", "✅ <b>Объявление размещено!</b>  №%d"),
+    "no_posts":   ("Сизде азырынча жарыя жок.", "У вас пока нет объявлений."),
+    "my_posts":   ("📋 Сизде %d жарыя бар:",  "📋 У вас %d объявлений:"),
+    "removed":    ("(өчүрүлгөн)",           "(удалено)"),
+    "del_ok":     ("🔴 Жарыя №%d өчүрүлдү.", "🔴 Объявление №%d удалено."),
+    "del_fail":   ("Өчүрүү мүмкүн болбоду.", "Не удалось удалить."),
+    "error":      ("Кечиресиз, ката кетти. Башынан баштайлы.",
+                   "Извините, произошла ошибка. Начнём сначала."),
+    "no_photo":   ("Азыр сүрөт күтүлбөй жатат.", "Сейчас фото не ожидается."),
+    "write_smth": ("Бир нерсе жазыңыз:",     "Напишите что-нибудь:"),
+    "use_btn":    ("Төмөнкү баскычтардан тандаңыз 👇",
+                   "Выберите одну из кнопок ниже 👇"),
+    "pick_one":   ("Жок дегенде бирөөнү тандаңыз.", "Выберите хотя бы один вариант."),
+    "untitled":   ("Жарыя",                 "Объявление"),
+}
 
 
-def flow_kb(view, picked=None):
+def ulang(u):
+    """Колдонуучунун тили: "ky" же "ru"."""
+    return "ru" if (u.get("data") or {}).get("uiLanguage") == "ru" else "ky"
+
+
+def m(key, lang, *args):
+    """Боттун жазуусу — тандалган тилде."""
+    ky, ru = MSG[key]
+    s = ru if lang == "ru" else ky
+    return (s % args) if args else s
+
+
+def _stars(s):
+    """Кош жылдызчаны калың текстке айлантат, жалгызын алып салат."""
+    if s.count("*") % 2:
+        return s.replace("*", "")
+    out, bold = [], False
+    for ch in s:
+        if ch == "*":
+            out.append("</b>" if bold else "<b>")
+            bold = not bold
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _lead(s):
+    """Саптын башындагы эмодзи/белги бөлүгү («🔍 », «• », «✅ »)."""
+    i = 0
+    while i < len(s) and (ord(s[i]) >= 0x2000 or s[i] == " "):
+        i += 1
+    return s[:i]
+
+
+def loc(text, lang):
+    """
+    Флоунун «кыргызча / орусча» жазуусунан бир тилди алат.
+
+    Эмодзи көбүнчө кыргызча жагында гана турат («🔍 Издейм / Ищу»),
+    ошондуктан орусчаны тандаганда аны кайра кошуп коёбуз.
+    """
+    out = []
+    for line in str(text or "").split("\n"):
+        picked = _pick(line, lang)
+        head = _lead(line)
+        if head.strip() and not picked.startswith(head.strip()[:1]):
+            picked = head + picked
+        out.append(_stars(picked))
+    return "\n".join(out)
+
+
+# ==================== Баскычтар ====================
+
+def home_kb(lang="ky"):
+    return {"keyboard": [[{"text": m("home_btn", lang)}]], "resize_keyboard": True}
+
+
+def flow_kb(view, picked=None, lang="ky"):
     """
     Флоунун көрүнүшүн Telegram клавиатурасына айлантат.
 
@@ -174,23 +268,24 @@ def flow_kb(view, picked=None):
     if not view["options"]:
         return None
     picked = picked or []
+    ready = view.get("localized")
     rows = []
     has_home = False
     for i, o in enumerate(view["options"]):
+        label = o["label"] if ready else loc(o["label"], lang)
         # «Биздин сайт» — түз шилтеме баскычы: бир басууда браузер ачылат.
         if o["value"] == "tap_site" and SITE_URL and "localhost" not in SITE_URL:
-            rows.append([{"text": o["label"][:64], "url": SITE_URL}])
+            rows.append([{"text": label[:64], "url": SITE_URL}])
             continue
         if o["value"] == "home":
             has_home = True
         mark = "☑️ " if (view["multi"] and o["value"] in picked) else ""
-        label = mark + o["label"]
-        rows.append([{"text": label[:64], "callback_data": "o:%d" % i}])
+        rows.append([{"text": (mark + label)[:64], "callback_data": "o:%d" % i}])
     if view["multi"]:
-        rows.append([{"text": "✅ Тандап бүттүм", "callback_data": "done"}])
+        rows.append([{"text": m("done_btn", lang), "callback_data": "done"}])
     # Флоу өзү «Башкы меню» сунуштап турса, кайталабайбыз.
     if not has_home:
-        rows.append([{"text": "🏠 Башкы меню", "callback_data": "home"}])
+        rows.append([{"text": m("home_btn", lang), "callback_data": "home"}])
     return {"inline_keyboard": rows}
 
 
@@ -201,17 +296,18 @@ def ask(chat, u, short=False):
     short=True — иш бүткөндөн кийин (издөө, жарыя коюу) башкы меню кыска
     түрдө чыгат: узун саламдашууну ар жолу кайталабай.
     """
+    lang = ulang(u)
     view = render(u["step"], u["data"])
-    text = view["text"]
+    text = view["text"] if view.get("localized") else loc(view["text"], lang)
     if short and u["step"] == "main_menu":
-        text = "Эмне кыласыз? / Что делаете? 👇"
+        text = m("menu_short", lang)
     if view["multi"]:
-        text += "\n<i>Бир нече тандаса болот — тандап бүткөндөн кийин «Тандап бүттүм» басыңыз.</i>"
+        text += "\n<i>%s</i>" % m("multi_hint", lang)
     if view["photo"]:
-        text += "\n<i>Сүрөттү жөн эле жөнөтүңүз, же «Өткөрүү» деп жазыңыз.</i>"
+        text += "\n<i>%s</i>" % m("photo_hint", lang)
     elif view["input"] and view["placeholder"]:
-        text += "\n<i>%s</i>" % esc(view["placeholder"])
-    send(chat, text, flow_kb(view, u.get("picked")))
+        text += "\n<i>%s</i>" % esc(loc(view["placeholder"], lang))
+    send(chat, text, flow_kb(view, u.get("picked"), lang))
 
 
 # ==================== Жарыяны көрсөтүү ====================
@@ -230,7 +326,7 @@ def fmt(r):
     return "\n".join(lines)
 
 
-def show_results(chat, rows, total, shown):
+def show_results(chat, rows, total, shown, lang="ky"):
     for r in rows:
         photo = os.path.join(MEDIA, r["photo"]) if r.get("photo") else None
         if photo and os.path.isfile(photo):
@@ -238,15 +334,16 @@ def show_results(chat, rows, total, shown):
         else:
             send(chat, fmt(r))
     if shown < total:
-        send(chat, f"Дагы {total - shown} жарыя бар.",
-             {"inline_keyboard": [[{"text": "⬇️ Дагы көрсөт",
+        send(chat, m("more_left", lang, total - shown),
+             {"inline_keyboard": [[{"text": m("more_btn", lang),
                                     "callback_data": f"more:{shown}"}]]})
     else:
-        send(chat, "Баары ушул.", HOME)
+        send(chat, m("thats_all", lang), home_kb(lang))
 
 
 def run_search(chat, u):
     """Флоу чогулткан чыпкалар боюнча базадан издейт."""
+    lang = ulang(u)
     d = u["data"]
     f = {
         "q":       d.get("keyword"),
@@ -271,26 +368,26 @@ def run_search(chat, u):
             f = attempt
             u["find"] = f
             if i:
-                send(chat, "Так дал келгени табылган жок, жакындарын көрсөтөм 👇")
+                send(chat, m("near", lang))
             break
     if not total:
         reset(u)
-        send(chat, "Эч нерсе табылган жок 😔\n"
-                   "Башка сөз менен, же башка аймактан аракет кылып көрүңүз.")
+        send(chat, m("nothing", lang))
         return
     rows = core.find(f["q"], limit=PER_PAGE, ad_type=f["ad_type"],
                      cat_id=f["cat_id"], oblast=f["oblast"])
-    send(chat, f"🔎 <b>{total} жарыя табылды</b>")
-    show_results(chat, rows, total, len(rows))
+    send(chat, m("found", lang, total))
+    show_results(chat, rows, total, len(rows), lang)
     reset(u)
 
 
 def save_ad(chat, uid, name, u):
     """Даяр жарыяны базага жазат."""
+    lang = ulang(u)
     d = u["data"]
     row = bridge.to_listing(d)
     if not row["title"]:
-        row["title"] = "Жарыя"
+        row["title"] = m("untitled", lang)
     lid = core.add_listing(row, uid, name)
 
     fid = d.get("photoFileId")
@@ -301,22 +398,23 @@ def save_ad(chat, uid, name, u):
 
     link = (f"\n\n🌐 {SITE_URL}/e/{lid}"
             if SITE_URL and "localhost" not in SITE_URL else "")
-    send(chat, f"✅ <b>Жарыя коюлду!</b>  №{lid}\n\n"
+    send(chat, m("posted", lang, lid) + "\n\n"
                f"📦 {esc(row['title'])}\n"
                f"💰 {esc(price_label(row.get('price')))}\n"
-               f"📍 {esc(row.get('region') or '—')}{link}", HOME)
+               f"📍 {esc(row.get('region') or '—')}{link}", home_kb(lang))
     reset(u)
 
 
 def show_my(chat, uid, u):
+    lang = ulang(u)
     rows = core.my_listings(uid)
     if not rows:
-        send(chat, "Сизде азырынча жарыя жок.", HOME)
+        send(chat, m("no_posts", lang), home_kb(lang))
     else:
-        send(chat, f"📋 Сизде {len(rows)} жарыя бар:")
+        send(chat, m("my_posts", lang, len(rows)))
         for r in rows:
-            status = "🟢" if r["is_active"] else "🔴 (өчүрүлгөн)"
-            kb = ({"inline_keyboard": [[{"text": "🗑 Өчүрүү",
+            status = "🟢" if r["is_active"] else "🔴 " + m("removed", lang)
+            kb = ({"inline_keyboard": [[{"text": m("del_btn", lang),
                                          "callback_data": f"del:{r['id']}"}]]}
                   if r["is_active"] else None)
             send(chat, f"{status} №{r['id']}\n"
@@ -344,8 +442,9 @@ def step_forward(chat, uid, name, u, value):
         u["step"], u["data"] = advance(u["step"], value, u["data"])
     except Exception as e:
         print("  Флоу катасы:", e, flush=True)
+        lang = ulang(u)
         reset(u)
-        send(chat, "Кечиресиз, ката кетти. Башынан баштайлы.", HOME)
+        send(chat, m("error", lang), home_kb(lang))
         ask(chat, u)
         return
     u["picked"] = []
@@ -387,7 +486,7 @@ def handle_message(msg, st):
             u["data"]["photoFileId"] = msg["photo"][-1]["file_id"]
             step_forward(chat, uid, name, u, "1")
         else:
-            send(chat, "Азыр сүрөт күтүлбөй жатат.", None)
+            send(chat, m("no_photo", ulang(u)), None)
         return
 
     if msg.get("contact"):
@@ -410,7 +509,8 @@ def handle_message(msg, st):
         ask(chat, u)
         return
 
-    if text in ("🏠 Башкы меню", "❌ Жокко чыгаруу", "/cancel"):
+    if text in ("🏠 Башкы меню", "🏠 Главное меню",
+                "❌ Жокко чыгаруу", "/cancel"):
         reset(u)
         ask(chat, u)
         return
@@ -422,18 +522,22 @@ def handle_message(msg, st):
 
     if view["input"]:
         if not text:
-            send(chat, "Бир нерсе жазыңыз:")
+            send(chat, m("write_smth", ulang(u)))
             return
         step_forward(chat, uid, name, u, text[:500])
         return
 
-    # Баскычтуу кадамда текст жазылса — жазуусу боюнча дал келтирүү
+    # Баскычтуу кадамда текст жазылса — жазуусу боюнча дал келтирүү.
+    # Баскычтар которулуп чыккандыктан, которулган жазуу менен да
+    # салыштырабыз.
+    lang = ulang(u)
     for o in view["options"]:
-        if o["label"][:64] == text or o["label"] == text:
+        shown = o["label"] if view.get("localized") else loc(o["label"], lang)
+        if text in (o["label"], o["label"][:64], shown, shown[:64]):
             step_forward(chat, uid, name, u, o["value"])
             return
 
-    send(chat, "Төмөнкү баскычтардан тандаңыз 👇")
+    send(chat, m("use_btn", lang))
     ask(chat, u)
 
 
@@ -457,9 +561,9 @@ def handle_callback(cb, st):
         if core.deactivate(lid, uid):
             api("editMessageText", chat_id=chat,
                 message_id=cb["message"]["message_id"],
-                text=f"🔴 Жарыя №{lid} өчүрүлдү.")
+                text=m("del_ok", ulang(u), lid))
         else:
-            send(chat, "Өчүрүү мүмкүн болбоду.")
+            send(chat, m("del_fail", ulang(u)))
         return
 
     if data.startswith("more:"):
@@ -470,7 +574,7 @@ def handle_callback(cb, st):
         rows = core.find(f.get("q"), limit=PER_PAGE, offset=shown,
                          ad_type=f.get("ad_type"), cat_id=f.get("cat_id"),
                          oblast=f.get("oblast"))
-        show_results(chat, rows, total, shown + len(rows))
+        show_results(chat, rows, total, shown + len(rows), ulang(u))
         return
 
     view = render(u["step"], u["data"])
@@ -480,7 +584,7 @@ def handle_callback(cb, st):
             return
         picked = u.get("picked") or []
         if not picked:
-            send(chat, "Жок дегенде бирөөнү тандаңыз.")
+            send(chat, m("pick_one", ulang(u)))
             return
         step_forward(chat, uid, name, u, ", ".join(picked))
         return
@@ -507,7 +611,7 @@ def handle_callback(cb, st):
         try:
             api("editMessageReplyMarkup", chat_id=chat,
                 message_id=cb["message"]["message_id"],
-                reply_markup=flow_kb(view, picked))
+                reply_markup=flow_kb(view, picked, ulang(u)))
         except Exception:
             pass
         return

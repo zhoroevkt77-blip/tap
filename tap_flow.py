@@ -53,8 +53,19 @@ START_STEP = "language_select"
 MENU_EXTRA = [
     {"label": "🌐 Биздин сайт / Наш сайт", "value": "tap_site"},
     {"label": "🆘 Жардам / Помощь",        "value": "tap_help"},
-    {"label": "🌐 Тил / Язык",             "value": "tap_lang"},
+    # Тил баскычы атайын эки тилде: кайсы тилде турса да табылсын.
+    # Ичинде « / » бөлгүчү жок, ошондуктан которулбайт.
+    {"label": "🌐 Тил/Язык",               "value": "tap_lang"},
 ]
+
+
+# Жардам бөлүмүнүн баскычтары — тандалган тилде гана.
+_HELP_BTN = {
+    "guide": ("📖 Нускама",                "📖 Инструкция"),
+    "faq":   ("❓ Көп берилүүчү суроолор",  "❓ Частые вопросы"),
+    "home":  ("🏠 Башкы меню",             "🏠 Главное меню"),
+    "back":  ("⬅️ Артка",                  "⬅️ Назад"),
+}
 
 
 def _main_options():
@@ -66,6 +77,12 @@ def _main_options():
 def _ui_lang(d):
     """Колдонуучу тандаган тил: "ky" же "ru"."""
     return "ru" if (d or {}).get("uiLanguage") == "ru" else "ky"
+
+
+def _hb(key, d):
+    """Жардам баскычынын жазуусу — тандалган тилде."""
+    ky, ru = _HELP_BTN[key]
+    return ru if _ui_lang(d) == "ru" else ky
 
 
 OTHER = "Башка / Другое"
@@ -104,7 +121,7 @@ def _regions():
 
 
 def _view(text, options=None, input=False, placeholder="", multi=False,
-          photo=False, final=False):
+          photo=False, final=False, localized=False):
     return {
         "text": text,
         "options": options or [],
@@ -113,6 +130,9 @@ def _view(text, options=None, input=False, placeholder="", multi=False,
         "multi": multi,
         "photo": photo,
         "final": final,
+        # localized=True — текст мурунтан бир тилде даяр, кайра
+        # которуунун кереги жок (Жардам, Нускама, Сайт).
+        "localized": localized,
     }
 
 
@@ -267,19 +287,19 @@ def render(step, data=None):
     # ── Биздин сайт жана Жардам ─────────────────────────────
     if step == "site_info":
         return _view(_help_text("site", _ui_lang(d)),
-                     _opts([("🏠 Башкы меню / Главное меню", "home")]))
+                     _opts([(_hb("home", d), "home")]), localized=True)
 
     if step == "help_menu":
         return _view(_help_text("head", _ui_lang(d)),
-                     _opts([("📖 Нускама / Инструкция", "guide"),
-                            ("❓ Көп берилүүчү суроолор / Частые вопросы", "faq"),
-                            ("🏠 Башкы меню / Главное меню", "home")]))
+                     _opts([(_hb("guide", d), "guide"),
+                            (_hb("faq", d), "faq"),
+                            (_hb("home", d), "home")]), localized=True)
 
     if step in ("help_guide", "help_faq"):
         key = "guide" if step == "help_guide" else "faq"
         return _view(_help_text(key, _ui_lang(d)),
-                     _opts([("⬅️ Артка / Назад", "back"),
-                            ("🏠 Башкы меню / Главное меню", "home")]))
+                     _opts([(_hb("back", d), "back"),
+                            (_hb("home", d), "home")]), localized=True)
 
     if step == "type_select":
         head = WARNING_TEXT + "\n\n" if act == "post" else ""
