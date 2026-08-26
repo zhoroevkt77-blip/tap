@@ -22,6 +22,8 @@
   --mist   #E4E9E5  чек сызыктар
 """
 
+import os
+
 FONTS = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
@@ -48,59 +50,8 @@ TUNDUK = (
 )
 
 
-# ── Бөлүмдөрдүн белгилери ────────────────────────────────────
-# Баары 24x24, сызык 1.8, учтары жумшак.
+from icons import ICONS  # noqa: E402  (көлөмдүү эмблемалар)
 
-_S = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" '
-      'aria-hidden="true">')
-
-ICONS = {
-    # Баары — төрт квадрат
-    "all": _S + '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/>'
-                '<rect x="13.5" y="3.5" width="7" height="7" rx="2"/>'
-                '<rect x="3.5" y="13.5" width="7" height="7" rx="2"/>'
-                '<rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>',
-
-    # Соода-сатык — базар куржуну
-    "trade": _S + '<path d="M4 8h16l-1.3 11.2a2 2 0 0 1-2 1.8H7.3a2 2 0 0 1-2-1.8L4 8Z"/>'
-                  '<path d="M8.5 8V6a3.5 3.5 0 0 1 7 0v2"/>'
-                  '<path d="M9.5 12v1.5M14.5 12v1.5"/></svg>',
-
-    # Кызмат көрсөтүү — ачкыч менен балка
-    "service": _S + '<path d="M14.5 3.5a4.5 4.5 0 0 0-4 6.6L3.8 16.8a1.8 1.8 0 0 0 2.5 2.5l6.7-6.7'
-                    'a4.5 4.5 0 0 0 5.6-6.2l-2.6 2.6-2.4-.6-.6-2.4 2.6-2.6a4.5 4.5 0 0 0-1.1-.2Z"/>'
-                    '</svg>',
-
-    # Ижарага берүү — ачкыч
-    "rental": _S + '<circle cx="8" cy="8" r="4.5"/>'
-                   '<path d="M11.3 11.3 20 20"/><path d="M17 17l2-2"/>'
-                   '<path d="M14.5 14.5l2-2"/></svg>',
-
-    # Жеткирүү — куту
-    "delivery": _S + '<path d="M3.5 7.8 12 3.5l8.5 4.3v8.4L12 20.5l-8.5-4.3V7.8Z"/>'
-                     '<path d="M3.5 7.8 12 12l8.5-4.2"/><path d="M12 12v8.5"/>'
-                     '<path d="M7.7 5.6 16.3 10"/></svg>',
-
-    # Жумуш берүү — портфель
-    "job": _S + '<rect x="2.8" y="7" width="18.4" height="13" rx="2.4"/>'
-                '<path d="M8.6 7V5.4a2 2 0 0 1 2-2h2.8a2 2 0 0 1 2 2V7"/>'
-                '<path d="M2.8 12.4c2.8 1.4 5.8 2.1 9.2 2.1s6.4-.7 9.2-2.1"/>'
-                '<path d="M12 13.6v1.8"/></svg>',
-
-    # Базарлар — соода катарынын чатыры
-    "markets": _S + '<path d="M3.2 9.2 5 4.5h14l1.8 4.7"/>'
-                    '<path d="M3.2 9.2c0 1.5 1.1 2.6 2.5 2.6s2.5-1.1 2.5-2.6c0 1.5 1.1 2.6 2.5 2.6'
-                    's2.5-1.1 2.5-2.6c0 1.5 1.1 2.6 2.5 2.6s2.5-1.1 2.5-2.6"/>'
-                    '<path d="M5 11.8V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-7.2"/>'
-                    '<path d="M9.8 20.5v-4.3h4.4v4.3"/></svg>',
-
-    # Такси — үстүндө белгиси бар унаа
-    "taxi": _S + '<path d="M3.5 16.5v-3.2l1.9-4.2A2 2 0 0 1 7.2 8h9.6a2 2 0 0 1 1.8 1.1l1.9 4.2v3.2"/>'
-                 '<path d="M3.5 13.3h17"/>'
-                 '<circle cx="7.2" cy="16.6" r="1.6"/><circle cx="16.8" cy="16.6" r="1.6"/>'
-                 '<path d="M9.5 8V5.8h5V8"/></svg>',
-}
 
 # ── Ылдыйкы тилке ────────────────────────────────────────────
 
@@ -119,13 +70,25 @@ NAV_ICONS = {
                  '<path d="M4.8 20.4a7.2 7.2 0 0 1 14.4 0"/></svg>',
 }
 
-NAV = ('<nav class="nav">'
-       f'<a href="/" class="on">{NAV_ICONS["home"]}<span>Башкы бет</span></a>'
-       f'<a href="/">{NAV_ICONS["fav"]}<span>Тандалган</span></a>'
-       f'<a href="/">{NAV_ICONS["add"]}<span>Жарыя берүү</span></a>'
-       f'<a href="/">{NAV_ICONS["msg"]}<span>Билдирүү</span></a>'
-       f'<a href="/">{NAV_ICONS["me"]}<span>Кабинет</span></a>'
-       '</nav>')
+# Ботсуз иштей турган бет — «Тандалган» гана. Калган үчөө ботко алып барат,
+# анткени жарыя коюу, кат жазуу жана өз жарыяларын башкаруу ошол жерде болот.
+BOT = os.environ.get("BOT_USERNAME", "TapmeniBot").lstrip("@")
+
+
+def nav(active="home", lang="ky"):
+    from strings import T
+    items = [
+        ("home", "/",                              NAV_ICONS["home"], T("nav_home", lang)),
+        ("fav",  "/fav",                           NAV_ICONS["fav"],  T("nav_fav", lang)),
+        ("add",  f"https://t.me/{BOT}?start=post", NAV_ICONS["add"],  T("nav_add", lang)),
+        ("msg",  "/msg",                           NAV_ICONS["msg"],  T("nav_msg", lang)),
+        ("me",   f"https://t.me/{BOT}?start=my",   NAV_ICONS["me"],   T("nav_me", lang)),
+    ]
+    out = ""
+    for key, href, ic, label in items:
+        cls = ' class="on"' if key == active else ""
+        out += f'<a href="{href}"{cls}>{ic}<span>{label}</span></a>'
+    return f'<nav class="nav">{out}</nav>'
 
 
 CSS = """
@@ -149,14 +112,22 @@ svg{display:block}
 .top{background:linear-gradient(168deg,#0E7C47 0%,#0B6E3F 62%,#095E36 100%);
  color:#fff;padding:10px 0 16px;position:sticky;top:0;z-index:20}
 .tin{display:flex;align-items:center;gap:11px;padding:3px 0 13px}
-.logo{display:flex;align-items:center;gap:8px;font-family:"Manrope",system-ui,sans-serif;
- font-weight:800;font-size:21px;letter-spacing:-.6px}
-.logo svg{width:23px;height:23px;opacity:.9;flex:none}
+.logo{display:flex;align-items:center;font-family:"Manrope",system-ui,sans-serif;
+ font-weight:800;font-size:23px;letter-spacing:-.8px;flex:none}
 .pin{font-size:13px;font-weight:500;background:rgba(255,255,255,.15);
  border:1px solid rgba(255,255,255,.14);padding:6px 12px;border-radius:15px;
- display:flex;align-items:center;gap:5px;max-width:57%;
+ display:flex;align-items:center;gap:5px;max-width:44%;min-width:0;
  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pin b{font-weight:400;opacity:.85;font-size:12px}
+/* Тил алмаштыруу — оң четте, кичине, бирок басууга ыңгайлуу */
+.lgs{margin-left:auto;display:flex;background:rgba(255,255,255,.14);
+ border:1px solid rgba(255,255,255,.16);border-radius:13px;padding:2px;flex:none}
+.lg{padding:4px 9px;font-size:11.5px;font-weight:600;border-radius:11px;
+ color:rgba(255,255,255,.78);letter-spacing:.3px;line-height:1.3}
+.lg.on{background:#fff;color:var(--moss)}
+.lang{margin-left:auto;flex:none;font-size:12px;font-weight:700;letter-spacing:.4px;
+ background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.2);
+ padding:6px 11px;border-radius:14px}
 .s{display:flex;align-items:center;background:#fff;border-radius:26px;
  padding:0 5px 0 17px;height:48px;box-shadow:0 3px 14px rgba(6,52,30,.16)}
 .s input{flex:1;min-width:0;border:0;font-size:16px;font-family:inherit;
@@ -168,19 +139,30 @@ svg{display:block}
 .s button:active{transform:scale(.97)}
 
 /* ---- Бөлүмдөр ---- */
-.cats{display:flex;gap:6px;overflow-x:auto;padding:16px 14px 8px;
+.cats{display:flex;gap:8px;overflow-x:auto;padding:16px 14px 10px;
  scrollbar-width:none;max-width:1040px;margin:0 auto}
 .cats::-webkit-scrollbar{display:none}
-.cat{flex:none;width:76px;text-align:center;font-size:11.5px;line-height:1.25;
- color:var(--soft);font-weight:500}
-.cat .ic{width:56px;height:56px;border-radius:19px;background:var(--card);
- border:1px solid var(--mist);display:flex;align-items:center;justify-content:center;
- margin:0 auto 7px;color:var(--moss);transition:.18s}
-.cat .ic svg{width:25px;height:25px}
+.cat{flex:none;width:94px;border-radius:15px;overflow:hidden;background:var(--card);
+ border:1px solid var(--mist);transition:.18s;
+ box-shadow:0 2px 5px rgba(16,35,26,.05),0 10px 20px -12px rgba(16,35,26,.18)}
+.cat .ic{display:block;width:94px;height:74px;overflow:hidden}
+.cat .ic svg{width:100%;height:100%;display:block}
 .cat .lb{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
- overflow:hidden;height:29px}
-.cat.on .ic{background:var(--moss);border-color:var(--moss);color:#fff;
- box-shadow:0 5px 14px rgba(11,110,63,.28)}
+ overflow:hidden;padding:7px 6px 8px;font-size:11.5px;line-height:1.22;
+ font-weight:600;color:var(--ink);text-align:center;min-height:38px}
+.cat.on{border-color:var(--moss);
+ box-shadow:0 0 0 2px var(--moss),0 10px 22px -12px rgba(16,72,42,.55)}
+.cat.on .lb{background:var(--moss);color:#fff}
+.cat.on .ic{background:linear-gradient(160deg,#2F7C4E 0%,#1F5C39 100%);
+ border-color:#1F5C39;
+ box-shadow:0 4px 10px rgba(16,72,42,.3),0 12px 26px -10px rgba(16,72,42,.5)}
+/* Тандалганда белги караңгы тактын үстүндө жарык болуп калат —
+   үч катмар актын үч даражасына айланып, көлөмү сакталат. */
+.cat.on .ic svg [data-t="lite"]{fill:#FFFFFF;stroke:#FFFFFF}
+.cat.on .ic svg [data-t="mid"] {fill:#A9D5BC;stroke:#A9D5BC}
+.cat.on .ic svg [data-t="deep"]{fill:#164A31;stroke:#164A31}
+/* Тешик так менен бирдей түстө болсун — ичи көрүнүп турсун */
+.cat.on .ic svg [data-t="hole"]{fill:#255E3E}
 .cat.on{color:var(--ink);font-weight:600}
 
 /* ---- Чыпкалар ---- */
@@ -209,20 +191,25 @@ svg{display:block}
 .c{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
  overflow:hidden;display:flex;flex-direction:column;transition:.16s}
 .c:active{transform:scale(.985)}
-.ph{position:relative;aspect-ratio:4/3;background:#EDF1EE;
+.ph{position:relative;aspect-ratio:16/11;background:#EDF1EE;overflow:hidden;
  display:flex;align-items:center;justify-content:center;color:#C2D2C8}
-.ph i{display:block;width:34px;height:34px;opacity:.5}
+.ph i{display:block;width:30px;height:30px;opacity:.45}
 .ph i svg{width:100%;height:100%}
-.ph img{width:100%;height:100%;object-fit:cover;display:block}
-.c.nophoto .ph{aspect-ratio:16/9}
-.fav{position:absolute;top:9px;right:9px;width:32px;height:32px;border-radius:50%;
+.ph img{position:absolute;inset:0;width:100%;height:100%;
+ object-fit:cover;display:block}
+.c.nophoto .ph{aspect-ratio:5/2}
+.fav{position:absolute;top:9px;right:9px;width:33px;height:33px;border-radius:50%;
  background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;
- color:var(--faint);box-shadow:0 1px 4px rgba(16,35,26,.1)}
-.fav svg{width:17px;height:17px}
+ color:var(--faint);box-shadow:0 1px 4px rgba(16,35,26,.1);border:0;padding:0;
+ cursor:pointer;transition:.15s}
+.fav svg{width:17px;height:17px;transition:.15s}
+.fav.on{color:#E0483C}
+.fav.on svg{fill:#E0483C;transform:scale(1.12)}
+.fav:active{transform:scale(.88)}
 .cb{padding:11px 12px 13px;display:flex;flex-direction:column;flex:1}
 .p{font-family:"Manrope",system-ui,sans-serif;font-size:18px;font-weight:800;
  letter-spacing:-.4px;margin-bottom:5px;font-variant-numeric:tabular-nums}
-.pd{font-family:"Golos Text",system-ui,sans-serif;font-size:14.5px;font-weight:600;
+.pd{font-family:"Golos Text",system-ui,sans-serif;font-size:12.5px;font-weight:600;
  color:var(--leaf);letter-spacing:0}
 .t{font-size:13.5px;line-height:1.38;margin:0 0 10px;font-weight:400;color:var(--soft);
  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -232,15 +219,33 @@ svg{display:block}
 .m .vw{margin-left:auto;display:flex;align-items:center;gap:3px}
 .m .vw svg{width:13px;height:13px}
 
+/* ---- Бөлүмдөрдүн катарлары (башкы бет) ---- */
+.shelf{padding:20px 0 4px}
+.shead{display:flex;align-items:baseline;gap:10px;padding:0 0 9px}
+.shead h2{font-size:17px;font-weight:700;margin:0;letter-spacing:-.3px}
+.shead .more{margin-left:auto;font-size:13px;color:var(--leaf);font-weight:600;
+ white-space:nowrap}
+.shchips{padding:0 0 11px;margin:0}
+.shchips .sb2{font-family:inherit;cursor:pointer}
+.srow{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x proximity;
+ padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.srow::-webkit-scrollbar{display:none}
+.srow>.c{flex:0 0 46%;scroll-snap-align:start}
+@media(min-width:620px){.srow>.c{flex:0 0 30%}}
+@media(min-width:900px){.srow>.c{flex:0 0 23%}}
+.srow.load{opacity:.45;transition:.15s}
+
 /* ---- Толук барак ---- */
 .back{display:inline-flex;align-items:center;gap:6px;padding:15px 0 9px;
  font-size:14px;color:var(--leaf);font-weight:600}
 .dph{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
  overflow:hidden;margin-bottom:11px;display:flex;align-items:center;
- justify-content:center;min-height:150px;color:#C2D2C8}
+ justify-content:center;min-height:150px;max-height:min(52vh,430px);
+ color:#C2D2C8}
 .dph i{display:block;width:52px;height:52px;opacity:.55}
 .dph i svg{width:100%;height:100%}
-.dph img{width:100%;height:auto;display:block}
+.dph img{width:100%;height:auto;max-height:min(52vh,430px);
+ object-fit:contain;display:block}
 .dcard{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
  padding:16px;margin-bottom:11px}
 .eb{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;
@@ -248,8 +253,10 @@ svg{display:block}
 .eb svg{width:15px;height:15px}
 .dp{font-family:"Manrope",system-ui,sans-serif;font-size:29px;font-weight:800;
  letter-spacing:-1px;margin-bottom:5px;font-variant-numeric:tabular-nums}
-.dpd{font-family:"Golos Text",system-ui,sans-serif;font-size:21px;font-weight:600;
- color:var(--leaf);letter-spacing:-.2px}
+/* Толук баракта «Келишим баада» баа эмес, шарт — ошондуктан
+   категориянын атынан да кичине, басымсыз турат. */
+.dpd{font-family:"Golos Text",system-ui,sans-serif;font-size:15px;font-weight:600;
+ color:var(--leaf);letter-spacing:0;margin-bottom:9px}
 .dcard h1{font-size:18px;line-height:1.32;font-weight:600;margin:0 0 15px}
 .f{display:flex;flex-direction:column;gap:1px;background:var(--mist);
  border-radius:13px;overflow:hidden;border:1px solid var(--mist)}
@@ -258,6 +265,21 @@ svg{display:block}
 .f b{font-weight:500;color:var(--faint)}
 .f span{font-weight:500;text-align:right}
 .d{margin:0;font-size:14.5px;line-height:1.55;white-space:pre-wrap;color:#2A3B32}
+/* ---- Байланыш баскычтары ---- */
+.cbar{display:flex;gap:8px;margin-bottom:16px}
+.cb1{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;
+ justify-content:center;gap:5px;height:64px;border-radius:15px;color:#fff;
+ font-size:12.5px;font-weight:600;text-align:center;padding:0 4px}
+.cb1 svg{width:22px;height:22px;flex:none}
+.cb1 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.cb1:active{transform:scale(.97)}
+.cb1.call{background:var(--leaf);box-shadow:0 4px 12px rgba(18,160,92,.26)}
+.cb1.wa{background:#22C15E;box-shadow:0 4px 12px rgba(34,193,94,.24)}
+.cb1.tg{background:#2AA3DA;box-shadow:0 4px 12px rgba(42,163,218,.24)}
+.cnum{text-align:center;font-family:"Manrope",system-ui,sans-serif;font-weight:800;
+ font-size:19px;letter-spacing:.2px;color:var(--ink);
+ font-variant-numeric:tabular-nums;margin:2px 0 10px}
+
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;
  background:var(--leaf);color:#fff;border-radius:15px;padding:15px;
  font-size:16px;font-weight:600;box-shadow:0 5px 16px rgba(18,160,92,.28);
@@ -266,6 +288,47 @@ svg{display:block}
 .btn span{font-family:"Manrope",system-ui,sans-serif;font-weight:700;
  font-variant-numeric:tabular-nums;letter-spacing:.2px}
 .btn:active{transform:scale(.985)}
+
+/* ---- Аймак боюнча издөө жана Билдирүү барагы ---- */
+.ftitle{font-size:23px;font-weight:700;letter-spacing:-.5px;margin:20px 0 6px}
+.flead{font-size:14.5px;color:var(--soft);margin:0 0 16px;line-height:1.5}
+.fsearch{display:flex;gap:8px;margin:0 0 20px}
+.fsearch input{flex:1;min-width:0;height:46px;border:1px solid var(--mist);
+ border-radius:15px;padding:0 15px;font-size:15px;font-family:inherit;
+ background:var(--card);color:var(--ink)}
+.fsearch input:focus{outline:none;border-color:var(--leaf)}
+.fsearch input::placeholder{color:var(--faint)}
+.fsearch button{border:0;background:var(--ink);color:#fff;height:46px;padding:0 20px;
+ border-radius:15px;font-size:14.5px;font-weight:600;font-family:inherit;flex:none}
+.fstep{font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;
+ letter-spacing:.6px;margin:0 0 9px}
+.flist{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
+ overflow:hidden;margin-bottom:16px}
+.frow{display:flex;align-items:center;gap:12px;padding:15px 16px;font-size:15px;
+ border-bottom:1px solid var(--mist)}
+.frow:last-child{border-bottom:0}
+.frow:active{background:#F2F6F3}
+.fchev{margin-left:auto;color:var(--faint);font-size:20px;line-height:1}
+.fnote{font-size:14px;color:var(--soft);padding:18px 16px;margin:0}
+.fskip{display:block;text-align:center;margin-bottom:20px}
+.qh{font-size:15.5px;font-weight:600;margin:0 0 7px;letter-spacing:-.1px}
+.qp{font-size:14.5px;line-height:1.55;color:#2A3B32;margin:0}
+
+/* ---- Бөлүм катарлары (башкы бет) ---- */
+.shelf{margin:26px 0 4px}
+.shead{display:flex;align-items:baseline;gap:10px;padding:0 0 10px}
+.shead h2{font-size:19px;font-weight:700;letter-spacing:-.4px;margin:0}
+.more{margin-left:auto;font-size:13px;font-weight:600;color:var(--leaf);
+ white-space:nowrap;flex:none}
+.shchips{padding:0 0 11px!important;margin:0!important}
+.shchips .sb2{border:1px solid #D2E8DC;cursor:pointer;font-family:inherit}
+.srow{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x proximity;
+ scrollbar-width:none;padding-bottom:4px;transition:opacity .15s}
+.srow::-webkit-scrollbar{display:none}
+.srow.load{opacity:.4}
+.srow .c{flex:0 0 47%;scroll-snap-align:start}
+@media(min-width:620px){.srow .c{flex:0 0 31%}}
+@media(min-width:900px){.srow .c{flex:0 0 23%}}
 
 /* ---- Бош барак ---- */
 .em{text-align:center;padding:52px 22px 34px}
