@@ -112,9 +112,8 @@ svg{display:block}
 .top{background:linear-gradient(168deg,#0E7C47 0%,#0B6E3F 62%,#095E36 100%);
  color:#fff;padding:10px 0 16px;position:sticky;top:0;z-index:20}
 .tin{display:flex;align-items:center;gap:11px;padding:3px 0 13px}
-.logo{display:flex;align-items:center;gap:8px;font-family:"Manrope",system-ui,sans-serif;
- font-weight:800;font-size:21px;letter-spacing:-.6px}
-.logo svg{width:23px;height:23px;opacity:.9;flex:none}
+.logo{display:flex;align-items:center;font-family:"Manrope",system-ui,sans-serif;
+ font-weight:800;font-size:23px;letter-spacing:-.8px;flex:none}
 .pin{font-size:13px;font-weight:500;background:rgba(255,255,255,.15);
  border:1px solid rgba(255,255,255,.14);padding:6px 12px;border-radius:15px;
  display:flex;align-items:center;gap:5px;max-width:44%;min-width:0;
@@ -192,11 +191,12 @@ svg{display:block}
 .c{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
  overflow:hidden;display:flex;flex-direction:column;transition:.16s}
 .c:active{transform:scale(.985)}
-.ph{position:relative;aspect-ratio:16/11;background:#EDF1EE;
+.ph{position:relative;aspect-ratio:16/11;background:#EDF1EE;overflow:hidden;
  display:flex;align-items:center;justify-content:center;color:#C2D2C8}
 .ph i{display:block;width:30px;height:30px;opacity:.45}
 .ph i svg{width:100%;height:100%}
-.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph img{position:absolute;inset:0;width:100%;height:100%;
+ object-fit:cover;display:block}
 .c.nophoto .ph{aspect-ratio:5/2}
 .fav{position:absolute;top:9px;right:9px;width:33px;height:33px;border-radius:50%;
  background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;
@@ -240,10 +240,12 @@ svg{display:block}
  font-size:14px;color:var(--leaf);font-weight:600}
 .dph{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
  overflow:hidden;margin-bottom:11px;display:flex;align-items:center;
- justify-content:center;min-height:150px;color:#C2D2C8}
+ justify-content:center;min-height:150px;max-height:min(52vh,430px);
+ color:#C2D2C8}
 .dph i{display:block;width:52px;height:52px;opacity:.55}
 .dph i svg{width:100%;height:100%}
-.dph img{width:100%;height:auto;max-height:56vh;object-fit:contain;display:block}
+.dph img{width:100%;height:auto;max-height:min(52vh,430px);
+ object-fit:contain;display:block}
 .dcard{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
  padding:16px;margin-bottom:11px}
 .eb{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;

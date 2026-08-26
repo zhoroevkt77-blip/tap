@@ -17,7 +17,7 @@ from core import (CATS, SUBS, MEDIA, category_title, category_icon, sub_title,
                   price_label, is_deal, ago)
 from tap_catalog import (TRADE_CATEGORIES, SERVICE_CATEGORIES, RENTAL_CATEGORIES,
                          DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES)
-from design import CSS, nav, FONTS, ICONS, NAV_ICONS, TUNDUK, BOT
+from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
 from scenes import SCENES
 from strings import T, L
 
@@ -162,13 +162,23 @@ def _lang_switch(lang):
 def header(q="", at=None, reg=None, lang="ky"):
     hidden = f'<input type="hidden" name="at" value="{esc(at)}">' if at else ""
     return f"""<header class="top"><div class="wrap">
-<div class="tin"><a href="/" class="logo">{TUNDUK}<span>ТАП!</span></a>
+<div class="tin"><a href="/" class="logo"><span>ТАП!</span></a>
 <span class="pin"><b>&#9679;</b>{esc(reg or T("all_kg", lang))}</span>
 {_lang_switch(lang)}</div>
 <form class="s" action="/">{hidden}
 <input type="search" name="q" value="{esc(q)}" placeholder="{T("search_ph", lang)}">
 <button>{T("search_btn", lang)}</button></form></div></header>"""
 
+
+_EMPTY = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+          'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
+          '<circle cx="10.5" cy="10.5" r="7"/><path d="m15.6 15.6 5.4 5.4"/></svg>')
+
+_NOPHOTO = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+            '<rect x="3" y="5" width="18" height="14" rx="2.6"/>'
+            '<circle cx="8.5" cy="10" r="1.8"/>'
+            '<path d="m3.5 17 5-4.6 3.4 3 3.6-3.4 5 5"/></svg>')
 
 _EYE = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">'
         '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>'
@@ -178,7 +188,7 @@ _EYE = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width
 def card(r, lang="ky"):
     has = bool(r.get("photo"))
     img = (f'<img src="/media/{esc(r["photo"])}" alt="" loading="lazy">'
-           if has else f'<i>{TUNDUK}</i>')
+           if has else f'<i>{_NOPHOTO}</i>')
     return f"""<a class="c{'' if has else ' nophoto'}" href="/e/{r['id']}">
 <div class="ph">{img}<button class="fav" data-id="{r['id']}" aria-label="Тандалганга кошуу">{NAV_ICONS['fav']}</button></div>
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(price_label(r['price']))}</div>
@@ -299,12 +309,12 @@ def home(q, at=None, cid=None, ob=None, di=None, lang="ky"):
                 f'<div class="g">{"".join(card(r, lang) for r in rows)}</div>')
     elif at and not q and not cid:
         nm = section_name(at, lang)
-        main = (f'<div class="em"><i>{TUNDUK}</i>'
+        main = (f'<div class="em"><i>{_EMPTY}</i>'
                 f'<h2>«{esc(nm)}» {T("empty_sec", lang)}</h2>'
                 f'<p>{T("be_first", lang)}</p>'
                 f'<a class="dk" href="/">{T("all_ads", lang)}</a></div>')
     else:
-        main = (f'<div class="em"><i>{TUNDUK}</i><h2>{T("nothing", lang)}</h2>'
+        main = (f'<div class="em"><i>{_EMPTY}</i><h2>{T("nothing", lang)}</h2>'
                 f'<p>{T("try_other", lang)}</p>'
                 f'<a class="dk" href="/">{T("all_ads", lang)}</a></div>')
 
@@ -353,7 +363,7 @@ def detail(r, lang="ky"):
         sname = sub_title(r["category"], r.get("subcat"))
         back = f"/?cat={r['category']}"
     dimg = (f'<img src="/media/{esc(r["photo"])}" alt="">'
-            if r.get("photo") else f'<i>{TUNDUK}</i>')
+            if r.get("photo") else f'<i>{_NOPHOTO}</i>')
     desc = (f'<div class="dcard"><p class="d">{esc(r["description"])}</p></div>'
             if r.get("description") else "")
     tel = ""
@@ -463,7 +473,7 @@ def fav_page(lang="ky"):
 <div class="rl"><span class="rn" id="fn">·</span>
 <span class="rlb">{T("fav_title", lang)}</span></div>
 <div class="g" id="fg"></div>
-<div class="em" id="fe" style="display:none"><i>{TUNDUK}</i>
+<div class="em" id="fe" style="display:none"><i>{_EMPTY}</i>
 <h2>{T("fav_empty", lang)}</h2>
 <p>{T("fav_hint", lang)}</p>
 <a class="dk" href="/">{T("fav_look", lang)}</a></div></main>
@@ -489,7 +499,7 @@ window.addEventListener("DOMContentLoaded",function(){{
 
 
 def empty_page(title, note, lang="ky"):
-    return page(header("", None, None, lang) + f'<main class="wrap"><div class="em"><i>{TUNDUK}</i>'
+    return page(header("", None, None, lang) + f'<main class="wrap"><div class="em"><i>{_EMPTY}</i>'
                 f'<h2>{esc(title)}</h2><p>{esc(note)}</p>'
                 f'<a class="dk" href="/">{T("nav_home", lang)}</a></div></main>',
                 title, "home", lang)
