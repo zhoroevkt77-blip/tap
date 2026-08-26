@@ -175,13 +175,22 @@ def flow_kb(view, picked=None):
         return None
     picked = picked or []
     rows = []
+    has_home = False
     for i, o in enumerate(view["options"]):
+        # «Биздин сайт» — түз шилтеме баскычы: бир басууда браузер ачылат.
+        if o["value"] == "tap_site" and SITE_URL and "localhost" not in SITE_URL:
+            rows.append([{"text": o["label"][:64], "url": SITE_URL}])
+            continue
+        if o["value"] == "home":
+            has_home = True
         mark = "☑️ " if (view["multi"] and o["value"] in picked) else ""
         label = mark + o["label"]
         rows.append([{"text": label[:64], "callback_data": "o:%d" % i}])
     if view["multi"]:
         rows.append([{"text": "✅ Тандап бүттүм", "callback_data": "done"}])
-    rows.append([{"text": "🏠 Башкы меню", "callback_data": "home"}])
+    # Флоу өзү «Башкы меню» сунуштап турса, кайталабайбыз.
+    if not has_home:
+        rows.append([{"text": "🏠 Башкы меню", "callback_data": "home"}])
     return {"inline_keyboard": rows}
 
 

@@ -43,8 +43,28 @@ from tap_catalog import (
     get_categories, get_subs_for_category,
     get_clothing_subs, get_footwear_subs, ru_name,
 )
+from strings import H as _help_text
 
 START_STEP = "language_select"
+
+
+# Башкы менюга кошумча эки баскыч. tap_catalog.MAIN_OPTIONS'ко
+# тийбей, ушул жерден кошулат — ошондуктан каталог өзгөрбөйт.
+MENU_EXTRA = [
+    {"label": "🌐 Биздин сайт / Наш сайт", "value": "tap_site"},
+    {"label": "🆘 Жардам / Помощь",        "value": "tap_help"},
+]
+
+
+def _main_options():
+    """Башкы менюнун толук тизмеси."""
+    return ([{"label": o["label"], "value": o["value"]} for o in MAIN_OPTIONS]
+            + list(MENU_EXTRA))
+
+
+def _ui_lang(d):
+    """Колдонуучу тандаган тил: "ky" же "ru"."""
+    return "ru" if (d or {}).get("uiLanguage") == "ru" else "ky"
 
 
 OTHER = "Башка / Другое"
@@ -241,7 +261,24 @@ def render(step, data=None):
 
     if step == "main_menu":
         return _view(GREETING + "\n\nЭмне кыласыз? / Что делаете? 👇",
-                     [{"label": o["label"], "value": o["value"]} for o in MAIN_OPTIONS])
+                     _main_options())
+
+    # ── Биздин сайт жана Жардам ─────────────────────────────
+    if step == "site_info":
+        return _view(_help_text("site", _ui_lang(d)),
+                     _opts([("🏠 Башкы меню / Главное меню", "home")]))
+
+    if step == "help_menu":
+        return _view(_help_text("head", _ui_lang(d)),
+                     _opts([("📖 Нускама / Инструкция", "guide"),
+                            ("❓ Көп берилүүчү суроолор / Частые вопросы", "faq"),
+                            ("🏠 Башкы меню / Главное меню", "home")]))
+
+    if step in ("help_guide", "help_faq"):
+        key = "guide" if step == "help_guide" else "faq"
+        return _view(_help_text(key, _ui_lang(d)),
+                     _opts([("⬅️ Артка / Назад", "back"),
+                            ("🏠 Башкы меню / Главное меню", "home")]))
 
     if step == "type_select":
         head = WARNING_TEXT + "\n\n" if act == "post" else ""
@@ -700,7 +737,7 @@ def render(step, data=None):
 
     # Белгисиз кадам
     return _view("Башкы менюга кайттык 🏠 / Вернулись в главное меню 🏠",
-                 [{"label": o["label"], "value": o["value"]} for o in MAIN_OPTIONS])
+                 _main_options())
 
 
 # ─────────────────────────────────────────────────────────────
@@ -772,9 +809,27 @@ def advance(step, value, data=None):
         return go("main_menu", uiLanguage=value)
 
     if step == "main_menu":
+        if value == "tap_site":
+            return go("site_info")
+        if value == "tap_help":
+            return go("help_menu")
         if value == "myposts":
             return go("my_posts_phone")
         return go("type_select", action=value)
+
+    # ── Биздин сайт жана Жардам ─────────────────────────────
+    if step == "site_info":
+        return go("main_menu")
+
+    if step == "help_menu":
+        if value == "guide":
+            return go("help_guide")
+        if value == "faq":
+            return go("help_faq")
+        return go("main_menu")
+
+    if step in ("help_guide", "help_faq"):
+        return go("help_menu") if value == "back" else go("main_menu")
 
     if step == "type_select":
         if value == "taxi":
