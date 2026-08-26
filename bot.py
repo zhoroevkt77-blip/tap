@@ -208,7 +208,7 @@ MSG = {
 }
 
 # Бир жарыяга канча сүрөт. strings.py'дагы сандар менен бирдей.
-PHOTO_MIN = 5
+PHOTO_MIN = 1
 PHOTO_MAX = 10
 
 
