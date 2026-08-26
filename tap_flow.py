@@ -998,7 +998,9 @@ def advance(step, value, data=None):
                         d.get("title"), d.get("jobDuties"), d.get("jobRequirements"), value)
                 return "post_name", d
         d["personName"] = value
-        return ("post_calltime" if at == "trade" else "post_price"), d
+        # Соода менен базар жолунда баа мурунтан суралып койгон
+        # (trade_price). Кайра сурабай, түз чалуу убактысына өтөбүз.
+        return ("post_calltime" if d.get("price") is not None else "post_price"), d
 
     if step == "post_price":
         if value == "__custom__":
