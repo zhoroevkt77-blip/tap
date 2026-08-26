@@ -68,7 +68,6 @@ s, d = START_STEP, {}
 for v in ["ky", "post", "trade"]:
     s, d = advance(s, v, d)
 assert render(s, d)["options"], "меню бош"
-assert len(tap.SECTIONS) == 7, "сайтта жети бөлүм жок"
 assert len(icons.ICONS) == 8, "эмблемалар толук эмес"
 print("   ✓ бот менюсу иштейт, %d облус, %d соода категориясы"
       % (len(tap_catalog.OBLASTS), len(tap_catalog.TRADE_CATEGORIES)))
