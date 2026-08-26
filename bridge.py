@@ -106,19 +106,11 @@ def to_legacy(ad_type, cat_id):
     return ("personal", "other")
 
 
-from taxi_geo import route_tag
-
-
 def region_line(data):
     """
     Аймак дарагын базанын `region` тилкесине батчу бир сапка чогултат.
     Мисалы: "Чүй облусу, Аламүдүн району, Лебединовка"
     """
-    if data.get("adType") == "taxi":
-        frm, to = data.get("taxiFrom"), data.get("taxiTo")
-        if frm and to:
-            return ("%s → %s" % (frm, to))[:200]
-
     parts = []
     for key in ("oblast", "district", "locality", "village"):
         v = data.get(key)
@@ -142,11 +134,6 @@ def _first(text):
 
 def build_title(data):
     """Жарыянын аталышын чогултат."""
-    if data.get("adType") == "taxi":
-        frm, to = data.get("taxiFrom"), data.get("taxiTo")
-        if frm and to:
-            who = "Айдоочу" if data.get("taxiRole") == "driver" else "Жүргүнчү"
-            return "%s ➡️ %s · %s" % (frm, to, who)
     t = data.get("title")
     if t:
         return _first(str(t))[:200]
@@ -160,9 +147,6 @@ def build_description(data):
     Базадагы `description` тилкесине жазылат, сайтта көрүнөт.
     """
     lines = []
-    if data.get("adType") == "taxi":
-        return _taxi_description(data)
-
     label = [
         ("subcategory",   "Түрү"),
         ("tradeWholesale", "Сатуу"),
@@ -205,25 +189,6 @@ def build_description(data):
     return "\n".join(lines)[:2000]
 
 
-def _taxi_description(data):
-    """Такси жарыясынын тексти — Такси роБОТтогудай тартипте."""
-    lines = []
-    for key, name in [("taxiName", "Аты"), ("taxiCar", "Унаа"),
-                      ("taxiDate", "Күнү"), ("taxiTime", "Убактысы"),
-                      ("taxiSeats", "Бош орун"), ("taxiPeople", "Жүргүнчү"),
-                      ("taxiBaggage", "Багаж")]:
-        v = data.get(key)
-        if v and str(v).strip():
-            lines.append("%s: %s" % (name, v))
-    c = data.get("taxiComment")
-    if c and str(c).strip().lower() not in ("-", "жок", "нет", ""):
-        lines.append("📝 %s" % str(c).strip())
-    frm, to = data.get("taxiFrom"), data.get("taxiTo")
-    if frm and to:
-        lines.append(route_tag(frm, to))
-    return "\n".join(lines)[:2000]
-
-
 def to_listing(data):
     """
     Флоунун натыйжасын core.add_listing() күткөн сөздүккө айлантат.
@@ -238,8 +203,8 @@ def to_listing(data):
         "region":      region_line(data),
         "title":       build_title(data),
         "description": build_description(data),
-        "price":       _first(str(data.get("price") or data.get("taxiPrice") or "")),
-        "contact":     str(data.get("phone") or data.get("taxiPhone") or ""),
+        "price":       _first(str(data.get("price") or "")),
+        "contact":     str(data.get("phone") or ""),
         # жаңы тилкелер
         "ad_type":     ad_type,
         "cat_id":      cat_id,
