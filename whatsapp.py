@@ -183,11 +183,18 @@ def _menu(view, u):
     return "\n".join(lines)
 
 
-def _screen(chat_id, u):
-    """Учурдагы кадамды колдонуучуга көрсөтөт."""
+def _screen(chat_id, u, short=False):
+    """
+    Учурдагы кадамды көрсөтөт.
+
+    short=True — иш бүткөндөн кийин башкы меню кыска чыгат: узун
+    саламдашууну ар бир издөөдөн кийин кайталабай.
+    """
     view = render(u["step"], u["data"])
 
     if view["options"]:
+        if short and u["step"] == "main_menu":
+            view = dict(view, text="Эмне кыласыз? / Что делаете? 👇")
         send(chat_id, _menu(view, u))
         return
 
@@ -348,13 +355,14 @@ def _forward(chat_id, u, value):
     u["picked"] = []
     u["page"] = 0
 
+    done = u["step"] in ("search_results", "my_posts", "post_done")
     if u["step"] == "search_results":
         _search(chat_id, u)
     elif u["step"] == "my_posts":
         _my(chat_id, u)
     elif u["step"] == "post_done":
         _save_ad(chat_id, u)
-    _screen(chat_id, u)
+    _screen(chat_id, u, short=done)
 
 
 def handle(body):

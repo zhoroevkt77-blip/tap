@@ -185,10 +185,17 @@ def flow_kb(view, picked=None):
     return {"inline_keyboard": rows}
 
 
-def ask(chat, u):
-    """Учурдагы кадамды колдонуучуга көрсөтөт."""
+def ask(chat, u, short=False):
+    """
+    Учурдагы кадамды көрсөтөт.
+
+    short=True — иш бүткөндөн кийин (издөө, жарыя коюу) башкы меню кыска
+    түрдө чыгат: узун саламдашууну ар жолу кайталабай.
+    """
     view = render(u["step"], u["data"])
     text = view["text"]
+    if short and u["step"] == "main_menu":
+        text = "Эмне кыласыз? / Что делаете? 👇"
     if view["multi"]:
         text += "\n<i>Бир нече тандаса болот — тандап бүткөндөн кийин «Тандап бүттүм» басыңыз.</i>"
     if view["photo"]:
@@ -260,8 +267,7 @@ def run_search(chat, u):
     if not total:
         reset(u)
         send(chat, "Эч нерсе табылган жок 😔\n"
-                   "Башка сөз менен, же башка аймактан аракет кылып көрүңүз.", HOME)
-        ask(chat, u)
+                   "Башка сөз менен, же башка аймактан аракет кылып көрүңүз.")
         return
     rows = core.find(f["q"], limit=PER_PAGE, ad_type=f["ad_type"],
                      cat_id=f["cat_id"], oblast=f["oblast"])
@@ -341,15 +347,15 @@ def step_forward(chat, uid, name, u, value):
     # Атайын кадамдар — база менен иштейт
     if u["step"] == "search_results":
         run_search(chat, u)
-        ask(chat, u)
+        ask(chat, u, short=True)
         return
     if u["step"] == "my_posts":
         show_my(chat, u["data"].get("phone") or uid, u)
-        ask(chat, u)
+        ask(chat, u, short=True)
         return
     if u["step"] == "post_done":
         save_ad(chat, uid, name, u)
-        ask(chat, u)
+        ask(chat, u, short=True)
         return
 
     ask(chat, u)
