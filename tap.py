@@ -392,6 +392,34 @@ def pretty_phone(num):
     return num
 
 
+# Галереянын стили. Кадимки сап — f-string эмес, ошондуктан
+# CSS'тин { } белгилери коопсуз.
+_GAL_CSS = """<style>
+.dph{position:relative}
+.pgal{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
+      gap:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.pgal::-webkit-scrollbar{display:none}
+.pgal img{flex:0 0 100%;scroll-snap-align:center;width:100%;
+          object-fit:contain;border-radius:14px}
+.pgc{position:absolute;right:12px;bottom:12px;padding:3px 10px;
+     border-radius:999px;background:rgba(0,0,0,.6);color:#fff;
+     font-size:13px;font-weight:600;pointer-events:none}
+</style>
+<script>
+(function(){
+  var g=document.getElementById("pgal"), c=document.getElementById("pgc");
+  if(!g||!c) return;
+  var n=g.children.length;
+  g.addEventListener("scroll", function(){
+    var i=Math.round(g.scrollLeft/g.clientWidth)+1;
+    if(i<1) i=1;
+    if(i>n) i=n;
+    c.textContent=i+" / "+n;
+  }, {passive:true});
+})();
+</script>"""
+
+
 def detail(r, lang="ky"):
     at = r.get("ad_type")
     if at:
@@ -408,8 +436,19 @@ def detail(r, lang="ky"):
         ic = ICONS["all"]
         sname = sub_title(r["category"], r.get("subcat"))
         back = f"/?cat={r['category']}"
-    dimg = (f'<img src="/media/{esc(r["photo"])}" alt="">'
-            if r.get("photo") else f'<i>{_NOPHOTO}</i>')
+    # Галерея: бир нече сүрөт болсо сол-оңго сүрүп кароого болот.
+    shots = core.photo_list(r)
+    if not shots:
+        dimg = f'<i>{_NOPHOTO}</i>'
+    elif len(shots) == 1:
+        dimg = f'<img src="/media/{esc(shots[0])}" alt="">'
+    else:
+        strip = "".join(
+            f'<img src="/media/{esc(p)}" alt="" loading="lazy">'
+            for p in shots)
+        dimg = (_GAL_CSS + '<div class="pgal" id="pgal">' + strip
+                + '</div><span class="pgc" id="pgc">1 / '
+                + str(len(shots)) + '</span>')
     desc = (f'<div class="dcard"><p class="d">{esc(r["description"])}</p></div>'
             if r.get("description") else "")
     tel = contact_block(r.get("contact"), lang)
