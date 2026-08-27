@@ -302,21 +302,9 @@ def flow_kb(view, picked=None, lang="ky", back=False):
     if back:
         tail.append({"text": m("back_btn", lang),
                      "callback_data": "back"})
-    tail = []
-    if back:
-        tail.append({"text": m("back_btn", lang),
-                     "callback_data": "back"})
-    tail = []
-    if back:
-        tail.append({"text": m("back_btn", lang),
-                     "callback_data": "back"})
     if not has_home:
         tail.append({"text": m("home_btn", lang),
                      "callback_data": "home"})
-    if tail:
-        rows.append(tail)
-    if tail:
-        rows.append(tail)
     if tail:
         rows.append(tail)
     return {"inline_keyboard": rows}
@@ -527,12 +515,6 @@ def step_forward(chat, uid, name, u, value):
         ask(chat, u)
         return
     u["picked"] = []
-
-    if u["step"] in ("main_menu", "language_select"):
-        u["hist"] = []
-
-    if u["step"] in ("main_menu", "language_select"):
-        u["hist"] = []
 
     if u["step"] in ("main_menu", "language_select"):
         u["hist"] = []
