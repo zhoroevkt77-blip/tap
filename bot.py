@@ -618,6 +618,24 @@ def handle_message(msg, st):
 
 # ==================== Баскыч басылганда ====================
 
+def mark_chosen(chat, cb, view, opt, lang):
+    """
+    Тандалган баскычты белгилеп, калгандарын алып салат.
+    Ошондо чаттын тарыхында эмне тандалганы көрүнүп турат.
+    """
+    label = opt["label"]
+    if not view.get("localized"):
+        label = loc(label, lang)
+    try:
+        api("editMessageReplyMarkup", chat_id=chat,
+            message_id=cb["message"]["message_id"],
+            reply_markup={"inline_keyboard": [[{
+                "text": ("✅ " + label)[:64],
+                "callback_data": "chosen"}]]})
+    except Exception:
+        pass
+
+
 def handle_callback(cb, st):
     chat = cb["message"]["chat"]["id"]
     uid = str(cb["from"]["id"])
@@ -714,6 +732,7 @@ def handle_callback(cb, st):
             pass
         return
 
+    mark_chosen(chat, cb, view, view["options"][i], ulang(u))
     step_forward(chat, uid, name, u, value)
 
 
