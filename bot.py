@@ -10,7 +10,7 @@ TAP! — Telegram бот.
 Иштетүү: python bot.py
 """
 
-import json, os, ssl, time, urllib.parse, urllib.request, mimetypes
+import copy, json, os, ssl, time, urllib.parse, urllib.request, mimetypes
 
 import core
 from core import MEDIA, SITE_URL, price_label
@@ -151,6 +151,7 @@ def reset(u, full=False):
     """
     lang = (u.get("data") or {}).get("uiLanguage")
     u["picked"] = []
+    u["hist"] = []
     if lang and not full:
         u["step"] = "main_menu"
         u["data"] = {"uiLanguage": lang}
@@ -205,6 +206,7 @@ MSG = {
                    "📸 %d фото — это максимум. Нажмите «Готово»."),
     "photo_few":  ("Жок дегенде %d сүрөт керек.", "Нужно минимум %d фото."),
     "photo_done": ("✅ Даяр",                 "✅ Готово"),
+    "back_btn":   ("⬅️ Артка", "⬅️ Назад"),
 }
 
 # Бир жарыяга канча сүрөт. strings.py'дагы сандар менен бирдей.
@@ -269,7 +271,7 @@ def home_kb(lang="ky"):
     return {"keyboard": [[{"text": m("home_btn", lang)}]], "resize_keyboard": True}
 
 
-def flow_kb(view, picked=None, lang="ky"):
+def flow_kb(view, picked=None, lang="ky", back=False):
     """
     Флоунун көрүнүшүн Telegram клавиатурасына айлантат.
 
@@ -289,15 +291,34 @@ def flow_kb(view, picked=None, lang="ky"):
         if o["value"] == "tap_site" and SITE_URL and "localhost" not in SITE_URL:
             rows.append([{"text": label[:64], "url": SITE_URL}])
             continue
-        if o["value"] == "home":
+        if label.lstrip().startswith("🏠"):
             has_home = True
         mark = "☑️ " if (view["multi"] and o["value"] in picked) else ""
         rows.append([{"text": (mark + label)[:64], "callback_data": "o:%d" % i}])
     if view["multi"]:
         rows.append([{"text": m("done_btn", lang), "callback_data": "done"}])
     # Флоу өзү «Башкы меню» сунуштап турса, кайталабайбыз.
+    tail = []
+    if back:
+        tail.append({"text": m("back_btn", lang),
+                     "callback_data": "back"})
+    tail = []
+    if back:
+        tail.append({"text": m("back_btn", lang),
+                     "callback_data": "back"})
+    tail = []
+    if back:
+        tail.append({"text": m("back_btn", lang),
+                     "callback_data": "back"})
     if not has_home:
-        rows.append([{"text": m("home_btn", lang), "callback_data": "home"}])
+        tail.append({"text": m("home_btn", lang),
+                     "callback_data": "home"})
+    if tail:
+        rows.append(tail)
+    if tail:
+        rows.append(tail)
+    if tail:
+        rows.append(tail)
     return {"inline_keyboard": rows}
 
 
@@ -356,7 +377,7 @@ def ask(chat, u, short=False):
         text += "\n<i>%s</i>" % m("photo_hint", lang)
     elif view["input"] and view["placeholder"]:
         text += "\n<i>%s</i>" % esc(loc(view["placeholder"], lang))
-    send(chat, text, flow_kb(view, u.get("picked"), lang))
+    send(chat, text, flow_kb(view, u.get("picked"), lang, back=bool(u.get("hist"))))
 
 
 # ==================== Жарыяны көрсөтүү ====================
@@ -491,6 +512,11 @@ def _apply_pending(u):
 
 def step_forward(chat, uid, name, u, value):
     """Бир жоопту кабыл алып, кийинки кадамга өтөт."""
+    # «Артка» үчүн: учурдагы абалды эстеп калабыз.
+    hist = u.setdefault("hist", [])
+    hist.append({"step": u["step"],
+                 "data": copy.deepcopy(u["data"])})
+    del hist[:-25]
     try:
         u["step"], u["data"] = advance(u["step"], value, u["data"])
     except Exception as e:
@@ -501,6 +527,15 @@ def step_forward(chat, uid, name, u, value):
         ask(chat, u)
         return
     u["picked"] = []
+
+    if u["step"] in ("main_menu", "language_select"):
+        u["hist"] = []
+
+    if u["step"] in ("main_menu", "language_select"):
+        u["hist"] = []
+
+    if u["step"] in ("main_menu", "language_select"):
+        u["hist"] = []
 
     if u["step"] == "main_menu" and u.get("pending"):
         _apply_pending(u)
@@ -608,6 +643,20 @@ def handle_callback(cb, st):
     data = cb.get("data", "")
     u = user(st, uid)
     api("answerCallbackQuery", callback_query_id=cb["id"])
+
+    if data == "back":
+        hist = u.get("hist") or []
+        if not hist:
+            reset(u)
+        else:
+            prev = hist.pop()
+            u["step"] = prev["step"]
+            u["data"] = prev["data"]
+            u["picked"] = []
+            u.pop("photoMsgId", None)
+        save(st)
+        ask(chat, u)
+        return
 
     if data == "home":
         reset(u)
