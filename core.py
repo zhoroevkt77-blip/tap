@@ -464,29 +464,39 @@ def catid_counts(ad_type=None, oblast=None):
 VILLAGE_EXPR = "COALESCE(NULLIF(village,''), NULLIF(locality,''))"
 
 
-def oblast_counts():
+def region_counts(level, oblast=None, district=None,
+                  q=None, ad_type=None, cat_id=None):
+    """
+    Аймактар боюнча жарыялардын саны — учурдагы чыпканын ичинде.
+
+    level: "oblast" | "district" | "village"
+    Бөлүм, категория жана издөө сөзү эсепке алынат, ошондуктан
+    сандар экранда көрүнүп турган тизме менен дал келет.
+    """
+    expr = {"oblast": "oblast",
+            "district": "district"}.get(level, VILLAGE_EXPR)
+    where, p = _filters(q=q, ad_type=ad_type, cat_id=cat_id,
+                        oblast=oblast, district=district)
+    rows = query("SELECT " + expr + " AS k, COUNT(*) AS n FROM listings "
+                 "WHERE is_active=1" + where +
+                 " AND " + expr + " IS NOT NULL AND " + expr + "<>'' "
+                 "GROUP BY " + expr, tuple(p), fetch="all")
+    return {r["k"]: r["n"] for r in rows if r["k"]}
+
+
+def oblast_counts(**kw):
     """Ар бир облуста канча жарыя бар."""
-    rows = query("SELECT oblast, COUNT(*) AS n FROM listings WHERE is_active=1 "
-                 "AND oblast IS NOT NULL AND oblast<>'' GROUP BY oblast",
-                 (), fetch="all")
-    return {r["oblast"]: r["n"] for r in rows}
+    return region_counts("oblast", **kw)
 
 
-def district_counts(oblast):
+def district_counts(oblast, **kw):
     """Облустагы райондор боюнча эсеп."""
-    rows = query("SELECT district, COUNT(*) AS n FROM listings "
-                 "WHERE is_active=1 AND oblast=? AND district IS NOT NULL "
-                 "AND district<>'' GROUP BY district", (oblast,), fetch="all")
-    return {r["district"]: r["n"] for r in rows}
+    return region_counts("district", oblast=oblast, **kw)
 
 
-def village_counts(oblast, district):
+def village_counts(oblast, district, **kw):
     """Райондогу айылдар/кичи райондор боюнча эсеп."""
-    rows = query("SELECT " + VILLAGE_EXPR + " AS v, COUNT(*) AS n "
-                 "FROM listings WHERE is_active=1 AND oblast=? AND district=? "
-                 "AND " + VILLAGE_EXPR + " IS NOT NULL "
-                 "GROUP BY " + VILLAGE_EXPR, (oblast, district), fetch="all")
-    return {r["v"]: r["n"] for r in rows if r["v"]}
+    return region_counts("village", oblast=oblast, district=district, **kw)
 
 
 def used_villages(oblast, district):

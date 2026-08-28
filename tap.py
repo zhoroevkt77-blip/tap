@@ -206,10 +206,11 @@ def _chip(href, label, on, n=0):
     return f'<a href="{href}" class="{cls}">{esc(label)}{num}</a>'
 
 
-def _filter_bars(link, at, cid, ob, di, vi, lang):
+def _filter_bars(link, q, at, cid, ob, di, vi, lang):
     """Аймак жана категория чыпкаларынын тилкелери."""
     # 1-тепкич: облустар — боттогудай толук тизме
-    oc = core.oblast_counts()
+    flt = {"q": q or None, "ad_type": at, "cat_id": cid}
+    oc = core.oblast_counts(**flt)
     rb = _chip(link(ob=None, di=None, vi=None), T("all_kg", lang), not ob)
     for rg in OBLASTS:
         rb += _chip(link(ob=rg, di=None, vi=None), rg, ob == rg, oc.get(rg, 0))
@@ -217,7 +218,7 @@ def _filter_bars(link, at, cid, ob, di, vi, lang):
 
     # 2-тепкич: райондор жана шаарлар
     if ob:
-        dc = core.district_counts(ob)
+        dc = core.district_counts(ob, **flt)
         ds = list(get_districts(ob)) or core.used_districts(ob)
         if ds:
             chips = _chip(link(di=None, vi=None), T("all_oblast", lang), not di)
@@ -227,7 +228,7 @@ def _filter_bars(link, at, cid, ob, di, vi, lang):
 
     # 3-тепкич: айыл аймактары жана кичи райондор
     if ob and di:
-        vc = core.village_counts(ob, di)
+        vc = core.village_counts(ob, di, **flt)
         vs = list(get_localities(ob, di)) or core.used_villages(ob, di)
         if vs:
             whole = "Весь район" if lang == "ru" else "Бүт район"
@@ -313,7 +314,7 @@ def home(q, at=None, cid=None, ob=None, di=None, vi=None, lang="ky"):
 
     rows = core.find(q, limit=60, ad_type=at, cat_id=cid,
                      oblast=ob, district=di, village=vi)
-    body = _filter_bars(link, at, cid, ob, di, vi, lang)
+    body = _filter_bars(link, q, at, cid, ob, di, vi, lang)
 
     if rows:
         if q:
