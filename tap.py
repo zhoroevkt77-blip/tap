@@ -20,7 +20,7 @@ from tap_catalog import (TRADE_CATEGORIES, SERVICE_CATEGORIES, RENTAL_CATEGORIES
                          OBLASTS, get_districts, get_localities)
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
 from scenes import SCENES
-from strings import T, L
+from strings import T, L, H as help_text
 
 
 # ==================== Жаңы таксономия ====================
@@ -595,6 +595,112 @@ def add_page(lang="ky"):
                 head + " — ТАП!", "add", lang)
 
 
+# Жардам жана Кабинет барактарынын стили. Кадимки сап — f-string
+# эмес, ошондуктан CSS'тин { } белгилери коопсуз.
+_HELP_CSS = """<style>
+.htext{white-space:pre-wrap;font-size:15px;line-height:1.55;
+       color:var(--ink);margin:0}
+.mrow{display:flex;align-items:center;gap:10px;padding:15px 16px;
+      background:var(--card);border-radius:var(--r);margin-bottom:8px;
+      text-decoration:none;color:var(--ink);font-weight:600}
+.mrow .ar{margin-left:auto;color:var(--faint)}
+.mrow.off{opacity:.5}
+.btn.tgbtn{background:#2AA3DA;margin-bottom:10px}
+.btn.wabtn{background:#22C15E}
+.btn.off{opacity:.55}
+</style>"""
+
+
+def _admin_buttons(lang):
+    """«Бизге жазуу» — Telegram жана WhatsApp."""
+    ru = (lang == "ru")
+    tg = (os.environ.get("ADMIN_TG", "") or BOT).lstrip("@")
+    wa = "".join(c for c in os.environ.get("ADMIN_WA", "") if c.isdigit())
+    t_tg = "Написать в Telegram" if ru else "Telegram аркылуу жазуу"
+    t_wa = "Написать в WhatsApp" if ru else "WhatsApp аркылуу жазуу"
+    soon = "WhatsApp — скоро" if ru else "WhatsApp — жакында"
+    out = (f'<a class="btn tgbtn" href="https://t.me/{tg}">'
+           f'<span>{esc(t_tg)}</span></a>')
+    if wa:
+        out += (f'<a class="btn wabtn" href="https://wa.me/{wa}" '
+                f'target="_blank" rel="noopener"><span>{esc(t_wa)}</span></a>')
+    else:
+        out += f'<span class="btn wabtn off"><span>{esc(soon)}</span></span>'
+    return out
+
+
+def help_page(lang="ky"):
+    """
+    Жардам: Нускама жана Көп берилүүчү суроолор.
+
+    Тексттер strings.H()'тен алынат — боттогу менен бирдей.
+    Бир жерде оңдосоң, эки жерде тең өзгөрөт.
+    """
+    ru = (lang == "ru")
+    head = "Помощь" if ru else "Жардам"
+    lead = ("Как пользоваться платформой и ответы на частые вопросы."
+            if ru else
+            "Платформаны кантип колдонуу жана көп берилүүчү суроолорго жооп.")
+    write = "Написать нам" if ru else "Бизге жазуу"
+
+    blocks = ""
+    for key in ("guide", "faq"):
+        txt = help_text(key, lang)
+        if txt:
+            blocks += f'<div class="dcard"><p class="htext">{esc(txt)}</p></div>'
+
+    body = f"""<main class="wrap">
+<h1 class="ftitle">{esc(head)}</h1>
+<p class="flead">{esc(lead)}</p>
+{blocks}
+<h3 class="qh">{esc(write)}</h3>
+{_admin_buttons(lang)}</main>""" + _HELP_CSS
+    return page(header("", None, None, lang) + body,
+                head + " — ТАП!", "msg", lang)
+
+
+def me_page(lang="ky"):
+    """
+    Кабинет: жөндөөлөр жана шилтемелер.
+
+    Сайтта каттоо жок, ошондуктан «менин жарыяларым» ботко жөнөтөт —
+    ал жерде Telegram каттоо эсеби тааныткыч болот.
+    """
+    ru = (lang == "ru")
+    head = "Кабинет"
+    other = "RU" if lang == "ky" else "KG"
+    rows = [
+        ("🌐", ("Язык: Кыргызча" if ru else "Тил: Русский"),
+         "/?lang=" + ("ky" if ru else "ru")),
+        ("📋", ("Мои объявления" if ru else "Менин жарыяларым"),
+         f"https://t.me/{BOT}?start=my"),
+        ("📢", ("Разместить объявление" if ru else "Жарыя берүү"), "/add"),
+        ("❤️", ("Избранное" if ru else "Тандалгандар"), "/fav"),
+        ("❓", ("Помощь" if ru else "Жардам"), "/msg"),
+    ]
+    items = ""
+    for ic, label, href in rows:
+        items += (f'<a class="mrow" href="{href}"><span>{ic}</span>'
+                  f'<span>{esc(label)}</span><span class="ar">›</span></a>')
+
+    terms = "Условия использования — скоро" if ru else "Колдонуу шарттары — жакында"
+    items += (f'<span class="mrow off"><span>📄</span>'
+              f'<span>{esc(terms)}</span></span>')
+
+    about = ("ТАП! — доска объявлений Кыргызстана. Работает в Telegram, "
+             "WhatsApp и на этом сайте — база одна."
+             if ru else
+             "ТАП! — Кыргызстандын жарыя платформасы. Telegram'да, "
+             "WhatsApp'та жана ушул сайтта иштейт — база бир эле.")
+
+    body = f"""<main class="wrap">
+<h1 class="ftitle">{esc(head)}</h1>
+{items}
+<div class="dcard"><p class="qp">{esc(about)}</p></div></main>""" + _HELP_CSS
+    return page(header("", None, None, lang) + body,
+                head + " — ТАП!", "me", lang)
+
+
 def msg_page(lang="ky"):
     """Байланыш: сайтта кат жазышуу жок, кантип байланышуу керектиги."""
     blocks = ""
@@ -733,8 +839,12 @@ class H(BaseHTTPRequestHandler):
             self._send(add_page(lang))
             return
 
+        if u.path == "/me":
+            self._send(me_page(lang))
+            return
+
         if u.path == "/msg":
-            self._send(msg_page(lang))
+            self._send(help_page(lang))
             return
 
         if u.path == "/":

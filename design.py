@@ -68,6 +68,9 @@ NAV_ICONS = {
                  '<path d="m3.6 6.6 7.3 5.3a2 2 0 0 0 2.2 0l7.3-5.3"/></svg>',
     "me":   _N + '<circle cx="12" cy="8.4" r="3.8"/>'
                  '<path d="M4.8 20.4a7.2 7.2 0 0 1 14.4 0"/></svg>',
+    "help": _N + '<circle cx="12" cy="12" r="8.6"/>'
+                 '<path d="M9.6 9.4a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.8-.9 1.4v.5"/>'
+                 '<path d="M12 17.1h.01"/></svg>',
 }
 
 # Ботсуз иштей турган бет — «Тандалган» гана. Калган үчөө ботко алып барат,
@@ -81,8 +84,8 @@ def nav(active="home", lang="ky"):
         ("home", "/",                              NAV_ICONS["home"], T("nav_home", lang)),
         ("fav",  "/fav",                           NAV_ICONS["fav"],  T("nav_fav", lang)),
         ("add",  "/add",                          NAV_ICONS["add"],  T("nav_add", lang)),
-        ("msg",  "/msg",                           NAV_ICONS["msg"],  T("nav_msg", lang)),
-        ("me",   f"https://t.me/{BOT}?start=my",   NAV_ICONS["me"],   T("nav_me", lang)),
+        ("msg",  "/msg",                           NAV_ICONS["help"], T("nav_msg", lang)),
+        ("me",   "/me",                            NAV_ICONS["me"],   T("nav_me", lang)),
     ]
     out = ""
     for key, href, ic, label in items:
