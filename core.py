@@ -448,13 +448,16 @@ def adtype_counts(oblast=None):
     return {r["ad_type"]: r["n"] for r in rows if r["ad_type"]}
 
 
-def catid_counts(ad_type=None, oblast=None):
-    """Бөлүмдүн ичиндеги категориялар боюнча эсеп."""
-    where, p = ("", [])
-    if ad_type:
-        where += " AND ad_type=?"; p.append(ad_type)
-    if oblast:
-        where += " AND oblast=?"; p.append(oblast)
+def catid_counts(ad_type=None, oblast=None, district=None,
+                 village=None, q=None):
+    """
+    Бөлүмдүн ичиндеги категориялар боюнча эсеп.
+
+    Тандалган аймак толугу менен эсепке алынат: облус, район,
+    айыл аймагы. Ошондуктан сандар экрандагы тизме менен дал келет.
+    """
+    where, p = _filters(q=q, ad_type=ad_type, oblast=oblast,
+                        district=district, village=village)
     rows = query("SELECT cat_id, COUNT(*) AS n FROM listings WHERE is_active=1"
                  + where + " GROUP BY cat_id", tuple(p), fetch="all")
     return {r["cat_id"]: r["n"] for r in rows if r["cat_id"]}

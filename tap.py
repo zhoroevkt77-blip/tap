@@ -318,13 +318,16 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
     out += _place_note(lang)
 
     if at:
-        cc = core.catid_counts(at, ob)
+        cc = core.catid_counts(at, ob, di, vi, q or None)
         chips = (f'<a href="{link(cid=None)}" class="sb2{"" if cid else " on"}">'
                  f'{T("all", lang)}</a>')
-        for code, n in sorted(cc.items(), key=lambda x: -x[1]):
+        items = ([(cid, cc.get(cid, 0))] if cid
+                 else sorted(cc.items(), key=lambda x: -x[1]))
+        for code, n in items:
             chips += (f'<a href="{link(cid=code)}" '
                       f'class="sb2{" on" if cid == code else ""}">'
-                      f'{esc(cat_label(at, code, lang))} <em>{n}</em></a>')
+                      f'{esc(cat_label(at, code, lang))}'
+                      f'{f" <em>{n}</em>" if n else ""}</a>')
         if chips.count("<a") > 1:
             out += f'<nav class="subbar">{chips}</nav>'
     return out
