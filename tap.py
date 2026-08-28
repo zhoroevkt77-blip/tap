@@ -21,6 +21,7 @@ from tap_catalog import (TRADE_CATEGORIES, SERVICE_CATEGORIES, RENTAL_CATEGORIES
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
 from scenes import SCENES
 from strings import T, L, H as help_text
+import bridge
 
 
 # ==================== Жаңы таксономия ====================
@@ -265,7 +266,7 @@ def card(r, lang="ky"):
     return f"""<a class="c{'' if has else ' nophoto'}" href="/e/{r['id']}">
 <div class="ph">{img}<button class="fav" data-id="{r['id']}" aria-label="Тандалганга кошуу">{NAV_ICONS['fav']}</button></div>
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
-<h2 class="t">{esc(L(r['title'], lang))}</h2>
+<h2 class="t">{esc(L(bridge.show_title(r), lang))}</h2>
 <div class="m"><span>{esc(ago(r['created_at']))}</span>
 <span class="vw">{_EYE}{r['views']}</span></div>
 </div></a>"""
@@ -563,13 +564,13 @@ def detail(r, lang="ky"):
 <div class="dcard">
 <div class="eb">{ic}{esc(sname or name)} · №{r['id']}</div>
 <div class="dp{' dpd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
-<h1>{esc(L(r['title'], lang))}</h1>
+<h1>{esc(L(bridge.show_title(r), lang))}</h1>
 <div class="f"><div><b>{T("region", lang)}</b><span>{esc(r['region'] or '—')}</span></div>
 <div><b>{T("posted", lang)}</b><span>{esc(ago(r['created_at']))}</span></div>
 <div><b>{T("views", lang)}</b><span>{r['views']}</span></div></div>
 </div>{desc}{tel}</main>"""
     return page(header("", None, None, lang) + body,
-                L(r["title"], lang), tab="home", lang=lang)
+                L(bridge.show_title(r), lang), tab="home", lang=lang)
 
 
 def find_page(ob=None, di=None, lang="ky"):
