@@ -554,7 +554,7 @@ def handle_message(msg, st):
     if msg.get("photo"):
         if view["photo"]:
             add_photo(chat, u, msg["photo"][-1]["file_id"])
-            save(st)
+            save_state(st)
         else:
             send(chat, m("no_photo", ulang(u)), None)
         return
@@ -654,7 +654,7 @@ def handle_callback(cb, st):
             u["data"] = prev["data"]
             u["picked"] = []
             u.pop("photoMsgId", None)
-        save(st)
+        save_state(st)
         ask(chat, u)
         return
 
