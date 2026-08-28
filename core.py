@@ -561,4 +561,8 @@ DEAL_WORDS = {"келишимдүү", "келишим", "договорная", 
 
 
 def is_deal(price):
-    return (price or "").strip().lower() in DEAL_WORDS
+    """Баа келишим боюнчабы. «Келишим баада» сыяктуулар да кирет."""
+    p = (price or "").strip().lower()
+    return (p in DEAL_WORDS
+            or p.startswith("келишим")
+            or p.startswith("договор"))

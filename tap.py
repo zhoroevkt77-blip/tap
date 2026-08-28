@@ -17,7 +17,7 @@ from core import (CATS, SUBS, MEDIA, category_title, category_icon, sub_title,
                   price_label, is_deal, ago)
 from tap_catalog import (TRADE_CATEGORIES, SERVICE_CATEGORIES, RENTAL_CATEGORIES,
                          DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES,
-                         OBLASTS, get_districts, get_localities)
+                         OBLASTS, get_districts, get_localities, ru_name)
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
 from scenes import SCENES
 from strings import T, L, H as help_text
@@ -184,6 +184,29 @@ _ABBR_CSS = """<style>
 </style>"""
 
 
+def _price(price, lang):
+    """Баа. Келишим болсо, тандалган тилде жазылат."""
+    if is_deal(price):
+        return "Договорная" if lang == "ru" else "Келишимдүү"
+    return price_label(price)
+
+
+def _place_name(name, lang):
+    """
+    Аймактын аты тандалган тилде. Орусча аты табылбаса,
+    кыргызчасы калат — эч нерсе жоголбойт.
+    """
+    s = L(str(name or ""), lang)
+    if lang == "ru":
+        try:
+            got = ru_name(s) or ru_name(str(name or ""))
+        except Exception:
+            got = ""
+        if got:
+            s = got
+    return s
+
+
 def _short_place(name):
     """«Жалал-Абад облусу» → «Жалал-Абад обл.»"""
     s = str(name or "").strip()
@@ -213,7 +236,7 @@ def header(q="", at=None, reg=None, lang="ky"):
     hidden = f'<input type="hidden" name="at" value="{esc(at)}">' if at else ""
     return f"""<header class="top"><div class="wrap">
 <div class="tin"><a href="/" class="logo"><span>ТАП!</span></a>
-<span class="pin"><b>&#9679;</b>{esc(_short_place(L(reg, lang)) if reg else T("all_kg", lang))}</span>
+<span class="pin"><b>&#9679;</b>{esc(_short_place(_place_name(reg, lang)) if reg else T("all_kg", lang))}</span>
 {_lang_switch(lang)}</div>
 <form class="s" action="/">{hidden}
 <input type="search" name="q" value="{esc(q)}" placeholder="{T("search_ph", lang)}">
@@ -241,7 +264,7 @@ def card(r, lang="ky"):
            if has else f'<i>{_NOPHOTO}</i>')
     return f"""<a class="c{'' if has else ' nophoto'}" href="/e/{r['id']}">
 <div class="ph">{img}<button class="fav" data-id="{r['id']}" aria-label="Тандалганга кошуу">{NAV_ICONS['fav']}</button></div>
-<div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(price_label(r['price']))}</div>
+<div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
 <h2 class="t">{esc(L(r['title'], lang))}</h2>
 <div class="m"><span>{esc(ago(r['created_at']))}</span>
 <span class="vw">{_EYE}{r['views']}</span></div>
@@ -250,7 +273,7 @@ def card(r, lang="ky"):
 
 def _chip(href, label, on, n=0, lang="ky", short=True):
     """Аймактын баскычы. Жарыясы бар болсо санын көрсөтөт."""
-    text = L(str(label), lang)
+    text = _place_name(label, lang) if short else L(str(label), lang)
     if short:
         text = _short_place(text)
     num = f' <em>{n}</em>' if n else ""
@@ -536,7 +559,7 @@ def detail(r, lang="ky"):
 <div class="dph">{dimg}</div>
 <div class="dcard">
 <div class="eb">{ic}{esc(sname or name)} · №{r['id']}</div>
-<div class="dp{' dpd' if is_deal(r['price']) else ''}">{esc(price_label(r['price']))}</div>
+<div class="dp{' dpd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
 <h1>{esc(L(r['title'], lang))}</h1>
 <div class="f"><div><b>{T("region", lang)}</b><span>{esc(r['region'] or '—')}</span></div>
 <div><b>{T("posted", lang)}</b><span>{esc(ago(r['created_at']))}</span></div>
