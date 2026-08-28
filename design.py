@@ -80,7 +80,7 @@ def nav(active="home", lang="ky"):
     items = [
         ("home", "/",                              NAV_ICONS["home"], T("nav_home", lang)),
         ("fav",  "/fav",                           NAV_ICONS["fav"],  T("nav_fav", lang)),
-        ("add",  f"https://t.me/{BOT}?start=post", NAV_ICONS["add"],  T("nav_add", lang)),
+        ("add",  "/add",                          NAV_ICONS["add"],  T("nav_add", lang)),
         ("msg",  "/msg",                           NAV_ICONS["msg"],  T("nav_msg", lang)),
         ("me",   f"https://t.me/{BOT}?start=my",   NAV_ICONS["me"],   T("nav_me", lang)),
     ]

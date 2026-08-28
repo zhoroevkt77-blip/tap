@@ -547,6 +547,54 @@ def find_page(ob=None, di=None, lang="ky"):
                 T("find_title", lang) + " — ТАП!", "home", lang)
 
 
+# Эки боттун баскычтары. Кадимки сап — f-string эмес,
+# ошондуктан CSS'тин { } белгилери коопсуз.
+_ADD_CSS = """<style>
+.btn.tgbtn{background:#2AA3DA;margin-bottom:10px}
+.btn.wabtn{background:#22C15E}
+.btn.off{opacity:.55}
+</style>"""
+
+
+def add_page(lang="ky"):
+    """
+    «Жарыя берүү» — эки боттун бирин тандоо.
+
+    WhatsApp номери WA_NUMBER өзгөрмөсүнөн алынат. Ал коюла электе
+    баскыч көрүнөт, бирок басылбайт: «жакында» деп турат.
+    """
+    ru = (lang == "ru")
+    wa_num = "".join(c for c in os.environ.get("WA_NUMBER", "") if c.isdigit())
+
+    head = "Разместить объявление" if ru else "Жарыя берүү"
+    lead = ("Объявление размещается через бота — выберите, где вам удобнее."
+            if ru else
+            "Жарыя бот аркылуу коюлат — кайсынысы ыңгайлуу болсо, ошону тандаңыз.")
+    tg_t = "Перейти в Telegram-бот" if ru else "Telegram ботко өтүү"
+    wa_t = "Перейти в WhatsApp-бот" if ru else "WhatsApp ботко өтүү"
+    soon = "WhatsApp — скоро" if ru else "WhatsApp — жакында"
+    note = ("Оба бота работают с одной базой: объявление появится и здесь, "
+            "на сайте." if ru else
+            "Эки бот бир базада иштейт: жарыя ушул сайтта да чыгат.")
+
+    if wa_num:
+        wa = (f'<a class="btn wabtn" href="https://wa.me/{wa_num}?text=%D0%A1%D0%B0%D0%BB%D0%B0%D0%BC"'
+              f' target="_blank" rel="noopener">'
+              f'<span>{esc(wa_t)}</span></a>')
+    else:
+        wa = f'<span class="btn wabtn off"><span>{esc(soon)}</span></span>'
+
+    body = f"""<main class="wrap">
+<h1 class="ftitle">{esc(head)}</h1>
+<p class="flead">{esc(lead)}</p>
+<a class="btn tgbtn" href="https://t.me/{BOT}?start=post">
+<span>{esc(tg_t)}</span></a>
+{wa}
+<p class="flead">{esc(note)}</p></main>""" + _ADD_CSS
+    return page(header("", None, None, lang) + body,
+                head + " — ТАП!", "add", lang)
+
+
 def msg_page(lang="ky"):
     """Байланыш: сайтта кат жазышуу жок, кантип байланышуу керектиги."""
     blocks = ""
@@ -679,6 +727,10 @@ class H(BaseHTTPRequestHandler):
             ob = (qs.get("ob", [""])[0]).strip() or None
             di = (qs.get("di", [""])[0]).strip() or None
             self._send(find_page(ob, di, lang))
+            return
+
+        if u.path == "/add":
+            self._send(add_page(lang))
             return
 
         if u.path == "/msg":
