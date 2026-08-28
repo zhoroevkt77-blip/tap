@@ -354,7 +354,8 @@ def photo_list(row):
 
 
 def _filters(q=None, cat=None, region=None, sub=None,
-             ad_type=None, cat_id=None, oblast=None, district=None):
+             ad_type=None, cat_id=None, oblast=None, district=None,
+             village=None):
     sql, p = "", []
     if cat:
         sql += " AND category=?"; p.append(cat)
@@ -370,6 +371,8 @@ def _filters(q=None, cat=None, region=None, sub=None,
         sql += " AND oblast=?"; p.append(oblast)
     if district:
         sql += " AND district=?"; p.append(district)
+    if village:
+        sql += " AND " + VILLAGE_EXPR + "=?"; p.append(village)
     if q and q.strip():
         sql += " AND (stext LIKE ? OR stext LIKE ?)"
         p += [f"%{q.lower()}%", f"%{norm(q)}%"]
@@ -377,16 +380,18 @@ def _filters(q=None, cat=None, region=None, sub=None,
 
 
 def find(q=None, cat=None, region=None, sub=None, limit=30, offset=0,
-         ad_type=None, cat_id=None, oblast=None, district=None):
-    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast, district)
+         ad_type=None, cat_id=None, oblast=None, district=None, village=None):
+    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast,
+                        district, village)
     return query(
         "SELECT * FROM listings WHERE is_active=1" + where +
         " ORDER BY id DESC LIMIT ? OFFSET ?", tuple(p + [limit, offset]), fetch="all")
 
 
 def count(q=None, cat=None, region=None, sub=None,
-          ad_type=None, cat_id=None, oblast=None, district=None):
-    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast, district)
+          ad_type=None, cat_id=None, oblast=None, district=None, village=None):
+    where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast,
+                        district, village)
     r = query("SELECT COUNT(*) AS n FROM listings WHERE is_active=1" + where,
               tuple(p), fetch="one")
     return (r or {}).get("n", 0)
@@ -453,6 +458,41 @@ def catid_counts(ad_type=None, oblast=None):
     rows = query("SELECT cat_id, COUNT(*) AS n FROM listings WHERE is_active=1"
                  + where + " GROUP BY cat_id", tuple(p), fetch="all")
     return {r["cat_id"]: r["n"] for r in rows if r["cat_id"]}
+
+
+# Айыл да, кичи район да ушул бир туюнтма менен эсептелет.
+VILLAGE_EXPR = "COALESCE(NULLIF(village,''), NULLIF(locality,''))"
+
+
+def oblast_counts():
+    """Ар бир облуста канча жарыя бар."""
+    rows = query("SELECT oblast, COUNT(*) AS n FROM listings WHERE is_active=1 "
+                 "AND oblast IS NOT NULL AND oblast<>'' GROUP BY oblast",
+                 (), fetch="all")
+    return {r["oblast"]: r["n"] for r in rows}
+
+
+def district_counts(oblast):
+    """Облустагы райондор боюнча эсеп."""
+    rows = query("SELECT district, COUNT(*) AS n FROM listings "
+                 "WHERE is_active=1 AND oblast=? AND district IS NOT NULL "
+                 "AND district<>'' GROUP BY district", (oblast,), fetch="all")
+    return {r["district"]: r["n"] for r in rows}
+
+
+def village_counts(oblast, district):
+    """Райондогу айылдар/кичи райондор боюнча эсеп."""
+    rows = query("SELECT " + VILLAGE_EXPR + " AS v, COUNT(*) AS n "
+                 "FROM listings WHERE is_active=1 AND oblast=? AND district=? "
+                 "AND " + VILLAGE_EXPR + " IS NOT NULL "
+                 "GROUP BY " + VILLAGE_EXPR, (oblast, district), fetch="all")
+    return {r["v"]: r["n"] for r in rows if r["v"]}
+
+
+def used_villages(oblast, district):
+    """Райондо жарыясы бар айылдар/кичи райондор."""
+    c = village_counts(oblast, district)
+    return sorted(c, key=lambda x: -c[x])
 
 
 def used_oblasts():
