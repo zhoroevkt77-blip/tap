@@ -144,11 +144,25 @@ SCROLL_JS = ('<script>document.querySelectorAll(".cats,.regbar,.subbar")'
              'if(a)n.scrollLeft=Math.max(0,a.offsetLeft-16)})</script>')
 
 
+# Сүрөтү жок жарыялар: сүлгү ордуна категориянын аты чыгат.
+EXTRA_CSS = """
+.ph .nph{display:flex;flex-direction:column;align-items:center;justify-content:center;
+gap:6px;width:100%;height:100%;padding:10px;text-align:center;font-style:normal}
+.ph .nph svg{width:26px;height:26px;opacity:.45}
+.ph .nph b{font-weight:600;font-size:12.5px;line-height:1.25;opacity:.78;
+display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ph .nph .n2{font-size:11.5px;line-height:1.25;opacity:.6;
+display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ph .nph .n3{font-size:11px;line-height:1.3;opacity:.5;margin-top:2px;
+display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+"""
+
+
 def page(body, title="ТАП!", tab="home", lang="ky"):
     return f"""<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0B6E3F">
-<title>{esc(title)}</title>{FONTS}<style>{CSS}</style></head><body>{body}{nav(tab, lang)}
+<title>{esc(title)}</title>{FONTS}<style>{CSS}{EXTRA_CSS}</style></head><body>{body}{nav(tab, lang)}
 {SCROLL_JS}{FAV_JS}{SHELF_JS}</body></html>"""
 
 
@@ -259,10 +273,66 @@ _EYE = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width
         '<circle cx="12" cy="12" r="3.1"/></svg>')
 
 
+def ph_name(r, lang="ky"):
+    """Сүрөт жок болгондо анын ордуна чыгуучу категориянын аты."""
+    at = r.get("ad_type")
+    if at:
+        nm = cat_label(at, r.get("cat_id"), lang) if r.get("cat_id") else ""
+        if nm:
+            return nm
+        return section_name(at, lang)
+    nm, _e = CATS.get(r.get("category"), ("", ""))
+    return nm or ""
+
+
+def ph_sub(r, lang="ky"):
+    """Сүрөт жок болгондо чыгуучу субкатегориянын аты."""
+    if r.get("sub_id"):
+        return _ky(r["sub_id"], lang)
+    if not r.get("ad_type"):
+        try:
+            return sub_title(r.get("category"), r.get("subcat")) or ""
+        except Exception:
+            return ""
+    return ""
+
+
+def ph_place(r, lang="ky"):
+    """Сүрөт жок болгондо чыгуучу аймак: облус · район · айыл."""
+    parts = []
+    for key in ("oblast", "district", "locality", "village"):
+        v = str(r.get(key) or "").strip()
+        if not v or v in parts:
+            continue
+        parts.append(v)
+    if not parts:
+        v = str(r.get("region") or "").strip()
+        if v:
+            parts.append(v)
+    out = [_short_place(_place_name(x, lang)) for x in parts]
+    return " · ".join([x for x in out if x])
+
+
+def ph_block(r, lang="ky"):
+    """Сүрөтү жок жарыянын ордуна чыгуучу жазуу."""
+    nm = esc(ph_name(r, lang))
+    sub = esc(ph_sub(r, lang))
+    place = esc(ph_place(r, lang))
+    out = _NOPHOTO
+    if nm:
+        out += f"<b>{nm}</b>"
+    if sub and sub != nm:
+        out += f'<span class="n2">{sub}</span>'
+    if place:
+        out += f'<span class="n3">{place}</span>'
+    return f'<i class="nph">{out}</i>'
+
+
 def card(r, lang="ky"):
     has = bool(r.get("photo"))
     img = (f'<img src="/media/{esc(r["photo"])}" alt="" loading="lazy">'
-           if has else f'<i>{_NOPHOTO}</i>')
+           if has else
+           ph_block(r, lang))
     return f"""<a class="c{'' if has else ' nophoto'}" href="/e/{r['id']}">
 <div class="ph">{img}<button class="fav" data-id="{r['id']}" aria-label="Тандалганга кошуу">{NAV_ICONS['fav']}</button></div>
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
@@ -545,7 +615,7 @@ def detail(r, lang="ky"):
     # Галерея: бир нече сүрөт болсо сол-оңго сүрүп кароого болот.
     shots = core.photo_list(r)
     if not shots:
-        dimg = f'<i>{_NOPHOTO}</i>'
+        dimg = f'<i class="nph">{_NOPHOTO}<b>{esc(ph_name(r, lang))}</b></i>'
     elif len(shots) == 1:
         dimg = f'<img src="/media/{esc(shots[0])}" alt="">'
     else:
