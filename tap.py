@@ -199,11 +199,61 @@ def card(r, lang="ky"):
 </div></a>"""
 
 
-def _chip(href, label, on, n=0):
+# Аймактын атын кыскартуу — көрүнүшкө гана. Шилтемелерде,
+# базада жана издөөдө аттар толук бойдон калат.
+_ABBR = [
+    ("аймактык башкармалыгы", "а/б"),
+    ("айыл аймагы", "а/а"),
+    ("кичи району", "к/р-н"),
+    ("кичи район", "к/р-н"),
+    ("облусу", "обл."),
+    ("району", "р-н"),
+    ("шаары", "ш."),
+    ("айылы", "а."),
+    ("область", "обл."),
+    ("район", "р-н"),
+    ("город", "г."),
+]
+
+_ABBR_CSS = """<style>
+.rnote{font-size:12px;line-height:1.4;color:var(--faint);
+       margin:-2px 4px 10px;padding:0 2px}
+</style>"""
+
+
+def _short_place(name):
+    """«Жалал-Абад облусу» → «Жалал-Абад обл.»"""
+    s = str(name or "").strip()
+    for pref, short in (("город ", "г. "), ("село ", "с. "),
+                        ("посёлок ", "пос. "), ("поселок ", "пос. ")):
+        if s.lower().startswith(pref):
+            return short + s[len(pref):]
+    low = s.lower()
+    for full, short in _ABBR:
+        i = low.rfind(full)
+        if i >= 0 and (i + len(full)) >= len(low) - 1:
+            return (s[:i].strip() + " " + short).strip()
+    return s
+
+
+def _place_note(lang):
+    """Кыскартуулардын түшүндүрмөсү."""
+    if lang == "ru":
+        txt = "обл. — область · р-н — район · г. — город"
+    else:
+        txt = ("обл. — облус · р-н — район · ш. — шаар · "
+               "к/р-н — кичи район · а/а — айыл аймагы · а. — айыл")
+    return f'<p class="rnote">{esc(txt)}</p>' + _ABBR_CSS
+
+
+def _chip(href, label, on, n=0, lang="ky", short=True):
     """Аймактын баскычы. Жарыясы бар болсо санын көрсөтөт."""
+    text = L(str(label), lang)
+    if short:
+        text = _short_place(text)
     num = f' <em>{n}</em>' if n else ""
     cls = "rg on" if on else "rg"
-    return f'<a href="{href}" class="{cls}">{esc(label)}{num}</a>'
+    return f'<a href="{href}" class="{cls}">{esc(text)}{num}</a>'
 
 
 def _filter_bars(link, q, at, cid, ob, di, vi, lang):
@@ -211,9 +261,11 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
     # 1-тепкич: облустар — боттогудай толук тизме
     flt = {"q": q or None, "ad_type": at, "cat_id": cid}
     oc = core.oblast_counts(**flt)
-    rb = _chip(link(ob=None, di=None, vi=None), T("all_kg", lang), not ob)
+    rb = _chip(link(ob=None, di=None, vi=None), T("all_kg", lang), not ob,
+               lang=lang, short=False)
     for rg in OBLASTS:
-        rb += _chip(link(ob=rg, di=None, vi=None), rg, ob == rg, oc.get(rg, 0))
+        rb += _chip(link(ob=rg, di=None, vi=None), rg, ob == rg,
+                   oc.get(rg, 0), lang)
     out = f'<nav class="regbar">{rb}</nav>'
 
     # 2-тепкич: райондор жана шаарлар
@@ -221,9 +273,10 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
         dc = core.district_counts(ob, **flt)
         ds = list(get_districts(ob)) or core.used_districts(ob)
         if ds:
-            chips = _chip(link(di=None, vi=None), T("all_oblast", lang), not di)
+            chips = _chip(link(di=None, vi=None), T("all_oblast", lang), not di,
+                           lang=lang, short=False)
             for x in ds:
-                chips += _chip(link(di=x, vi=None), x, di == x, dc.get(x, 0))
+                chips += _chip(link(di=x, vi=None), x, di == x, dc.get(x, 0), lang)
             out += f'<nav class="regbar">{chips}</nav>'
 
     # 3-тепкич: айыл аймактары жана кичи райондор
@@ -232,10 +285,12 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
         vs = list(get_localities(ob, di)) or core.used_villages(ob, di)
         if vs:
             whole = "Весь район" if lang == "ru" else "Бүт район"
-            chips = _chip(link(vi=None), whole, not vi)
+            chips = _chip(link(vi=None), whole, not vi, lang=lang, short=False)
             for x in vs:
-                chips += _chip(link(vi=x), x, vi == x, vc.get(x, 0))
+                chips += _chip(link(vi=x), x, vi == x, vc.get(x, 0), lang)
             out += f'<nav class="regbar">{chips}</nav>'
+
+    out += _place_note(lang)
 
     if at:
         cc = core.catid_counts(at, ob)
