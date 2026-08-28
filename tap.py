@@ -160,11 +160,60 @@ def _lang_switch(lang):
     return f'<span class="lgs">{out}</span>'
 
 
+# Аймактын атын кыскартуу — көрүнүшкө гана. Шилтемелерде,
+# базада жана издөөдө аттар толук бойдон калат.
+_ABBR = [
+    ("аймактык башкармалыгы", "а/б"),
+    ("айыл аймагы", "а/а"),
+    ("кичи району", "к/р-н"),
+    ("кичи район", "к/р-н"),
+    ("облусу", "обл."),
+    ("району", "р-н"),
+    ("шаары", "ш."),
+    ("айылы", "а."),
+    ("область", "обл."),
+    ("район", "р-н"),
+    ("город", "г."),
+]
+
+_ABBR_CSS = """<style>
+.rnote{font-size:12px;line-height:1.4;color:var(--faint);
+       margin:-2px 4px 10px;padding:0 2px}
+.rg em,.sb2 em{font-style:normal;font-weight:600;opacity:.6;
+               margin-left:3px}
+</style>"""
+
+
+def _short_place(name):
+    """«Жалал-Абад облусу» → «Жалал-Абад обл.»"""
+    s = str(name or "").strip()
+    for pref, short in (("город ", "г. "), ("село ", "с. "),
+                        ("посёлок ", "пос. "), ("поселок ", "пос. ")):
+        if s.lower().startswith(pref):
+            return short + s[len(pref):]
+    low = s.lower()
+    for full, short in _ABBR:
+        i = low.rfind(full)
+        if i >= 0 and (i + len(full)) >= len(low) - 1:
+            return (s[:i].strip() + " " + short).strip()
+    return s
+
+
+def _place_note(lang):
+    """Кыскартуулардын түшүндүрмөсү."""
+    if lang == "ru":
+        txt = "обл. — область · р-н — район · г. — город"
+    else:
+        txt = ("обл. — облус · р-н — район · ш. — шаар · "
+               "к/р-н — кичи район · а/а — айыл аймагы · а. — айыл")
+    return f'<p class="rnote">{esc(txt)}</p>' + _ABBR_CSS
+
+
 def header(q="", at=None, reg=None, lang="ky"):
     hidden = f'<input type="hidden" name="at" value="{esc(at)}">' if at else ""
     return f"""<header class="top"><div class="wrap">
 <div class="tin"><a href="/" class="logo"><span>ТАП!</span></a>
-<span class="pin"><b>&#9679;</b>{esc(reg or T("all_kg", lang))}</span>
+<span class="pin"><b>&#9679;</b>{esc(_short_place(L(reg, lang)) if reg else T("all_kg", lang))}</span>
 {_lang_switch(lang)}</div>
 <form class="s" action="/">{hidden}
 <input type="search" name="q" value="{esc(q)}" placeholder="{T("search_ph", lang)}">
@@ -197,53 +246,6 @@ def card(r, lang="ky"):
 <div class="m"><span>{esc(ago(r['created_at']))}</span>
 <span class="vw">{_EYE}{r['views']}</span></div>
 </div></a>"""
-
-
-# Аймактын атын кыскартуу — көрүнүшкө гана. Шилтемелерде,
-# базада жана издөөдө аттар толук бойдон калат.
-_ABBR = [
-    ("аймактык башкармалыгы", "а/б"),
-    ("айыл аймагы", "а/а"),
-    ("кичи району", "к/р-н"),
-    ("кичи район", "к/р-н"),
-    ("облусу", "обл."),
-    ("району", "р-н"),
-    ("шаары", "ш."),
-    ("айылы", "а."),
-    ("область", "обл."),
-    ("район", "р-н"),
-    ("город", "г."),
-]
-
-_ABBR_CSS = """<style>
-.rnote{font-size:12px;line-height:1.4;color:var(--faint);
-       margin:-2px 4px 10px;padding:0 2px}
-</style>"""
-
-
-def _short_place(name):
-    """«Жалал-Абад облусу» → «Жалал-Абад обл.»"""
-    s = str(name or "").strip()
-    for pref, short in (("город ", "г. "), ("село ", "с. "),
-                        ("посёлок ", "пос. "), ("поселок ", "пос. ")):
-        if s.lower().startswith(pref):
-            return short + s[len(pref):]
-    low = s.lower()
-    for full, short in _ABBR:
-        i = low.rfind(full)
-        if i >= 0 and (i + len(full)) >= len(low) - 1:
-            return (s[:i].strip() + " " + short).strip()
-    return s
-
-
-def _place_note(lang):
-    """Кыскартуулардын түшүндүрмөсү."""
-    if lang == "ru":
-        txt = "обл. — область · р-н — район · г. — город"
-    else:
-        txt = ("обл. — облус · р-н — район · ш. — шаар · "
-               "к/р-н — кичи район · а/а — айыл аймагы · а. — айыл")
-    return f'<p class="rnote">{esc(txt)}</p>' + _ABBR_CSS
 
 
 def _chip(href, label, on, n=0, lang="ky", short=True):
