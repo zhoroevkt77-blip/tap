@@ -288,7 +288,7 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
     oc = core.oblast_counts(**flt)
     rb = _chip(link(ob=None, di=None, vi=None), T("all_kg", lang), not ob,
                lang=lang, short=False)
-    for rg in OBLASTS:
+    for rg in ([ob] if ob else OBLASTS):
         rb += _chip(link(ob=rg, di=None, vi=None), rg, ob == rg,
                    oc.get(rg, 0), lang)
     out = f'<nav class="regbar">{rb}</nav>'
@@ -300,7 +300,7 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
         if ds:
             chips = _chip(link(di=None, vi=None), T("all_oblast", lang), not di,
                            lang=lang, short=False)
-            for x in ds:
+            for x in ([di] if di else ds):
                 chips += _chip(link(di=x, vi=None), x, di == x, dc.get(x, 0), lang)
             out += f'<nav class="regbar">{chips}</nav>'
 
@@ -311,7 +311,7 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
         if vs:
             whole = "Весь район" if lang == "ru" else "Бүт район"
             chips = _chip(link(vi=None), whole, not vi, lang=lang, short=False)
-            for x in vs:
+            for x in ([vi] if vi else vs):
                 chips += _chip(link(vi=x), x, vi == x, vc.get(x, 0), lang)
             out += f'<nav class="regbar">{chips}</nav>'
 
