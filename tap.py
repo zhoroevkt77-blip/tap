@@ -671,7 +671,7 @@ def me_page(lang="ky"):
     other = "RU" if lang == "ky" else "KG"
     rows = [
         ("🌐", ("Язык: Кыргызча" if ru else "Тил: Русский"),
-         "/?lang=" + ("ky" if ru else "ru")),
+         "/lang/" + ("ky" if ru else "ru")),
         ("📋", ("Мои объявления" if ru else "Менин жарыяларым"),
          f"https://t.me/{BOT}?start=my"),
         ("📢", ("Разместить объявление" if ru else "Жарыя берүү"), "/add"),
