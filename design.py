@@ -14,12 +14,12 @@
     ачык окулат) жана баада/санда Manrope (кең, бекем сандар).
 
 Түстөр:
-  --ink    #10231A  негизги текст (кара эмес, жашылга тартылган)
-  --moss   #0B6E3F  терең жашыл — башкы тилке
-  --leaf   #12A05C  бренд жашылы — басым
-  --wheat  #E8A33D  буудай сарысы — баа жана акцент
-  --paper  #F4F6F4  фон
-  --mist   #E4E9E5  чек сызыктар
+  --ink    #152741  негизги текст (кара эмес, жашылга тартылган)
+  --moss   #17365C  терең жашыл — башкы тилке
+  --leaf   #B0862B  бренд жашылы — басым
+  --wheat  #C9A03A  буудай сарысы — баа жана акцент
+  --paper  #F1F4F9  фон
+  --mist   #E1E7F1  чек сызыктар
 """
 
 import os
@@ -96,9 +96,10 @@ def nav(active="home", lang="ky"):
 
 CSS = """
 :root{
- --ink:#10231A; --soft:#5B6B62; --faint:#8A9A91;
- --moss:#0B6E3F; --leaf:#12A05C; --wheat:#E8A33D;
- --paper:#F4F6F4; --card:#fff; --mist:#E4E9E5;
+ --ink:#152741; --soft:#5A6982; --faint:#8B97AC;
+ --moss:#17365C; --leaf:#B0862B; --wheat:#C9A03A;
+ --paper:#F1F4F9; --card:#FFFDF7; --mist:#E1E7F1;
+ --gold:#C9A03A; --gold2:#E3C368; --cream:#FBF5E6;
  --r:18px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -112,7 +113,7 @@ svg{display:block}
 .wrap{max-width:1040px;margin:0 auto;padding:0 14px}
 
 /* ---- Башкы тилке ---- */
-.top{background:linear-gradient(168deg,#0E7C47 0%,#0B6E3F 62%,#095E36 100%);
+.top{background:url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'><g fill='none' stroke='%23ffffff' stroke-opacity='.12' stroke-width='2' stroke-linecap='round'><path d='M45 8c-9 0-14 7-14 14s6 12 14 12 14-5 14-12-5-14-14-14z'/><path d='M45 34v22'/><path d='M31 56c0 8 6 14 14 14s14-6 14-14'/><circle cx='45' cy='22' r='4'/></g></svg>\") right -14px top -10px/150px repeat-y,linear-gradient(168deg,#1E4574 0%,#17365C 62%,#122B4C 100%);
  color:#fff;padding:10px 0 16px;position:sticky;top:0;z-index:20}
 .tin{display:flex;align-items:center;gap:11px;padding:3px 0 13px}
 .logo{display:flex;align-items:center;font-family:"Manrope",system-ui,sans-serif;
@@ -132,12 +133,12 @@ svg{display:block}
  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.2);
  padding:6px 11px;border-radius:14px}
 .s{display:flex;align-items:center;background:#fff;border-radius:26px;
- padding:0 5px 0 17px;height:48px;box-shadow:0 3px 14px rgba(6,52,30,.16)}
+ padding:0 5px 0 17px;height:48px;box-shadow:0 3px 14px rgba(12,30,60,.16)}
 .s input{flex:1;min-width:0;border:0;font-size:16px;font-family:inherit;
  background:transparent;padding:0;color:var(--ink)}
 .s input:focus{outline:none}
 .s input::placeholder{color:var(--faint)}
-.s button{border:0;background:var(--ink);color:#fff;height:38px;padding:0 18px;
+.s button{border:0;background:linear-gradient(180deg,var(--gold2),var(--gold));color:#14243F;height:38px;padding:0 18px;
  border-radius:19px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}
 .s button:active{transform:scale(.97)}
 
@@ -147,25 +148,25 @@ svg{display:block}
 .cats::-webkit-scrollbar{display:none}
 .cat{flex:none;width:94px;border-radius:15px;overflow:hidden;background:var(--card);
  border:1px solid var(--mist);transition:.18s;
- box-shadow:0 2px 5px rgba(16,35,26,.05),0 10px 20px -12px rgba(16,35,26,.18)}
+ box-shadow:0 2px 5px rgba(18,32,58,.05),0 10px 20px -12px rgba(18,32,58,.18)}
 .cat .ic{display:block;width:94px;height:74px;overflow:hidden}
 .cat .ic svg{width:100%;height:100%;display:block}
 .cat .lb{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
  overflow:hidden;padding:7px 6px 8px;font-size:11.5px;line-height:1.22;
  font-weight:600;color:var(--ink);text-align:center;min-height:38px}
 .cat.on{border-color:var(--moss);
- box-shadow:0 0 0 2px var(--moss),0 10px 22px -12px rgba(16,72,42,.55)}
+ box-shadow:0 0 0 2px var(--moss),0 10px 22px -12px rgba(14,34,64,.55)}
 .cat.on .lb{background:var(--moss);color:#fff}
-.cat.on .ic{background:linear-gradient(160deg,#2F7C4E 0%,#1F5C39 100%);
- border-color:#1F5C39;
- box-shadow:0 4px 10px rgba(16,72,42,.3),0 12px 26px -10px rgba(16,72,42,.5)}
+.cat.on .ic{background:linear-gradient(160deg,#2C5384 0%,#22406A 100%);
+ border-color:#22406A;
+ box-shadow:0 4px 10px rgba(14,34,64,.3),0 12px 26px -10px rgba(14,34,64,.5)}
 /* Тандалганда белги караңгы тактын үстүндө жарык болуп калат —
    үч катмар актын үч даражасына айланып, көлөмү сакталат. */
 .cat.on .ic svg [data-t="lite"]{fill:#FFFFFF;stroke:#FFFFFF}
-.cat.on .ic svg [data-t="mid"] {fill:#A9D5BC;stroke:#A9D5BC}
-.cat.on .ic svg [data-t="deep"]{fill:#164A31;stroke:#164A31}
+.cat.on .ic svg [data-t="mid"] {fill:#BFCFE8;stroke:#BFCFE8}
+.cat.on .ic svg [data-t="deep"]{fill:#1B3355;stroke:#1B3355}
 /* Тешик так менен бирдей түстө болсун — ичи көрүнүп турсун */
-.cat.on .ic svg [data-t="hole"]{fill:#255E3E}
+.cat.on .ic svg [data-t="hole"]{fill:#264873}
 .cat.on{color:var(--ink);font-weight:600}
 
 /* ---- Чыпкалар ---- */
@@ -175,8 +176,8 @@ svg{display:block}
 .rg{flex:none;background:var(--card);border:1px solid var(--mist);border-radius:16px;
  padding:7px 14px;font-size:12.5px;font-weight:500;color:var(--soft);white-space:nowrap}
 .rg.on{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
-.sb2{flex:none;background:#E9F4EE;border:1px solid #D2E8DC;border-radius:16px;
- padding:7px 14px;font-size:12.5px;font-weight:500;color:#0A6238;white-space:nowrap}
+.sb2{flex:none;background:#EEF3FB;border:1px solid #D6E2F3;border-radius:16px;
+ padding:7px 14px;font-size:12.5px;font-weight:500;color:#14304F;white-space:nowrap}
 .sb2.on{background:var(--leaf);color:#fff;border-color:var(--leaf);font-weight:600}
 .sb2 em{font-style:normal;opacity:.62;font-size:11px;margin-left:2px}
 
@@ -191,11 +192,11 @@ svg{display:block}
 .g{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;padding-bottom:26px}
 @media(min-width:620px){.g{grid-template-columns:repeat(3,1fr);gap:13px}}
 @media(min-width:900px){.g{grid-template-columns:repeat(4,1fr)}}
-.c{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
+.c{background:var(--card);border:1px solid #EBE3D0;border-radius:var(--r);
  overflow:hidden;display:flex;flex-direction:column;transition:.16s}
 .c:active{transform:scale(.985)}
-.ph{position:relative;aspect-ratio:16/11;background:#EDF1EE;overflow:hidden;
- display:flex;align-items:center;justify-content:center;color:#C2D2C8}
+.ph{position:relative;aspect-ratio:16/11;background:#EDF1F8;overflow:hidden;
+ display:flex;align-items:center;justify-content:center;color:#C7D2E4}
 .ph i{display:block;width:30px;height:30px;opacity:.45}
 .ph i svg{width:100%;height:100%}
 .ph img{position:absolute;inset:0;width:100%;height:100%;
@@ -203,11 +204,11 @@ svg{display:block}
 .c.nophoto .ph{aspect-ratio:5/2}
 .fav{position:absolute;top:9px;right:9px;width:33px;height:33px;border-radius:50%;
  background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;
- color:var(--faint);box-shadow:0 1px 4px rgba(16,35,26,.1);border:0;padding:0;
+ color:var(--faint);box-shadow:0 1px 4px rgba(18,32,58,.1);border:0;padding:0;
  cursor:pointer;transition:.15s}
 .fav svg{width:17px;height:17px;transition:.15s}
-.fav.on{color:#E0483C}
-.fav.on svg{fill:#E0483C;transform:scale(1.12)}
+.fav.on{color:var(--gold)}
+.fav.on svg{fill:var(--gold);transform:scale(1.12)}
 .fav:active{transform:scale(.88)}
 .cb{padding:11px 12px 13px;display:flex;flex-direction:column;flex:1}
 .p{font-family:"Manrope",system-ui,sans-serif;font-size:18px;font-weight:800;
@@ -244,7 +245,7 @@ svg{display:block}
 .dph{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
  overflow:hidden;margin-bottom:11px;display:flex;align-items:center;
  justify-content:center;min-height:150px;max-height:min(52vh,430px);
- color:#C2D2C8}
+ color:#C7D2E4}
 .dph i{display:block;width:52px;height:52px;opacity:.55}
 .dph i svg{width:100%;height:100%}
 .dph img{width:100%;height:auto;max-height:min(52vh,430px);
@@ -252,7 +253,7 @@ svg{display:block}
 .dcard{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
  padding:16px;margin-bottom:11px}
 .eb{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;
- color:#0A6238;background:#E9F4EE;border-radius:13px;padding:5px 11px;margin-bottom:11px}
+ color:#14304F;background:#EEF3FB;border-radius:13px;padding:5px 11px;margin-bottom:11px}
 .eb svg{width:15px;height:15px}
 .dp{font-family:"Manrope",system-ui,sans-serif;font-size:29px;font-weight:800;
  letter-spacing:-1px;margin-bottom:5px;font-variant-numeric:tabular-nums}
@@ -267,7 +268,7 @@ svg{display:block}
  padding:11px 13px;font-size:13.5px}
 .f b{font-weight:500;color:var(--faint)}
 .f span{font-weight:500;text-align:right}
-.d{margin:0;font-size:14.5px;line-height:1.55;white-space:pre-wrap;color:#2A3B32}
+.d{margin:0;font-size:14.5px;line-height:1.55;white-space:pre-wrap;color:#243352}
 /* ---- Байланыш баскычтары ---- */
 .cbar{display:flex;gap:8px;margin-bottom:16px}
 .cb1{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;
@@ -276,7 +277,7 @@ svg{display:block}
 .cb1 svg{width:22px;height:22px;flex:none}
 .cb1 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .cb1:active{transform:scale(.97)}
-.cb1.call{background:var(--leaf);box-shadow:0 4px 12px rgba(18,160,92,.26)}
+.cb1.call{background:var(--leaf);box-shadow:0 4px 12px rgba(176,134,43,.26)}
 .cb1.wa{background:#22C15E;box-shadow:0 4px 12px rgba(34,193,94,.24)}
 .cb1.tg{background:#2AA3DA;box-shadow:0 4px 12px rgba(42,163,218,.24)}
 .cnum{text-align:center;font-family:"Manrope",system-ui,sans-serif;font-weight:800;
@@ -285,7 +286,7 @@ svg{display:block}
 
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;
  background:var(--leaf);color:#fff;border-radius:15px;padding:15px;
- font-size:16px;font-weight:600;box-shadow:0 5px 16px rgba(18,160,92,.28);
+ font-size:16px;font-weight:600;box-shadow:0 5px 16px rgba(176,134,43,.28);
  margin-bottom:14px}
 .btn svg{width:19px;height:19px}
 .btn span{font-family:"Manrope",system-ui,sans-serif;font-weight:700;
@@ -310,12 +311,12 @@ svg{display:block}
 .frow{display:flex;align-items:center;gap:12px;padding:15px 16px;font-size:15px;
  border-bottom:1px solid var(--mist)}
 .frow:last-child{border-bottom:0}
-.frow:active{background:#F2F6F3}
+.frow:active{background:#F2F5FA}
 .fchev{margin-left:auto;color:var(--faint);font-size:20px;line-height:1}
 .fnote{font-size:14px;color:var(--soft);padding:18px 16px;margin:0}
 .fskip{display:block;text-align:center;margin-bottom:20px}
 .qh{font-size:15.5px;font-weight:600;margin:0 0 7px;letter-spacing:-.1px}
-.qp{font-size:14.5px;line-height:1.55;color:#2A3B32;margin:0}
+.qp{font-size:14.5px;line-height:1.55;color:#243352;margin:0}
 
 /* ---- Бөлүм катарлары (башкы бет) ---- */
 .shelf{margin:26px 0 4px}
@@ -324,7 +325,7 @@ svg{display:block}
 .more{margin-left:auto;font-size:13px;font-weight:600;color:var(--leaf);
  white-space:nowrap;flex:none}
 .shchips{padding:0 0 11px!important;margin:0!important}
-.shchips .sb2{border:1px solid #D2E8DC;cursor:pointer;font-family:inherit}
+.shchips .sb2{border:1px solid #D6E2F3;cursor:pointer;font-family:inherit}
 .srow{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x proximity;
  scrollbar-width:none;padding-bottom:4px;transition:opacity .15s}
 .srow::-webkit-scrollbar{display:none}
@@ -335,7 +336,7 @@ svg{display:block}
 
 /* ---- Бош барак ---- */
 .em{text-align:center;padding:52px 22px 34px}
-.em i{display:block;width:76px;height:76px;margin:0 auto 20px;color:#C6D6CC}
+.em i{display:block;width:76px;height:76px;margin:0 auto 20px;color:#CBD6E6}
 .em i svg{width:100%;height:100%}
 .em h2{font-size:18px;font-weight:600;margin:0 0 7px;letter-spacing:-.2px}
 .em p{font-size:14px;color:var(--soft);margin:0 0 22px;line-height:1.5}
