@@ -97,7 +97,7 @@ def nav(active="home", lang="ky"):
 CSS = """
 :root{
  --ink:#152741; --soft:#5A6982; --faint:#8B97AC;
- --moss:#17365C; --leaf:#B0862B; --wheat:#C9A03A;
+ --moss:#17365C; --leaf:#17365C; --wheat:#C9A03A;
  --paper:#F1F4F9; --card:#FFFDF7; --mist:#E1E7F1;
  --gold:#C9A03A; --gold2:#E3C368; --cream:#FBF5E6;
  --r:18px;

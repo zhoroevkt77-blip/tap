@@ -161,7 +161,7 @@ display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hi
 def page(body, title="ТАП!", tab="home", lang="ky"):
     return f"""<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0B6E3F">
+<meta name="theme-color" content="#17365C">
 <title>{esc(title)}</title>{FONTS}<style>{CSS}{EXTRA_CSS}</style></head><body>{body}{nav(tab, lang)}
 {SCROLL_JS}{FAV_JS}{SHELF_JS}</body></html>"""
 
