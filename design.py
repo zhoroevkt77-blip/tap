@@ -157,7 +157,7 @@ svg{display:block}
  overflow:hidden;padding:7px 6px 8px;font-size:11.5px;line-height:1.22;
  font-weight:600;color:var(--ink);text-align:center;min-height:38px}
 /* Сүрөттүү бөлүм тактасы: сүрөт бүт тактаны ээлейт, аты сүрөттө жазылган */
-.cat.pic{border:0;background:none;padding:0;overflow:hidden;
+.cat.pic{border:0;background:none;padding:0;overflow:hidden;position:relative;
  width:104px;height:126px;border-radius:16px}
 .cat.pic .pic{width:100%;height:100%;object-fit:cover;display:block}
 .cat.pic.on{box-shadow:0 0 0 3px var(--gold),0 10px 22px -12px rgba(18,32,58,.5)}
@@ -253,7 +253,7 @@ svg{display:block}
 .ph i svg{width:100%;height:100%}
 .ph img{position:absolute;inset:0;width:100%;height:100%;
  object-fit:cover;display:block}
-.c.nophoto .ph{aspect-ratio:auto;height:132px}
+.c.nophoto .ph{aspect-ratio:auto;height:124px}
 .fav{position:absolute;top:9px;right:9px;width:33px;height:33px;border-radius:50%;
  background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;
  color:var(--faint);box-shadow:0 1px 4px rgba(18,32,58,.1);border:0;padding:0;

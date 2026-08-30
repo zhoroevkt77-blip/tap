@@ -155,11 +155,17 @@ background:linear-gradient(160deg,#F6F9FD 0%,#E4ECF8 100%)}
 .ph .nph .nphi svg{width:100%;height:100%;display:block}
 .ph .nph em{font-style:normal;font-size:11.5px;font-weight:700;line-height:1.3;
 color:#1B3355;width:100%;max-height:2.6em;overflow:hidden;display:block}
-.ph .nphp{position:absolute;inset:0;width:100%;height:100%;
-object-fit:contain;object-position:center;display:block;
-background:#E9EFF9}
-.dph .nphp{width:100%;height:250px;display:block;object-fit:contain;
-object-position:center;background:#E9EFF9}
+.nphw{position:absolute;inset:0;display:block;background:#E9EFF9}
+.nphw .nphp{position:absolute;inset:0;width:100%;height:100%;
+object-fit:cover;object-position:50% 30%;display:block}
+.dph .nphw{position:relative;height:210px}
+.dph .nphw .nphp{height:100%}
+.cap{position:absolute;left:8px;right:8px;bottom:8px;z-index:2;
+display:flex;align-items:center;justify-content:center;gap:6px;
+padding:6px 10px;border-radius:12px;background:rgba(16,28,48,.72);
+color:#fff;font-size:11.5px;font-weight:700;line-height:1.2;text-align:center;
+backdrop-filter:blur(3px)}
+.dph .cap{font-size:14px;padding:8px 14px;left:14px;right:14px;bottom:12px}
 .dph .nph{min-height:190px}
 .dph .nph .nphi{width:76px;height:76px}
 .dph .nph em{font-size:14px}
@@ -332,8 +338,10 @@ def ph_block(r, lang="ky"):
     at = r.get("ad_type")
     # Бөлүмдүн сүрөтү бар болсо, ошол коюлат — аты сүрөттүн өзүндө жазылган
     if at and secimg.has(at):
-        return (f'<img class="nphp" src="/si/{at}.jpg?v={secimg.VERSION}" alt="'
-                f'{esc(section_name(at, lang))}" loading="lazy">')
+        nm = esc(section_name(at, lang))
+        return (f'<span class="nphw"><img class="nphp" '
+                f'src="/si/{at}.jpg?v={secimg.VERSION}" alt="{nm}" loading="lazy">'
+                f'<span class="cap">{nm}</span></span>')
     ic = ICONS.get(at) or ICONS["all"]
     nm = section_name(at, lang) if at else ph_name(r, lang)
     lbl = f"<em>{esc(nm)}</em>" if nm else ""
@@ -490,7 +498,9 @@ def _sections_strip(link, at, lang):
     if secimg.has("all"):
         cats = (f'<a href="{link(at=None, cid=None)}" '
                 f'class="cat pic{"" if at else " on"}">'
-                f'<img class="pic" src="/si/all.jpg?v={secimg.VERSION}" alt="{T("all", lang)}"></a>')
+                f'<img class="pic" src="/si/all.jpg?v={secimg.VERSION}" '
+                f'alt="{T("all", lang)}">'
+                f'<span class="cap">{T("all", lang)}</span></a>')
     else:
         cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
                 f'<span class="ic">{SCENES["all"]}</span>'
@@ -498,8 +508,9 @@ def _sections_strip(link, at, lang):
     for code, ic, _name in SECTIONS:
         on = " on" if at == code else ""
         if secimg.has(code):
-            inner = (f'<img class="pic" src="/si/{code}.jpg?v={secimg.VERSION}" alt="'
-                     f'{esc(section_name(code, lang))}" loading="lazy">')
+            nm = esc(section_name(code, lang))
+            inner = (f'<img class="pic" src="/si/{code}.jpg?v={secimg.VERSION}" '
+                     f'alt="{nm}" loading="lazy"><span class="cap">{nm}</span>')
             cls = f"cat pic{on}"
         else:
             inner = (f'<span class="ic">{ic}</span>'
