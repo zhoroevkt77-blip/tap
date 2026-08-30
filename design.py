@@ -132,8 +132,10 @@ svg{display:block}
 .lang{margin-left:auto;flex:none;font-size:12px;font-weight:700;letter-spacing:.4px;
  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.2);
  padding:6px 11px;border-radius:14px}
-.s{display:flex;align-items:center;background:#fff;border-radius:26px;
- padding:0 5px 0 17px;height:48px;box-shadow:0 3px 14px rgba(12,30,60,.16)}
+.s{display:flex;align-items:center;gap:9px;background:#fff;border-radius:26px;
+ padding:0 5px 0 15px;height:48px;box-shadow:0 3px 14px rgba(12,30,60,.16)}
+.s .mg{flex:none;width:20px;height:20px;color:var(--faint)}
+.s .mg svg{width:100%;height:100%;display:block}
 .s input{flex:1;min-width:0;border:0;font-size:16px;font-family:inherit;
  background:transparent;padding:0;color:var(--ink)}
 .s input:focus{outline:none}
@@ -154,9 +156,15 @@ svg{display:block}
 .cat .lb{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
  overflow:hidden;padding:7px 6px 8px;font-size:11.5px;line-height:1.22;
  font-weight:600;color:var(--ink);text-align:center;min-height:38px}
-.cat.on{border-color:var(--moss);
- box-shadow:0 0 0 2px var(--moss),0 10px 22px -12px rgba(14,34,64,.55)}
-.cat.on .lb{background:var(--moss);color:#fff}
+/* Сүрөттүү бөлүм тактасы: сүрөт бүт тактаны ээлейт, аты сүрөттө жазылган */
+.cat.pic{border:0;background:none;padding:0;overflow:hidden;
+ width:104px;height:126px;border-radius:16px}
+.cat.pic .pic{width:100%;height:100%;object-fit:cover;display:block}
+.cat.pic.on{box-shadow:0 0 0 3px var(--gold),0 10px 22px -12px rgba(18,32,58,.5)}
+
+.cat.on{border-color:var(--gold);
+ box-shadow:0 0 0 2px var(--gold),0 10px 22px -12px rgba(14,34,64,.4)}
+.cat.on .lb{background:transparent;color:var(--ink);font-weight:700}
 .cat.on .ic{background:linear-gradient(160deg,#FFFFFF 0%,#E7EEF9 100%);
  border-bottom:1px solid #C9D6EA}
 /* Тандалганда белги караңгы тактын үстүндө жарык болуп калат —
@@ -251,7 +259,9 @@ svg{display:block}
  color:var(--faint);box-shadow:0 1px 4px rgba(18,32,58,.1);border:0;padding:0;
  cursor:pointer;transition:.15s}
 .fav svg{width:17px;height:17px;transition:.15s}
+.fav{color:var(--gold)}
 .fav.on{color:var(--gold)}
+.fav svg{fill:none}
 .fav.on svg{fill:var(--gold);transform:scale(1.12)}
 .fav:active{transform:scale(.88)}
 .cb{padding:11px 12px 13px;display:flex;flex-direction:column;flex:1}
@@ -267,6 +277,7 @@ svg{display:block}
  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .m{margin-top:auto;display:flex;gap:8px;align-items:center;font-size:11.5px;
  color:var(--faint);white-space:nowrap}
+.m span:first-child{color:var(--gold);font-weight:600}
 .m span:first-child{overflow:hidden;text-overflow:ellipsis}
 .m .vw{margin-left:auto;display:flex;align-items:center;gap:3px}
 .m .vw svg{width:13px;height:13px}
@@ -392,13 +403,19 @@ svg{display:block}
  padding:13px 26px;font-size:14.5px;font-weight:600}
 
 /* ---- Ылдыйкы тилке ---- */
-.nav{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.97);
- backdrop-filter:saturate(180%) blur(14px);border-top:1px solid var(--mist);
- display:flex;padding:7px 0 max(7px,env(safe-area-inset-bottom));z-index:30}
+.nav{position:fixed;left:0;right:0;bottom:0;
+ background:linear-gradient(180deg,#1B3D68,#12294A);
+ border-top:1px solid #0E2340;
+ display:flex;padding:8px 0 max(8px,env(safe-area-inset-bottom));z-index:30}
 .nav a{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
- font-size:10.5px;font-weight:500;color:var(--faint)}
+ font-size:10.5px;font-weight:500;color:#B8C7DD}
 .nav a svg{width:22px;height:22px}
-.nav a.on{color:var(--leaf);font-weight:600}
+.nav a:nth-child(1) svg{color:#7FB2F0}
+.nav a:nth-child(2) svg{color:#F07A72}
+.nav a:nth-child(3) svg{color:#5BC98A}
+.nav a:nth-child(4) svg{color:#A38BE8}
+.nav a:nth-child(5) svg{color:#E0C267}
+.nav a.on{color:#fff;font-weight:700}
 
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 :focus-visible{outline:2.5px solid var(--leaf);outline-offset:2px;border-radius:6px}

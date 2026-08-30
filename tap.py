@@ -20,6 +20,7 @@ from tap_catalog import (TRADE_CATEGORIES, SERVICE_CATEGORIES, RENTAL_CATEGORIES
                          OBLASTS, get_districts, get_localities, ru_name)
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
 from scenes import SCENES
+import secimg
 from strings import T, L, H as help_text
 import bridge
 
@@ -249,6 +250,10 @@ def _place_note(lang):
     return f'<p class="rnote">{esc(txt)}</p>' + _ABBR_CSS
 
 
+_EMPTY = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+          'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
+          '<circle cx="10.5" cy="10.5" r="7"/><path d="m15.6 15.6 5.4 5.4"/></svg>')
+
 def header(q="", at=None, reg=None, lang="ky"):
     hidden = f'<input type="hidden" name="at" value="{esc(at)}">' if at else ""
     return f"""<header class="top"><div class="wrap">
@@ -256,13 +261,10 @@ def header(q="", at=None, reg=None, lang="ky"):
 <span class="pin"><b>&#9679;</b>{esc(_short_place(_place_name(reg, lang)) if reg else T("all_kg", lang))}</span>
 {_lang_switch(lang)}</div>
 <form class="s" action="/">{hidden}
+<span class="mg">{_EMPTY}</span>
 <input type="search" name="q" value="{esc(q)}" placeholder="{T("search_ph", lang)}">
 <button>{T("search_btn", lang)}</button></form></div></header>"""
 
-
-_EMPTY = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-          'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
-          '<circle cx="10.5" cy="10.5" r="7"/><path d="m15.6 15.6 5.4 5.4"/></svg>')
 
 _NOPHOTO = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
             'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
@@ -473,14 +475,24 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang):
 
 
 def _sections_strip(link, at, lang):
+    """
+    Бөлүм такталары. Сүрөтү бар бөлүмдө сүрөт бүт тактаны ээлейт (аты
+    сүрөттүн өзүндө жазылган), сүрөтү жогунда мурункудай белги чыгат.
+    """
     cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
             f'<span class="ic">{SCENES["all"]}</span>'
             f'<span class="lb">{T("all", lang)}</span></a>')
     for code, ic, _name in SECTIONS:
-        cats += (f'<a href="{link(at=code, cid=None)}" '
-                 f'class="cat{" on" if at == code else ""}">'
-                 f'<span class="ic">{ic}</span>'
-                 f'<span class="lb">{esc(section_name(code, lang))}</span></a>')
+        on = " on" if at == code else ""
+        if secimg.has(code):
+            inner = (f'<img class="pic" src="/si/{code}.jpg" alt="'
+                     f'{esc(section_name(code, lang))}" loading="lazy">')
+            cls = f"cat pic{on}"
+        else:
+            inner = (f'<span class="ic">{ic}</span>'
+                     f'<span class="lb">{esc(section_name(code, lang))}</span>')
+            cls = f"cat{on}"
+        cats += f'<a href="{link(at=code, cid=None)}" class="{cls}">{inner}</a>'
     return f'<nav class="cats">{cats}</nav>'
 
 
@@ -1200,6 +1212,23 @@ class H(BaseHTTPRequestHandler):
                 self._send(detail(r, lang))
             else:
                 self._send(empty_page(T("no_page", lang), T("bad_link", lang), lang), 404)
+
+        elif u.path.startswith("/si/"):
+            # Бөлүм такталарынын сүрөттөрү — secimg.py ичинде турат
+            key = os.path.basename(urllib.parse.unquote(u.path[4:]))
+            key = key[:-4] if key.endswith(".jpg") else key
+            data = secimg.get(key)
+            if data:
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "max-age=604800")
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_response(404)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
 
         elif u.path.startswith("/media/"):
             name = os.path.basename(urllib.parse.unquote(u.path[7:]))
