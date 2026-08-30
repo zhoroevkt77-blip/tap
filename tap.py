@@ -330,7 +330,7 @@ def ph_block(r, lang="ky"):
     at = r.get("ad_type")
     # Бөлүмдүн сүрөтү бар болсо, ошол коюлат — аты сүрөттүн өзүндө жазылган
     if at and secimg.has(at):
-        return (f'<img class="nphp" src="/si/{at}.jpg" alt="'
+        return (f'<img class="nphp" src="/si/{at}.jpg?v={secimg.VERSION}" alt="'
                 f'{esc(section_name(at, lang))}" loading="lazy">')
     ic = ICONS.get(at) or ICONS["all"]
     nm = section_name(at, lang) if at else ph_name(r, lang)
@@ -488,7 +488,7 @@ def _sections_strip(link, at, lang):
     if secimg.has("all"):
         cats = (f'<a href="{link(at=None, cid=None)}" '
                 f'class="cat pic{"" if at else " on"}">'
-                f'<img class="pic" src="/si/all.jpg" alt="{T("all", lang)}"></a>')
+                f'<img class="pic" src="/si/all.jpg?v={secimg.VERSION}" alt="{T("all", lang)}"></a>')
     else:
         cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
                 f'<span class="ic">{SCENES["all"]}</span>'
@@ -496,7 +496,7 @@ def _sections_strip(link, at, lang):
     for code, ic, _name in SECTIONS:
         on = " on" if at == code else ""
         if secimg.has(code):
-            inner = (f'<img class="pic" src="/si/{code}.jpg" alt="'
+            inner = (f'<img class="pic" src="/si/{code}.jpg?v={secimg.VERSION}" alt="'
                      f'{esc(section_name(code, lang))}" loading="lazy">')
             cls = f"cat pic{on}"
         else:

@@ -8,6 +8,10 @@
 """
 import base64
 
+# Сүрөттөр жаңырганда бул санды бирге көбөйт — ошондо браузердин
+# кэшиндеги эски сүрөт эмес, жаңысы жүктөлөт.
+VERSION = "2"
+
 _B64 = {
     "all": (
         "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQU"
