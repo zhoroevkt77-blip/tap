@@ -324,8 +324,9 @@ def ph_block(r, lang="ky"):
     """
     at = r.get("ad_type")
     ic = ICONS.get(at) or ICONS["all"]
-    nm = esc(ph_name(r, lang))
-    lbl = f"<em>{nm}</em>" if nm else ""
+    # Бөлүмдүн аты жазылат: Соода-сатык, Кызмат көрсөтүү, Такси…
+    nm = section_name(at, lang) if at else ph_name(r, lang)
+    lbl = f"<em>{esc(nm)}</em>" if nm else ""
     return f'<i class="nph"><span class="nphi">{ic}</span>{lbl}</i>'
 
 
