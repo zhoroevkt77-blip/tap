@@ -257,8 +257,12 @@ svg{display:block}
 .cb{padding:11px 12px 13px;display:flex;flex-direction:column;flex:1}
 .p{font-family:"Manrope",system-ui,sans-serif;font-size:18px;font-weight:800;
  letter-spacing:-.4px;margin-bottom:5px;font-variant-numeric:tabular-nums}
-.pd{font-family:"Golos Text",system-ui,sans-serif;font-size:12.5px;font-weight:600;
+.pd{font-family:"Golos Text",system-ui,sans-serif;font-size:15.5px;font-weight:700;
  color:var(--leaf);letter-spacing:0}
+.rg{font-size:12px;font-weight:600;color:var(--moss);opacity:.82;line-height:1.35;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rg2{opacity:.62;font-weight:500}
+.rg+.t,.rg2+.t{margin-top:6px}
 .t{font-size:13.5px;line-height:1.38;margin:0 0 10px;font-weight:400;color:var(--soft);
  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .m{margin-top:auto;display:flex;gap:8px;align-items:center;font-size:11.5px;

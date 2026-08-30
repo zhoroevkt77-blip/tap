@@ -330,6 +330,27 @@ def ph_block(r, lang="ky"):
     return f'<i class="nph"><span class="nphi">{ic}</span>{lbl}</i>'
 
 
+def _reg_lines(r, lang="ky"):
+    """
+    Карточкадагы аймак: үстүндө облус · район, астында айыл аймагы · айыл.
+    Аттар кыскартылат, бош тепкичтер таптакыр жазылбайт.
+    """
+    def sh(x):
+        x = str(x or "").strip()
+        return _short_place(_place_name(x, lang)) if x else ""
+
+    top = " · ".join([x for x in (sh(r.get("oblast")), sh(r.get("district"))) if x])
+    low = " · ".join([x for x in (sh(r.get("locality")), sh(r.get("village"))) if x])
+    if not top and not low:
+        top = sh(r.get("region"))
+    out = ""
+    if top:
+        out += f'<div class="rg">{esc(top)}</div>'
+    if low:
+        out += f'<div class="rg rg2">{esc(low)}</div>'
+    return out
+
+
 def card(r, lang="ky"):
     has = bool(r.get("photo"))
     img = (f'<img src="/media/{esc(r["photo"])}" alt="" loading="lazy">'
@@ -338,6 +359,7 @@ def card(r, lang="ky"):
     return f"""<a class="c{'' if has else ' nophoto'}" href="/e/{r['id']}">
 <div class="ph">{img}<button class="fav" data-id="{r['id']}" aria-label="Тандалганга кошуу">{NAV_ICONS['fav']}</button></div>
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
+{_reg_lines(r, lang)}
 <h2 class="t">{esc(L(bridge.show_title(r), lang))}</h2>
 <div class="m"><span>{esc(ago(r['created_at']))}</span>
 <span class="vw">{_EYE}{r['views']}</span></div>
