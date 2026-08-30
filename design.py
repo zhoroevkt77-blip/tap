@@ -169,6 +169,21 @@ svg{display:block}
 .cat.on{color:var(--ink);font-weight:600}
 
 /* ---- Чыпкалар ---- */
+/* ---- Аймак панели ---- */
+.regbox{background:#fff;border-top:1px solid var(--mist);
+ border-bottom:1px solid var(--mist);margin:0 0 4px}
+.regbox>summary{list-style:none;cursor:pointer}
+.regbox>summary::-webkit-details-marker{display:none}
+.rgsum{display:flex;align-items:center;justify-content:space-between;
+ gap:10px;padding:12px 14px;font-size:14px;font-weight:700;color:var(--ink)}
+.rgs1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rgs2{flex:none;font-size:12.5px;font-weight:600;color:var(--gold)}
+.rgs2::after{content:" \25BE"}
+.regbox[open] .rgs2::after{content:" \25B4"}
+.regbox[open] .rgsum{border-bottom:1px solid var(--mist)}
+.regin{padding-bottom:6px}
+.rglb{padding:9px 14px 0;font-size:11px;font-weight:700;letter-spacing:.4px;
+ text-transform:uppercase;color:var(--faint)}
 .regbar,.subbar{display:flex;gap:7px;overflow-x:auto;padding:7px 14px 2px;
  scrollbar-width:none;max-width:1040px;margin:0 auto}
 .regbar::-webkit-scrollbar,.subbar::-webkit-scrollbar{display:none}

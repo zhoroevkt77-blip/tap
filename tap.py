@@ -358,17 +358,38 @@ def _chip(href, label, on, n=0, lang="ky", short=True):
     return f'<a href="{href}" class="{cls}">{esc(text)}{num}</a>'
 
 
+def _reg_label(kind, lang):
+    """Тилкенин үстүндөгү аты."""
+    if lang == "ru":
+        t = {"ob": "Регион", "di": "Район · город",
+             "vi": "Айыльный округ · село"}
+    else:
+        t = {"ob": "Аймак", "di": "Район · шаар",
+             "vi": "Айыл аймагы · айыл"}
+    return f'<div class="rglb">{t[kind]}</div>'
+
+
+def _reg_summary(ob, di, vi, lang):
+    """Жыйналган панелде көрүнүүчү сап: тандалган аймак."""
+    parts = [_short_place(_place_name(x, lang)) for x in (ob, di, vi) if x]
+    txt = " · ".join(parts) if parts else T("all_kg", lang)
+    act = "изменить" if lang == "ru" else "өзгөртүү"
+    return (f'<summary class="rgsum"><span class="rgs1">&#128205; {esc(txt)}</span>'
+            f'<span class="rgs2">{act}</span></summary>')
+
+
 def _filter_bars(link, q, at, cid, ob, di, vi, lang):
-    """Аймак жана категория чыпкаларынын тилкелери."""
-    # 1-тепкич: облустар — боттогудай толук тизме
+    """Аймак жана категория чыпкалары."""
     flt = {"q": q or None, "ad_type": at, "cat_id": cid}
+
+    # 1-тепкич: облустар менен шаарлар
     oc = core.oblast_counts(**flt)
     rb = _chip(link(ob=None, di=None, vi=None), T("all_kg", lang), not ob,
                lang=lang, short=False)
     for rg in _by_count(list(OBLASTS), oc):
         rb += _chip(link(ob=rg, di=None, vi=None), rg, ob == rg,
-                   oc.get(rg, 0), lang)
-    out = f'<nav class="regbar">{rb}</nav>'
+                    oc.get(rg, 0), lang)
+    inner = _reg_label("ob", lang) + f'<nav class="regbar">{rb}</nav>'
 
     # 2-тепкич: райондор жана шаарлар
     if ob:
@@ -376,10 +397,10 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
         ds = list(get_districts(ob)) or core.used_districts(ob)
         if ds:
             chips = _chip(link(di=None, vi=None), T("all_oblast", lang), not di,
-                           lang=lang, short=False)
+                          lang=lang, short=False)
             for x in _by_count(list(ds), dc):
                 chips += _chip(link(di=x, vi=None), x, di == x, dc.get(x, 0), lang)
-            out += f'<nav class="regbar">{chips}</nav>'
+            inner += _reg_label("di", lang) + f'<nav class="regbar">{chips}</nav>'
 
     # 3-тепкич: айыл аймактары жана кичи райондор
     if ob and di:
@@ -390,9 +411,14 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
             chips = _chip(link(vi=None), whole, not vi, lang=lang, short=False)
             for x in _by_count(list(vs), vc):
                 chips += _chip(link(vi=x), x, vi == x, vc.get(x, 0), lang)
-            out += f'<nav class="regbar">{chips}</nav>'
+            inner += _reg_label("vi", lang) + f'<nav class="regbar">{chips}</nav>'
 
-    out += _place_note(lang)
+    inner += _place_note(lang)
+
+    # Аймак тандала элек болсо панель ачык турат, тандалса — жыйналат.
+    op = "" if ob else " open"
+    out = (f'<details class="regbox"{op}>{_reg_summary(ob, di, vi, lang)}'
+           f'<div class="regin">{inner}</div></details>')
 
     if at:
         cc = core.catid_counts(at, ob, di, vi, q or None)
