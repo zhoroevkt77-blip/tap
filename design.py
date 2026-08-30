@@ -157,9 +157,8 @@ svg{display:block}
 .cat.on{border-color:var(--moss);
  box-shadow:0 0 0 2px var(--moss),0 10px 22px -12px rgba(14,34,64,.55)}
 .cat.on .lb{background:var(--moss);color:#fff}
-.cat.on .ic{background:linear-gradient(160deg,#2C5384 0%,#22406A 100%);
- border-color:#22406A;
- box-shadow:0 4px 10px rgba(14,34,64,.3),0 12px 26px -10px rgba(14,34,64,.5)}
+.cat.on .ic{background:linear-gradient(160deg,#FFFFFF 0%,#E7EEF9 100%);
+ border-bottom:1px solid #C9D6EA}
 /* Тандалганда белги караңгы тактын үстүндө жарык болуп калат —
    үч катмар актын үч даражасына айланып, көлөмү сакталат. */
 .cat.on .ic svg [data-t="lite"]{fill:#FFFFFF;stroke:#FFFFFF}
