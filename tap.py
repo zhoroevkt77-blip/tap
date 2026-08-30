@@ -155,6 +155,9 @@ background:linear-gradient(160deg,#F6F9FD 0%,#E4ECF8 100%)}
 .ph .nph .nphi svg{width:100%;height:100%;display:block}
 .ph .nph em{font-style:normal;font-size:11.5px;font-weight:700;line-height:1.3;
 color:#1B3355;width:100%;max-height:2.6em;overflow:hidden;display:block}
+.ph .nphp{position:absolute;inset:0;width:100%;height:100%;
+object-fit:cover;display:block}
+.dph .nphp{width:100%;display:block;object-fit:cover;max-height:320px}
 .dph .nph{min-height:190px}
 .dph .nph .nphi{width:76px;height:76px}
 .dph .nph em{font-size:14px}
@@ -325,8 +328,11 @@ def ph_block(r, lang="ky"):
     карточкада аталыш менен баа маанилүүрөөк.
     """
     at = r.get("ad_type")
+    # Бөлүмдүн сүрөтү бар болсо, ошол коюлат — аты сүрөттүн өзүндө жазылган
+    if at and secimg.has(at):
+        return (f'<img class="nphp" src="/si/{at}.jpg" alt="'
+                f'{esc(section_name(at, lang))}" loading="lazy">')
     ic = ICONS.get(at) or ICONS["all"]
-    # Бөлүмдүн аты жазылат: Соода-сатык, Кызмат көрсөтүү, Такси…
     nm = section_name(at, lang) if at else ph_name(r, lang)
     lbl = f"<em>{esc(nm)}</em>" if nm else ""
     return f'<i class="nph"><span class="nphi">{ic}</span>{lbl}</i>'
@@ -479,9 +485,14 @@ def _sections_strip(link, at, lang):
     Бөлүм такталары. Сүрөтү бар бөлүмдө сүрөт бүт тактаны ээлейт (аты
     сүрөттүн өзүндө жазылган), сүрөтү жогунда мурункудай белги чыгат.
     """
-    cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
-            f'<span class="ic">{SCENES["all"]}</span>'
-            f'<span class="lb">{T("all", lang)}</span></a>')
+    if secimg.has("all"):
+        cats = (f'<a href="{link(at=None, cid=None)}" '
+                f'class="cat pic{"" if at else " on"}">'
+                f'<img class="pic" src="/si/all.jpg" alt="{T("all", lang)}"></a>')
+    else:
+        cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
+                f'<span class="ic">{SCENES["all"]}</span>'
+                f'<span class="lb">{T("all", lang)}</span></a>')
     for code, ic, _name in SECTIONS:
         on = " on" if at == code else ""
         if secimg.has(code):
