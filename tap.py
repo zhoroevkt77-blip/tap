@@ -144,17 +144,19 @@ SCROLL_JS = ('<script>document.querySelectorAll(".cats,.regbar,.subbar")'
              'if(a)n.scrollLeft=Math.max(0,a.offsetLeft-16)})</script>')
 
 
-# Сүрөтү жок жарыялар: сүлгү ордуна категориянын аты чыгат.
+# Сүрөтү жок жарыялар: бөлүмдүн белгиси, астында категориянын аты.
 EXTRA_CSS = """
 .ph .nph{display:flex;flex-direction:column;align-items:center;justify-content:center;
-gap:6px;width:100%;height:100%;padding:10px;text-align:center;font-style:normal}
-.ph .nph svg{width:26px;height:26px;opacity:.45}
-.ph .nph b{font-weight:600;font-size:12.5px;line-height:1.25;opacity:.78;
+gap:7px;width:100%;height:100%;padding:10px;text-align:center;font-style:normal;
+background:linear-gradient(160deg,#F6F9FD 0%,#E4ECF8 100%)}
+.ph .nph .nphi{display:block;width:46px;height:46px}
+.ph .nph .nphi svg{width:100%;height:100%;display:block}
+.ph .nph em{font-style:normal;font-size:11.5px;font-weight:700;line-height:1.25;
+color:var(--moss);opacity:.85;
 display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ph .nph .n2{font-size:11.5px;line-height:1.25;opacity:.6;
-display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ph .nph .n3{font-size:11px;line-height:1.3;opacity:.5;margin-top:2px;
-display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.dph .nph{min-height:190px}
+.dph .nph .nphi{width:76px;height:76px}
+.dph .nph em{font-size:14px}
 """
 
 
@@ -314,18 +316,17 @@ def ph_place(r, lang="ky"):
 
 
 def ph_block(r, lang="ky"):
-    """Сүрөтү жок жарыянын ордуна чыгуучу жазуу."""
+    """
+    Сүрөтү жок жарыянын ордуна: бөлүмдүн белгиси, астында категориянын аты.
+
+    Аймак бул жерде жазылбайт — ал жарыянын өз барагында турат, ал эми
+    карточкада аталыш менен баа маанилүүрөөк.
+    """
+    at = r.get("ad_type")
+    ic = ICONS.get(at) or ICONS["all"]
     nm = esc(ph_name(r, lang))
-    sub = esc(ph_sub(r, lang))
-    place = esc(ph_place(r, lang))
-    out = _NOPHOTO
-    if nm:
-        out += f"<b>{nm}</b>"
-    if sub and sub != nm:
-        out += f'<span class="n2">{sub}</span>'
-    if place:
-        out += f'<span class="n3">{place}</span>'
-    return f'<i class="nph">{out}</i>'
+    lbl = f"<em>{nm}</em>" if nm else ""
+    return f'<i class="nph"><span class="nphi">{ic}</span>{lbl}</i>'
 
 
 def card(r, lang="ky"):
@@ -716,7 +717,7 @@ def detail(r, lang="ky"):
     # Галерея: бир нече сүрөт болсо сол-оңго сүрүп кароого болот.
     shots = core.photo_list(r)
     if not shots:
-        dimg = f'<i class="nph">{_NOPHOTO}<b>{esc(ph_name(r, lang))}</b></i>'
+        dimg = ph_block(r, lang)
     elif len(shots) == 1:
         dimg = f'<img src="/media/{esc(shots[0])}" alt="">'
     else:
