@@ -151,9 +151,8 @@ gap:7px;width:100%;height:100%;padding:10px;text-align:center;font-style:normal;
 background:linear-gradient(160deg,#F6F9FD 0%,#E4ECF8 100%)}
 .ph .nph .nphi{display:block;width:46px;height:46px}
 .ph .nph .nphi svg{width:100%;height:100%;display:block}
-.ph .nph em{font-style:normal;font-size:11.5px;font-weight:700;line-height:1.25;
-color:var(--moss);opacity:.85;
-display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ph .nph em{font-style:normal;font-size:11.5px;font-weight:700;line-height:1.3;
+color:#1B3355;width:100%;max-height:2.6em;overflow:hidden;display:block}
 .dph .nph{min-height:190px}
 .dph .nph .nphi{width:76px;height:76px}
 .dph .nph em{font-size:14px}
