@@ -146,6 +146,7 @@ SCROLL_JS = ('<script>document.querySelectorAll(".cats,.regbar,.subbar")'
 
 # Сүрөтү жок жарыялар: бөлүмдүн белгиси, астында категориянын аты.
 EXTRA_CSS = """
+.ph i.nph,.dph i.nph{width:100%;height:100%;opacity:1}
 .ph .nph{display:flex;flex-direction:column;align-items:center;justify-content:center;
 gap:7px;width:100%;height:100%;padding:10px;text-align:center;font-style:normal;
 background:linear-gradient(160deg,#F6F9FD 0%,#E4ECF8 100%)}

@@ -245,7 +245,7 @@ svg{display:block}
 .ph i svg{width:100%;height:100%}
 .ph img{position:absolute;inset:0;width:100%;height:100%;
  object-fit:cover;display:block}
-.c.nophoto .ph{aspect-ratio:5/2}
+.c.nophoto .ph{aspect-ratio:16/11}
 .fav{position:absolute;top:9px;right:9px;width:33px;height:33px;border-radius:50%;
  background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;
  color:var(--faint);box-shadow:0 1px 4px rgba(18,32,58,.1);border:0;padding:0;
