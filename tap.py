@@ -156,7 +156,7 @@ background:linear-gradient(160deg,#F6F9FD 0%,#E4ECF8 100%)}
 .ph .nph em{font-style:normal;font-size:11.5px;font-weight:700;line-height:1.3;
 color:#1B3355;width:100%;max-height:2.6em;overflow:hidden;display:block}
 .ph .nphp{position:absolute;inset:0;width:100%;height:100%;
-object-fit:cover;display:block}
+object-fit:cover;object-position:50% 100%;display:block}
 .dph .nphp{width:100%;display:block;object-fit:cover;max-height:320px}
 .dph .nph{min-height:190px}
 .dph .nph .nphi{width:76px;height:76px}
