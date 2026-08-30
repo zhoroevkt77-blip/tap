@@ -418,11 +418,20 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang):
         dc = core.district_counts(ob, **flt)
         ds = list(get_districts(ob)) or core.used_districts(ob)
         if ds:
-            opts = [(None, link(di=None, vi=None), T("all_oblast", lang), None)]
+            # Бишкек менен Ош — республикалык маанидеги шаарлар,
+            # аларда «облус» эмес, «шаар» деп жазылат.
+            city = "шаар" in str(ob).lower() or "город" in str(ob).lower()
+            if city:
+                whole = "Весь город" if ru else "Бүт шаар"
+                lbl = "Район города" if ru else "Шаардын району"
+            else:
+                whole = T("all_oblast", lang)
+                lbl = "Район · город" if ru else "Район · шаар"
+            opts = [(None, link(di=None, vi=None), whole, None)]
             for x in _by_count(list(ds), dc):
                 opts.append((x, link(di=x, vi=None),
                              _place_name(x, lang), dc.get(x, 0)))
-            inner += _sel("Район · город" if ru else "Район · шаар", opts, di)
+            inner += _sel(lbl, opts, di)
 
     if ob and di:
         vc = core.village_counts(ob, di, **flt)
