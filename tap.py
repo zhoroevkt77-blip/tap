@@ -342,6 +342,12 @@ def card(r, lang="ky"):
 </div></a>"""
 
 
+def _by_count(items, counts):
+    """Жарыясы барлар алдыда, «0» болгондор артында — өз ара тартиби сакталат."""
+    order = {x: i for i, x in enumerate(items)}
+    return sorted(items, key=lambda x: (0 if counts.get(x, 0) else 1, order[x]))
+
+
 def _chip(href, label, on, n=0, lang="ky", short=True):
     """Аймактын баскычы. Жарыясы бар болсо санын көрсөтөт."""
     text = _place_name(label, lang) if short else L(str(label), lang)
@@ -359,7 +365,7 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
     oc = core.oblast_counts(**flt)
     rb = _chip(link(ob=None, di=None, vi=None), T("all_kg", lang), not ob,
                lang=lang, short=False)
-    for rg in ([ob] if ob else OBLASTS):
+    for rg in _by_count(list(OBLASTS), oc):
         rb += _chip(link(ob=rg, di=None, vi=None), rg, ob == rg,
                    oc.get(rg, 0), lang)
     out = f'<nav class="regbar">{rb}</nav>'
@@ -371,7 +377,7 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
         if ds:
             chips = _chip(link(di=None, vi=None), T("all_oblast", lang), not di,
                            lang=lang, short=False)
-            for x in ([di] if di else ds):
+            for x in _by_count(list(ds), dc):
                 chips += _chip(link(di=x, vi=None), x, di == x, dc.get(x, 0), lang)
             out += f'<nav class="regbar">{chips}</nav>'
 
@@ -382,7 +388,7 @@ def _filter_bars(link, q, at, cid, ob, di, vi, lang):
         if vs:
             whole = "Весь район" if lang == "ru" else "Бүт район"
             chips = _chip(link(vi=None), whole, not vi, lang=lang, short=False)
-            for x in ([vi] if vi else vs):
+            for x in _by_count(list(vs), vc):
                 chips += _chip(link(vi=x), x, vi == x, vc.get(x, 0), lang)
             out += f'<nav class="regbar">{chips}</nav>'
 
