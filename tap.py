@@ -358,81 +358,84 @@ def _chip(href, label, on, n=0, lang="ky", short=True):
     return f'<a href="{href}" class="{cls}">{esc(text)}{num}</a>'
 
 
-def _reg_label(kind, lang):
-    """Тилкенин үстүндөгү аты."""
-    if lang == "ru":
-        t = {"ob": "Регион", "di": "Район · город",
-             "vi": "Айыльный округ · село"}
-    else:
-        t = {"ob": "Аймак", "di": "Район · шаар",
-             "vi": "Айыл аймагы · айыл"}
-    return f'<div class="rglb">{t[kind]}</div>'
+def _sel(label, opts, cur):
+    """
+    Тандоо тизмеси. Ар бир сабында өзүнүн шилтемеси турат —
+    тандаганда бет ошол шилтемеге өтөт, «Изде» басуунун кереги жок.
+    """
+    o = ""
+    for val, href, text, n in opts:
+        num = f" ({n})" if n is not None else ""
+        on = " selected" if val == cur else ""
+        o += f'<option value="{esc(href)}"{on}>{esc(text)}{num}</option>'
+    cls = "sel set" if cur else "sel"
+    return (f'<div class="ff"><label>{esc(label)}</label>'
+            f'<select class="{cls}" onchange="location=this.value">{o}</select></div>')
 
 
-def _reg_summary(ob, di, vi, lang):
-    """Жыйналган панелде көрүнүүчү сап: тандалган аймак."""
-    parts = [_short_place(_place_name(x, lang)) for x in (ob, di, vi) if x]
-    txt = " · ".join(parts) if parts else T("all_kg", lang)
-    act = "изменить" if lang == "ru" else "өзгөртүү"
-    return (f'<summary class="rgsum"><span class="rgs1">&#128205; {esc(txt)}</span>'
-            f'<span class="rgs2">{act}</span></summary>')
+def _group(title, inner):
+    return f'<div class="fbox"><div class="fhd">{esc(title)}</div>{inner}</div>'
 
 
-def _filter_bars(link, q, at, cid, ob, di, vi, lang):
-    """Аймак жана категория чыпкалары."""
-    flt = {"q": q or None, "ad_type": at, "cat_id": cid}
+def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang):
+    """Бөлүм жана аймак чыпкалары — тандоо тизмелери менен."""
+    ru = (lang == "ru")
+    flt = {"q": q or None, "ad_type": at, "cat_id": cid, "sub_id": sid}
+    out = ""
 
-    # 1-тепкич: облустар менен шаарлар
+    # ── Эмне издеп жатасыз: категория → субкатегория ──────────
+    if at:
+        cc = core.catid_counts(at, ob, di, vi, q or None, sid)
+        items = list(cat_labels(at, lang).items())
+        items.sort(key=lambda x: (-cc.get(x[0], 0), x[1]))
+        opts = [(None, link(cid=None, sid=None),
+                 "Все" if ru else "Баары", sum(cc.values()))]
+        for code, nm in items:
+            opts.append((code, link(cid=code, sid=None), nm, cc.get(code, 0)))
+        inner = _sel("Категория", opts, cid)
+
+        if cid:
+            sc = core.subid_counts(at, cid, ob, di, vi, q or None)
+            whole = "Вся категория" if ru else "Бүт категория"
+            opts = [(None, link(sid=None), whole, None)]
+            for code, n in sorted(sc.items(), key=lambda x: (-x[1], x[0])):
+                opts.append((code, link(sid=code), _ky(code, lang), n))
+            if len(opts) > 1:
+                inner += _sel("Субкатегория", opts, sid)
+
+        out += _group("Что вы ищете" if ru else "Эмне издеп жатасыз", inner)
+
+    # ── Кайсы жерден: облус → район → айыл ────────────────────
     oc = core.oblast_counts(**flt)
-    rb = _chip(link(ob=None, di=None, vi=None), T("all_kg", lang), not ob,
-               lang=lang, short=False)
+    opts = [(None, link(ob=None, di=None, vi=None), T("all_kg", lang),
+             sum(oc.values()))]
     for rg in _by_count(list(OBLASTS), oc):
-        rb += _chip(link(ob=rg, di=None, vi=None), rg, ob == rg,
-                    oc.get(rg, 0), lang)
-    inner = _reg_label("ob", lang) + f'<nav class="regbar">{rb}</nav>'
+        opts.append((rg, link(ob=rg, di=None, vi=None),
+                     _place_name(rg, lang), oc.get(rg, 0)))
+    inner = _sel("Область · город" if ru else "Облус · шаар", opts, ob)
 
-    # 2-тепкич: райондор жана шаарлар
     if ob:
         dc = core.district_counts(ob, **flt)
         ds = list(get_districts(ob)) or core.used_districts(ob)
         if ds:
-            chips = _chip(link(di=None, vi=None), T("all_oblast", lang), not di,
-                          lang=lang, short=False)
+            opts = [(None, link(di=None, vi=None), T("all_oblast", lang), None)]
             for x in _by_count(list(ds), dc):
-                chips += _chip(link(di=x, vi=None), x, di == x, dc.get(x, 0), lang)
-            inner += _reg_label("di", lang) + f'<nav class="regbar">{chips}</nav>'
+                opts.append((x, link(di=x, vi=None),
+                             _place_name(x, lang), dc.get(x, 0)))
+            inner += _sel("Район · город" if ru else "Район · шаар", opts, di)
 
-    # 3-тепкич: айыл аймактары жана кичи райондор
     if ob and di:
         vc = core.village_counts(ob, di, **flt)
         vs = list(get_localities(ob, di)) or core.used_villages(ob, di)
         if vs:
-            whole = "Весь район" if lang == "ru" else "Бүт район"
-            chips = _chip(link(vi=None), whole, not vi, lang=lang, short=False)
+            whole = "Весь район" if ru else "Бүт район"
+            opts = [(None, link(vi=None), whole, None)]
             for x in _by_count(list(vs), vc):
-                chips += _chip(link(vi=x), x, vi == x, vc.get(x, 0), lang)
-            inner += _reg_label("vi", lang) + f'<nav class="regbar">{chips}</nav>'
+                opts.append((x, link(vi=x), _place_name(x, lang), vc.get(x, 0)))
+            inner += _sel("Айыльный округ · село" if ru else "Айыл аймагы · айыл",
+                          opts, vi)
 
-    inner += _place_note(lang)
-
-    # Аймак тандала элек болсо панель ачык турат, тандалса — жыйналат.
-    op = "" if ob else " open"
-    out = (f'<details class="regbox"{op}>{_reg_summary(ob, di, vi, lang)}'
-           f'<div class="regin">{inner}</div></details>')
-
-    if at:
-        cc = core.catid_counts(at, ob, di, vi, q or None)
-        chips = (f'<a href="{link(cid=None)}" class="sb2{"" if cid else " on"}">'
-                 f'{T("all", lang)}</a>')
-        items = ([(cid, cc.get(cid, 0))] if cid
-                 else sorted(cc.items(), key=lambda x: -x[1]))
-        for code, n in items:
-            chips += (f'<a href="{link(cid=code)}" '
-                      f'class="sb2{" on" if cid == code else ""}">'
-                      f'{esc(cat_label(at, code, lang))}'
-                      f'{f" <em>{n}</em>" if n else ""}</a>')
-        if chips.count("<a") > 1:
-            out += f'<nav class="subbar">{chips}</nav>'
+    out += _group("Откуда" if ru else "Кайсы жерден", inner)
     return out
 
 
@@ -475,7 +478,8 @@ def shelves(lang="ky"):
     return "".join(out)
 
 
-def home(q, at=None, cid=None, ob=None, di=None, vi=None, lang="ky"):
+def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
+         lang="ky"):
     """
     Башкы бет.
       at  — бөлүм (trade/service/…)
@@ -485,7 +489,7 @@ def home(q, at=None, cid=None, ob=None, di=None, vi=None, lang="ky"):
     """
     def link(**kw):
         """Учурдагы чыпкаларды сактап, бирөөнү гана өзгөрткөн шилтеме."""
-        prm = {"q": q or None, "at": at, "cid": cid,
+        prm = {"q": q or None, "at": at, "cid": cid, "sid": sid,
                "ob": ob, "di": di, "vi": vi}
         prm.update(kw)
         prm = {k: v for k, v in prm.items() if v}
@@ -494,13 +498,13 @@ def home(q, at=None, cid=None, ob=None, di=None, vi=None, lang="ky"):
     top = header(q, at, vi or di or ob, lang) + _sections_strip(link, at, lang)
 
     # Чыпкасыз башкы бет — катар-катар тизме
-    if not (q or at or cid or ob or di or vi):
+    if not (q or at or cid or sid or ob or di or vi):
         return page(top + f'<main class="wrap">{shelves(lang)}</main>',
                     "ТАП!", "home", lang)
 
-    rows = core.find(q, limit=60, ad_type=at, cat_id=cid,
+    rows = core.find(q, limit=60, ad_type=at, cat_id=cid, sub_id=sid,
                      oblast=ob, district=di, village=vi)
-    body = _filter_bars(link, q, at, cid, ob, di, vi, lang)
+    body = _filter_bars(link, q, at, cid, sid, ob, di, vi, lang)
 
     if rows:
         if q:
@@ -1040,6 +1044,7 @@ class H(BaseHTTPRequestHandler):
             if at not in SECTION_NAME:
                 at = None
             cid = (qs.get("cid", [""])[0]).strip() or None
+            sid = (qs.get("sid", [""])[0]).strip() or None
             ob = (qs.get("ob", [""])[0]).strip() or None
             di = (qs.get("di", [""])[0]).strip() or None
             vi = (qs.get("vi", [""])[0]).strip() or None
@@ -1053,7 +1058,7 @@ class H(BaseHTTPRequestHandler):
                       "personal": "trade", "service": "service",
                       "shop": "markets", "business": "job"}.get(old)
 
-            self._send(home(q, at, cid, ob, di, vi, lang))
+            self._send(home(q, at, cid, sid, ob, di, vi, lang))
 
         elif u.path == "/fav":
             self._send(fav_page(lang))

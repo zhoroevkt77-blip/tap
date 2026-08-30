@@ -355,7 +355,7 @@ def photo_list(row):
 
 def _filters(q=None, cat=None, region=None, sub=None,
              ad_type=None, cat_id=None, oblast=None, district=None,
-             village=None):
+             village=None, sub_id=None):
     sql, p = "", []
     if cat:
         sql += " AND category=?"; p.append(cat)
@@ -367,6 +367,8 @@ def _filters(q=None, cat=None, region=None, sub=None,
         sql += " AND ad_type=?"; p.append(ad_type)
     if cat_id:
         sql += " AND cat_id=?"; p.append(cat_id)
+    if sub_id:
+        sql += " AND sub_id=?"; p.append(sub_id)
     if oblast:
         sql += " AND oblast=?"; p.append(oblast)
     if district:
@@ -380,18 +382,20 @@ def _filters(q=None, cat=None, region=None, sub=None,
 
 
 def find(q=None, cat=None, region=None, sub=None, limit=30, offset=0,
-         ad_type=None, cat_id=None, oblast=None, district=None, village=None):
+         ad_type=None, cat_id=None, oblast=None, district=None, village=None,
+         sub_id=None):
     where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast,
-                        district, village)
+                        district, village, sub_id)
     return query(
         "SELECT * FROM listings WHERE is_active=1" + where +
         " ORDER BY id DESC LIMIT ? OFFSET ?", tuple(p + [limit, offset]), fetch="all")
 
 
 def count(q=None, cat=None, region=None, sub=None,
-          ad_type=None, cat_id=None, oblast=None, district=None, village=None):
+          ad_type=None, cat_id=None, oblast=None, district=None, village=None,
+          sub_id=None):
     where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast,
-                        district, village)
+                        district, village, sub_id)
     r = query("SELECT COUNT(*) AS n FROM listings WHERE is_active=1" + where,
               tuple(p), fetch="one")
     return (r or {}).get("n", 0)
@@ -449,7 +453,7 @@ def adtype_counts(oblast=None):
 
 
 def catid_counts(ad_type=None, oblast=None, district=None,
-                 village=None, q=None):
+                 village=None, q=None, sub_id=None):
     """
     Бөлүмдүн ичиндеги категориялар боюнча эсеп.
 
@@ -457,10 +461,20 @@ def catid_counts(ad_type=None, oblast=None, district=None,
     айыл аймагы. Ошондуктан сандар экрандагы тизме менен дал келет.
     """
     where, p = _filters(q=q, ad_type=ad_type, oblast=oblast,
-                        district=district, village=village)
+                        district=district, village=village, sub_id=sub_id)
     rows = query("SELECT cat_id, COUNT(*) AS n FROM listings WHERE is_active=1"
                  + where + " GROUP BY cat_id", tuple(p), fetch="all")
     return {r["cat_id"]: r["n"] for r in rows if r["cat_id"]}
+
+
+def subid_counts(ad_type=None, cat_id=None, oblast=None, district=None,
+                 village=None, q=None):
+    """Категориянын ичиндеги субкатегориялар боюнча эсеп."""
+    where, p = _filters(q=q, ad_type=ad_type, cat_id=cat_id, oblast=oblast,
+                        district=district, village=village)
+    rows = query("SELECT sub_id, COUNT(*) AS n FROM listings WHERE is_active=1"
+                 + where + " GROUP BY sub_id", tuple(p), fetch="all")
+    return {r["sub_id"]: r["n"] for r in rows if r["sub_id"]}
 
 
 # Айыл да, кичи район да ушул бир туюнтма менен эсептелет.
@@ -468,7 +482,7 @@ VILLAGE_EXPR = "COALESCE(NULLIF(village,''), NULLIF(locality,''))"
 
 
 def region_counts(level, oblast=None, district=None,
-                  q=None, ad_type=None, cat_id=None):
+                  q=None, ad_type=None, cat_id=None, sub_id=None):
     """
     Аймактар боюнча жарыялардын саны — учурдагы чыпканын ичинде.
 
@@ -479,7 +493,7 @@ def region_counts(level, oblast=None, district=None,
     expr = {"oblast": "oblast",
             "district": "district"}.get(level, VILLAGE_EXPR)
     where, p = _filters(q=q, ad_type=ad_type, cat_id=cat_id,
-                        oblast=oblast, district=district)
+                        oblast=oblast, district=district, sub_id=sub_id)
     rows = query("SELECT " + expr + " AS k, COUNT(*) AS n FROM listings "
                  "WHERE is_active=1" + where +
                  " AND " + expr + " IS NOT NULL AND " + expr + "<>'' "

@@ -169,6 +169,23 @@ svg{display:block}
 .cat.on{color:var(--ink);font-weight:600}
 
 /* ---- Чыпкалар ---- */
+/* ---- Чыпка тизмелери ---- */
+.fbox{background:#fff;border-top:1px solid var(--mist);
+ border-bottom:1px solid var(--mist);padding:12px 14px 14px;margin-bottom:8px}
+.fhd{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+ color:var(--moss);margin:0 0 9px;display:flex;align-items:center;gap:7px}
+.fhd::after{content:"";flex:1;height:1px;background:var(--mist)}
+.ff{margin-bottom:9px}
+.ff:last-child{margin-bottom:0}
+.ff label{display:block;font-size:11px;font-weight:700;letter-spacing:.4px;
+ text-transform:uppercase;color:var(--faint);margin:0 0 5px}
+.sel{width:100%;-webkit-appearance:none;appearance:none;
+ background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M3 5l4 4 4-4' fill='none' stroke='%2317365C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat right 14px center;
+ border:1.5px solid var(--mist);border-radius:13px;padding:13px 40px 13px 14px;
+ font-size:15px;font-weight:600;color:var(--ink);font-family:inherit}
+.sel:focus{outline:none;border-color:var(--moss)}
+.sel.set{border-color:var(--moss);background-color:#F7FAFF}
+
 /* ---- Аймак панели ---- */
 .regbox{background:#fff;border-top:1px solid var(--mist);
  border-bottom:1px solid var(--mist);margin:0 0 4px}
