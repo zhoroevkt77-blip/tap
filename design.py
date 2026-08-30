@@ -170,17 +170,17 @@ svg{display:block}
 
 /* ---- Чыпкалар ---- */
 /* ---- Жарыянын барагындагы катарлар ---- */
-.facts{padding:2px 16px}
-.fr{display:flex;gap:13px;align-items:flex-start;padding:13px 0;
+.facts{padding:0 15px}
+.fr{display:flex;gap:11px;align-items:flex-start;padding:8px 0;
  border-bottom:1px solid #EEF2F8}
 .fr:last-child{border-bottom:0}
-.fr svg{flex:none;width:21px;height:21px;stroke:var(--moss);fill:none;
- stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;margin-top:1px;opacity:.85}
+.fr svg{flex:none;width:18px;height:18px;stroke:var(--moss);fill:none;
+ stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;margin-top:2px;opacity:.8}
 .ft{flex:1;min-width:0}
-.ft i{display:block;font-style:normal;font-size:12px;color:var(--faint);
- font-weight:600;margin-bottom:2px}
-.ft b{display:block;font-size:15.5px;font-weight:700;line-height:1.35}
-.ft b.dtx{font-weight:500;font-size:15px;line-height:1.5;white-space:pre-line}
+.ft i{display:block;font-style:normal;font-size:11.5px;color:var(--faint);
+ font-weight:600;margin-bottom:0;line-height:1.3}
+.ft b{display:block;font-size:14.5px;font-weight:700;line-height:1.3}
+.ft b.dtx{font-weight:500;font-size:14.5px;line-height:1.45;white-space:pre-line}
 
 /* ---- Чыпка тизмелери ---- */
 .fbox{background:#fff;border-top:1px solid var(--mist);
