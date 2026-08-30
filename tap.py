@@ -632,6 +632,62 @@ _GAL_CSS = """<style>
 </script>"""
 
 
+# ── Жарыянын барагындагы саптардын белгилери ───────────────────
+_FI = {
+ "pin": '<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/>'
+        '<circle cx="12" cy="10" r="2.6"/>',
+ "bag": '<rect x="3" y="7" width="18" height="13" rx="2.5"/>'
+        '<path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7"/>',
+ "van": '<path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/>'
+        '<circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>',
+ "clock": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/>',
+ "cal": '<rect x="3" y="5" width="18" height="16" rx="2.5"/>'
+        '<path d="M3 10h18M8 3v4M16 3v4"/>',
+ "eye": '<path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/>'
+        '<circle cx="12" cy="12" r="3"/>',
+ "tag": '<path d="M4 4h7l9 9-7 7-9-9V4Z"/><circle cx="8.5" cy="8.5" r="1.6"/>',
+ "info": '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.6v.1"/>',
+}
+
+# Сүрөттөмөдөгү «Аты: мааниси» саптарына кайсы белги туура келет
+_FKEY = (
+    (("жеткир", "доставк"), "van"),
+    (("чалуу", "звон", "убак", "врем"), "clock"),
+    (("мөөнөт", "срок"), "cal"),
+    (("сатуу", "продаж", "чекене", "опт"), "bag"),
+    (("баа", "цена", "акы"), "tag"),
+)
+
+
+def _ficon(name):
+    return (f'<svg viewBox="0 0 24 24">{_FI.get(name, _FI["info"])}</svg>')
+
+
+def _frow(icon, label, value):
+    return (f'<div class="fr">{_ficon(icon)}<div class="ft">'
+            f'<i>{esc(label)}</i><b>{esc(value)}</b></div></div>')
+
+
+def _split_desc(text):
+    """
+    Сүрөттөмөнү эки бөлөт: «Аты: мааниси» саптары жана калган эркин текст.
+    Ботто ушундай саптар менен жазылат, аларды өзүнчө катарга чыгарабыз.
+    """
+    facts, rest = [], []
+    for line in str(text or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if ":" in line:
+            k, v = line.split(":", 1)
+            k, v = k.strip(), v.strip()
+            if v and 1 < len(k) <= 28:
+                facts.append((k, v))
+                continue
+        rest.append(line)
+    return facts, "\n".join(rest)
+
+
 def detail(r, lang="ky"):
     at = r.get("ad_type")
     if at:
@@ -661,9 +717,24 @@ def detail(r, lang="ky"):
         dimg = (_GAL_CSS + '<div class="pgal" id="pgal">' + strip
                 + '</div><span class="pgc" id="pgc">1 / '
                 + str(len(shots)) + '</span>')
-    desc = (f'<div class="dcard"><p class="d">{esc(r["description"])}</p></div>'
-            if r.get("description") else "")
+    dfacts, dtext = _split_desc(r.get("description"))
+    dlbl = "Описание" if lang == "ru" else "Сүрөттөмө"
+    desc = (f'<div class="dcard"><div class="ft"><i>{dlbl}</i>'
+            f'<b class="dtx">{esc(dtext)}</b></div></div>' if dtext else "")
     tel = contact_block(r.get("contact"), lang)
+
+    rows = _frow("pin", T("region", lang), r.get("region") or "—")
+    for k, v in dfacts:
+        low = k.lower()
+        ic2 = "info"
+        for keys, nm in _FKEY:
+            if any(w in low for w in keys):
+                ic2 = nm
+                break
+        rows += _frow(ic2, k, v)
+    rows += _frow("cal", T("posted", lang), ago(r["created_at"]))
+    rows += _frow("eye", T("views", lang), str(r["views"]))
+
     body = f"""<main class="wrap">
 <a class="back" href="{back}">{_ARROW}{esc(name)}</a>
 <div class="dph">{dimg}</div>
@@ -671,10 +742,8 @@ def detail(r, lang="ky"):
 <div class="eb">{ic}{esc(sname or name)} · №{r['id']}</div>
 <div class="dp{' dpd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
 <h1>{esc(L(bridge.show_title(r), lang))}</h1>
-<div class="f"><div><b>{T("region", lang)}</b><span>{esc(r['region'] or '—')}</span></div>
-<div><b>{T("posted", lang)}</b><span>{esc(ago(r['created_at']))}</span></div>
-<div><b>{T("views", lang)}</b><span>{r['views']}</span></div></div>
-</div>{desc}{tel}</main>"""
+</div>
+<div class="dcard facts">{rows}</div>{desc}{tel}</main>"""
     return page(header("", None, None, lang) + body,
                 L(bridge.show_title(r), lang), tab="home", lang=lang)
 
