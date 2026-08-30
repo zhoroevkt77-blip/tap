@@ -571,7 +571,7 @@ def ago(ts):
 
 
 def price_label(price):
-    return (price or "").strip() or "Келишимдүү"
+    return (price or "").strip() or "Келишим баада"
 
 
 DEAL_WORDS = {"келишимдүү", "келишим", "договорная", "келишимдуу", ""}

@@ -204,7 +204,7 @@ _ABBR_CSS = """<style>
 def _price(price, lang):
     """Баа. Келишим болсо, тандалган тилде жазылат."""
     if is_deal(price):
-        return "Договорная" if lang == "ru" else "Келишимдүү"
+        return "Договорная цена" if lang == "ru" else "Келишим баада"
     return price_label(price)
 
 
