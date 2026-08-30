@@ -2,211 +2,41 @@
 """
 ТАП! — башкы беттин бөлүм такталары.
 
-Ар бир бөлүм кичинекей белги эмес, толук көрүнүш: соода текчеси,
-куралдар, ачкыч менен кулпу, посылка, портфель, дүкөндүн фасады, такси.
-Астында ачык тилкеде аталышы турат.
+Ар бир бөлүм жумшак өтмө түстөгү белги менен көрсөтүлөт: көктөн көгүшкө
+өткөн фигура, алтын басымы бар. Астында ачык тилкеде аталышы турат.
 
 Неге сүрөт эмес, SVG:
   • жети сүрөт 4G'де жүктөлүшү керек, SVG болсо бет менен кошо келет;
   • каалаган экранда даана — кичине телефондо да, чоңунда да;
   • түсүн бир жерден өзгөртсө, жетөө тең өзгөрөт.
 
-Ар бир көрүнүш 100×100 квадратта тартылат.
+Ар бир көрүнүш 100×100 квадратта тартылат: ачык фон, ортосунда белги.
 """
 
-# Түстөр — беттин жалпы палитрасынан
-SKY = "#EAF0EC"      # фон
-SKY2 = "#DCE6DF"
-WOOD = "#8C6440"
-WOOD_D = "#6B4A2E"
-WOOD_L = "#A57B52"
-GREEN = "#2F7C4E"
-GREEN_D = "#1F5C39"
-GREEN_L = "#5AA678"
-STEEL = "#B9C4BD"
-STEEL_D = "#7E8D84"
-STEEL_L = "#D8E0DA"
-GOLD = "#E8A33D"
-GOLD_D = "#C4831F"
-RED = "#D45B4A"
-CREAM = "#F6F1E6"
-DARK = "#2B3A31"
+BG1 = "#F6F9FD"      # фондун жогорку жагы
+BG2 = "#E4ECF8"      # фондун ылдыйкы жагы
 
 
-def _svg(body, extra=""):
-    return ('<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" '
-            'aria-hidden="true">'
-            '<defs>'
-            f'<linearGradient id="bg{extra}" x1="0" y1="0" x2="0" y2="1">'
-            f'<stop offset="0" stop-color="{SKY}"/>'
-            f'<stop offset="1" stop-color="{SKY2}"/></linearGradient>'
-            '</defs>'
-            f'<rect width="100" height="100" fill="url(#bg{extra})"/>'
-            + body + '</svg>')
+def _frame(uid, body):
+    """Ачык фон + ортосуна коюлган белги (белги 48×48 торчодо тартылган)."""
+    return (
+        '<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" '
+        'aria-hidden="true">'
+        f'<defs><linearGradient id="bg{uid}" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{BG1}"/>'
+        f'<stop offset="1" stop-color="{BG2}"/></linearGradient></defs>'
+        f'<rect width="100" height="100" fill="url(#bg{uid})"/>'
+        '<g transform="translate(20 20) scale(1.25)">' + body + '</g>'
+        '</svg>')
 
-
-# ── 1. Соода-сатык — базардагы текче ─────────────────────────
-TRADE = _svg(
-    # чатыр
-    f'<path d="M14 30h72l-4-9a4 4 0 0 0-3.7-2.5H21.7A4 4 0 0 0 18 21l-4 9Z" fill="{GREEN_D}"/>'
-    f'<path d="M22 18.5h11l-3 11.5H19l3-11.5Zm22 0h11l-1 11.5H43l1-11.5Zm22 0h11l3 11.5H67l-1-11.5Z" '
-    f'fill="{CREAM}" opacity=".9"/>'
-    # мамылар
-    f'<rect x="17" y="30" width="4" height="46" fill="{WOOD_D}"/>'
-    f'<rect x="79" y="30" width="4" height="46" fill="{WOOD_D}"/>'
-    # текче
-    f'<rect x="14" y="56" width="72" height="6" rx="1.5" fill="{WOOD_L}"/>'
-    f'<rect x="18" y="62" width="64" height="16" rx="2" fill="{WOOD}"/>'
-    f'<rect x="18" y="62" width="64" height="4" fill="{WOOD_D}" opacity=".45"/>'
-    # себет
-    f'<path d="M30 46h18l-2.5 10H32.5L30 46Z" fill="{WOOD_L}"/>'
-    f'<path d="M30 46h18l-.6 2.4H30.6L30 46Z" fill="{WOOD_D}" opacity=".5"/>'
-    f'<circle cx="35" cy="44" r="4" fill="{RED}"/>'
-    f'<circle cx="42" cy="43" r="4.4" fill="#E0705E"/>'
-    f'<circle cx="45" cy="45.5" r="3.4" fill="{RED}"/>'
-    f'<path d="M42 38.6c1.4-1 3-.8 3.6.4-1.4.5-2.8.3-3.6-.4Z" fill="{GREEN_L}"/>'
-    # бал банка
-    f'<rect x="57" y="42" width="11" height="14" rx="2.4" fill="{GOLD}"/>'
-    f'<rect x="57" y="42" width="4" height="14" fill="#F2BC63" opacity=".7"/>'
-    f'<rect x="55.6" y="39.6" width="13.8" height="3.6" rx="1.6" fill="{GOLD_D}"/>'
-)
-
-# ── 2. Кызмат көрсөтүү — куралдар ────────────────────────────
-SERVICE = _svg(
-    # бурагыч (артында)
-    '<g transform="rotate(34 62 52)">'
-    f'<rect x="56" y="22" width="14" height="26" rx="6" fill="{RED}"/>'
-    f'<rect x="56" y="22" width="5" height="26" rx="2.5" fill="#E2796A"/>'
-    f'<rect x="60.5" y="46" width="5" height="8" fill="{STEEL_D}"/>'
-    f'<rect x="60.6" y="53" width="4.8" height="22" fill="{STEEL}"/>'
-    f'<path d="M59.6 75h6.8v5h-6.8z" fill="{STEEL_D}"/>'
-    '</g>'
-    # гайка ачкычы (алдында)
-    '<g transform="rotate(-24 44 50)">'
-    # ачык ооз
-    f'<path d="M32 18h7.5v7h9v-7H56v13a12 12 0 0 1-24 0V18Z" fill="{STEEL}"/>'
-    f'<path d="M32 18h7.5v7h4.5V18H32Z" fill="{STEEL_L}"/>'
-    # сап
-    f'<rect x="38.5" y="40" width="11" height="30" fill="{STEEL}"/>'
-    f'<rect x="38.5" y="40" width="3.8" height="30" fill="{STEEL_L}"/>'
-    # тегерек башы
-    f'<circle cx="44" cy="76" r="11" fill="{STEEL}"/>'
-    f'<circle cx="44" cy="76" r="5" fill="{SKY2}"/>'
-    '</g>'
-)
-
-# ── 3. Ижарага берүү — ачкыч менен кулпу ─────────────────────
-RENTAL = _svg(
-    # кулпу
-    f'<path d="M36 46v-7a11 11 0 0 1 22 0v7" stroke="{STEEL_D}" stroke-width="6" fill="none"/>'
-    f'<rect x="27" y="45" width="40" height="33" rx="6" fill="{GOLD}"/>'
-    f'<rect x="27" y="45" width="13" height="33" rx="6" fill="#F2BC63" opacity=".55"/>'
-    f'<circle cx="47" cy="59" r="5" fill="{GOLD_D}"/>'
-    f'<rect x="45" y="59" width="4" height="9" rx="2" fill="{GOLD_D}"/>'
-    # ачкыч
-    f'<g transform="rotate(38 74 40)">'
-    f'<circle cx="74" cy="26" r="10" fill="none" stroke="{STEEL}" stroke-width="5.5"/>'
-    f'<circle cx="74" cy="26" r="3.6" fill="{SKY}"/>'
-    f'<rect x="71.4" y="34" width="5.2" height="30" fill="{STEEL}"/>'
-    f'<rect x="76.6" y="50" width="8" height="4.6" rx="1.4" fill="{STEEL}"/>'
-    f'<rect x="76.6" y="58" width="6" height="4.6" rx="1.4" fill="{STEEL}"/>'
-    '</g>'
-)
-
-# ── 4. Жеткирүү — посылка ────────────────────────────────────
-DELIVERY = _svg(
-    # көлөкө
-    f'<ellipse cx="50" cy="84" rx="30" ry="4.5" fill="{DARK}" opacity=".12"/>'
-    # кичине кутуча — тереңдик берет
-    f'<path d="M66 52l16 6.5v14l-16 6.5-16-6.5v-14L66 52Z" fill="{WOOD_L}"/>'
-    f'<path d="M66 58.5v21l16-6.5v-14l-16 6.5Z" fill="{WOOD_D}"/>'
-    f'<path d="M50 58.5 66 52l16 6.5-16 6.5-16-6.5Z" fill="#C79A6E"/>'
-    # негизги куту
-    f'<path d="M18 40 48 27l30 13v28a3 3 0 0 1-1.9 2.8L49 81a4 4 0 0 1-2 0l-27.1-10.2A3 3 0 0 1 18 68V40Z" '
-    f'fill="{WOOD_L}"/>'
-    f'<path d="M48 46 18 40v28a3 3 0 0 0 1.9 2.8L47 81a4 4 0 0 0 1 .2V46Z" fill="{WOOD}"/>'
-    f'<path d="M48 46v35.2a4 4 0 0 0 1-.2l27.1-10.2A3 3 0 0 0 78 68V40L48 46Z" fill="{WOOD_D}"/>'
-    f'<path d="M18 40 48 27l30 13-30 6-30-6Z" fill="#C79A6E"/>'
-    # скотч
-    f'<path d="M42 29.4 72 42.4l-6 1.2-30-13 6-1.2Z" fill="{CREAM}" opacity=".8"/>'
-    # дарек кагазы
-    f'<rect x="25" y="52" width="18" height="13" rx="1.8" fill="{CREAM}" opacity=".95"/>'
-    f'<rect x="28" y="55.6" width="12" height="1.9" rx=".9" fill="{STEEL_D}"/>'
-    f'<rect x="28" y="59.2" width="8" height="1.9" rx=".9" fill="{STEEL_D}"/>'
-)
-
-# ── 5. Жумуш берүү — портфель ────────────────────────────────
-JOB = _svg(
-    f'<path d="M38 34v-5a7 7 0 0 1 7-7h10a7 7 0 0 1 7 7v5" stroke="{WOOD_D}" '
-    f'stroke-width="5" fill="none" stroke-linecap="round"/>'
-    f'<rect x="18" y="34" width="64" height="44" rx="7" fill="{WOOD}"/>'
-    f'<rect x="18" y="34" width="64" height="12" rx="7" fill="{WOOD_L}"/>'
-    f'<path d="M82 44v9c-9.6 4.4-20.3 6.6-32 6.6S27.6 57.4 18 53v-9c9.6 5 20.3 7.5 32 7.5S72.4 49 82 44Z" '
-    f'fill="{WOOD_D}" opacity=".5"/>'
-    f'<rect x="43" y="50" width="14" height="10" rx="2.6" fill="{GOLD}"/>'
-    f'<rect x="46.5" y="53.5" width="7" height="3" rx="1.5" fill="{GOLD_D}"/>'
-)
-
-# ── 6. Базарлар — дүкөндүн фасады ────────────────────────────
-MARKETS = _svg(
-    f'<rect x="8" y="20" width="84" height="60" fill="#9A6B55"/>'
-    f'<g opacity=".35" fill="#7C523F">'
-    f'<rect x="8" y="26" width="84" height="1.6"/><rect x="8" y="34" width="84" height="1.6"/>'
-    f'<rect x="8" y="42" width="84" height="1.6"/><rect x="8" y="50" width="84" height="1.6"/>'
-    '</g>'
-    # маңдайча
-    f'<rect x="18" y="22" width="64" height="12" rx="2" fill="{DARK}"/>'
-    f'<rect x="21" y="25" width="58" height="6" rx="1" fill="{GOLD}"/>'
-    # чатыр
-    f'<path d="M10 42h80v7a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3v-7Z" fill="{GREEN_D}"/>'
-    f'<g fill="{CREAM}" opacity=".85">'
-    f'<rect x="18" y="42" width="8" height="10"/><rect x="34" y="42" width="8" height="10"/>'
-    f'<rect x="50" y="42" width="8" height="10"/><rect x="66" y="42" width="8" height="10"/>'
-    '</g>'
-    # витрина
-    f'<rect x="16" y="56" width="68" height="24" rx="2" fill="{CREAM}"/>'
-    f'<rect x="16" y="56" width="68" height="24" rx="2" fill="{GREEN_L}" opacity=".18"/>'
-    f'<circle cx="27" cy="68" r="4.6" fill="{RED}"/>'
-    f'<circle cx="38" cy="69" r="4" fill="{GOLD}"/>'
-    f'<rect x="48" y="63" width="12" height="12" rx="2" fill="{GREEN}"/>'
-    f'<rect x="65" y="61" width="12" height="16" rx="2" fill="{WOOD_L}"/>'
-)
-
-# ── 7. Такси ─────────────────────────────────────────────────
-TAXI = _svg(
-    f'<rect x="41" y="20" width="18" height="9" rx="2.6" fill="{DARK}"/>'
-    f'<rect x="43.5" y="22" width="13" height="5" rx="1.4" fill="{GOLD}"/>'
-    f'<path d="M28 48l5-13a6 6 0 0 1 5.6-3.9h22.8A6 6 0 0 1 67 35l5 13H28Z" fill="{GOLD_D}"/>'
-    f'<path d="M35.5 45l3.2-8.4a2 2 0 0 1 1.9-1.3h8.4V45H35.5Zm15.5 0V35.3h8.4a2 2 0 0 1 1.9 1.3L64.5 45H51Z" '
-    f'fill="#CFE0F0"/>'
-    f'<path d="M14 58a8 8 0 0 1 6.6-7.9L30 48h40l9.4 2.1A8 8 0 0 1 86 58v10a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V58Z" '
-    f'fill="{GOLD}"/>'
-    f'<path d="M14 60h72v4H14z" fill="{DARK}" opacity=".14"/>'
-    # шакмактар
-    f'<g fill="{DARK}" opacity=".85">'
-    f'<rect x="20" y="60" width="7" height="4"/><rect x="34" y="60" width="7" height="4"/>'
-    f'<rect x="48" y="60" width="7" height="4"/><rect x="62" y="60" width="7" height="4"/>'
-    f'<rect x="76" y="60" width="7" height="4"/>'
-    '</g>'
-    f'<circle cx="30" cy="72" r="9" fill="{DARK}"/><circle cx="30" cy="72" r="3.6" fill="{STEEL_L}"/>'
-    f'<circle cx="70" cy="72" r="9" fill="{DARK}"/><circle cx="70" cy="72" r="3.6" fill="{STEEL_L}"/>'
-)
-
-# ── Баары ────────────────────────────────────────────────────
-ALL = _svg(
-    f'<rect x="18" y="18" width="28" height="28" rx="6" fill="{GREEN_L}"/>'
-    f'<rect x="54" y="18" width="28" height="28" rx="6" fill="{GOLD}"/>'
-    f'<rect x="18" y="54" width="28" height="28" rx="6" fill="{WOOD_L}"/>'
-    f'<rect x="54" y="54" width="28" height="28" rx="6" fill="{GREEN_D}"/>'
-)
 
 SCENES = {
-    "all": ALL,
-    "trade": TRADE,
-    "service": SERVICE,
-    "rental": RENTAL,
-    "delivery": DELIVERY,
-    "job": JOB,
-    "markets": MARKETS,
-    "taxi": TAXI,
+    "all": _frame("all", '<defs><linearGradient id="all_1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6E93C0"/><stop offset="1" stop-color="#1D3B63"/></linearGradient><linearGradient id="all_1g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0D68C"/><stop offset="1" stop-color="#C79A2E"/></linearGradient></defs><rect x="6" y="6" width="16.5" height="16.5" rx="5.5" fill="url(#all_1)"/><rect x="25.5" y="6" width="16.5" height="16.5" rx="5.5" fill="url(#all_1)" opacity=".55"/><rect x="6" y="25.5" width="16.5" height="16.5" rx="5.5" fill="url(#all_1)" opacity=".55"/><rect x="25.5" y="25.5" width="16.5" height="16.5" rx="5.5" fill="url(#all_1g)"/>'),
+    "trade": _frame("trade", '<defs><linearGradient id="trade_2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6E93C0"/><stop offset="1" stop-color="#1D3B63"/></linearGradient><linearGradient id="trade_2g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0D68C"/><stop offset="1" stop-color="#C79A2E"/></linearGradient></defs><path d="M10.5 15.5h27a2 2 0 0 1 2 2.2l-2.1 19.6a5.2 5.2 0 0 1-5.2 4.7H15.8a5.2 5.2 0 0 1-5.2-4.7L8.5 17.7a2 2 0 0 1 2-2.2Z" fill="url(#trade_2)"/><path d="M17.2 17.5v-4a6.8 6.8 0 0 1 13.6 0v4" stroke="url(#trade_2g)" stroke-width="3.4" stroke-linecap="round"/><ellipse cx="24" cy="25" rx="10" ry="4" fill="#fff" opacity=".13"/>'),
+    "service": _frame("service", '<defs><linearGradient id="service_3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6E93C0"/><stop offset="1" stop-color="#1D3B63"/></linearGradient><linearGradient id="service_3g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0D68C"/><stop offset="1" stop-color="#C79A2E"/></linearGradient></defs><path d="M40.4 7.9a11 11 0 0 0-14.6 13.8L9.3 38.2a3.9 3.9 0 0 0 5.5 5.5L31.3 27.2A11 11 0 0 0 45 12.6l-5.9 5.9-5.8-1.6-1.6-5.8 8.7-3.2Z" fill="url(#service_3)"/><circle cx="12.6" cy="40.4" r="2.4" fill="url(#service_3g)"/>'),
+    "rental": _frame("rental", '<defs><linearGradient id="rental_4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6E93C0"/><stop offset="1" stop-color="#1D3B63"/></linearGradient><linearGradient id="rental_4g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0D68C"/><stop offset="1" stop-color="#C79A2E"/></linearGradient></defs><circle cx="16.5" cy="16.5" r="10.5" fill="url(#rental_4)"/><circle cx="16.5" cy="16.5" r="4" fill="#EEF3FB"/><path d="M23.4 23.4 39 39" stroke="url(#rental_4g)" stroke-width="4.8" stroke-linecap="round"/><path d="M31.6 31.8 27.4 36M35.4 35.6l-4 4.2" stroke="url(#rental_4g)" stroke-width="3.4" stroke-linecap="round"/>'),
+    "delivery": _frame("delivery", '<defs><linearGradient id="delivery_5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6E93C0"/><stop offset="1" stop-color="#1D3B63"/></linearGradient><linearGradient id="delivery_5g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0D68C"/><stop offset="1" stop-color="#C79A2E"/></linearGradient></defs><path d="M24 6 41 14v20L24 42 7 34V14L24 6Z" fill="url(#delivery_5)"/><path d="M7 14l17 8 17-8" stroke="#fff" stroke-width="2" opacity=".3" fill="none"/><path d="M24 22v20" stroke="#fff" stroke-width="2" opacity=".3"/><path d="M15.5 10 33 18.2v7" stroke="url(#delivery_5g)" stroke-width="3.2" stroke-linecap="round"/>'),
+    "job": _frame("job", '<defs><linearGradient id="job_6" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6E93C0"/><stop offset="1" stop-color="#1D3B63"/></linearGradient><linearGradient id="job_6g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0D68C"/><stop offset="1" stop-color="#C79A2E"/></linearGradient></defs><rect x="6" y="16" width="36" height="24" rx="5.5" fill="url(#job_6)"/><path d="M18 16v-3.5A3.5 3.5 0 0 1 21.5 9h5a3.5 3.5 0 0 1 3.5 3.5V16" stroke="url(#job_6g)" stroke-width="3.2" stroke-linecap="round"/><path d="M6 26h36" stroke="#fff" stroke-width="2" opacity=".25"/><rect x="20.5" y="23.2" width="7" height="5.6" rx="2" fill="url(#job_6g)"/>'),
+    "markets": _frame("markets", '<defs><linearGradient id="markets_7" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6E93C0"/><stop offset="1" stop-color="#1D3B63"/></linearGradient><linearGradient id="markets_7g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0D68C"/><stop offset="1" stop-color="#C79A2E"/></linearGradient></defs><path d="M7.5 20h33v17a4.5 4.5 0 0 1-4.5 4.5H12A4.5 4.5 0 0 1 7.5 37V20Z" fill="url(#markets_7)"/><path d="M4.5 19 8 8.5h32L43.5 19H4.5Z" fill="url(#markets_7g)"/><path d="M15.4 8.5 12.6 19M25.2 8.5v10.5M35 8.5l2.8 10.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".45"/>'),
+    "taxi": _frame("taxi", '<defs><linearGradient id="taxi_8" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6E93C0"/><stop offset="1" stop-color="#1D3B63"/></linearGradient><linearGradient id="taxi_8g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0D68C"/><stop offset="1" stop-color="#C79A2E"/></linearGradient></defs><path d="M8 26.5 11.7 16A5 5 0 0 1 16.4 12.6h15.2A5 5 0 0 1 36.3 16L40 26.5v9.9a2.6 2.6 0 0 1-2.6 2.6h-2.6a2.6 2.6 0 0 1-2.6-2.6v-2H15.8v2a2.6 2.6 0 0 1-2.6 2.6h-2.6A2.6 2.6 0 0 1 8 36.4v-9.9Z" fill="url(#taxi_8)"/><path d="M12.5 25.5 15.2 18h17.6l2.7 7.5H12.5Z" fill="#EEF3FB" opacity=".85"/><circle cx="15" cy="30.5" r="2.4" fill="#EEF3FB" opacity=".8"/><circle cx="33" cy="30.5" r="2.4" fill="#EEF3FB" opacity=".8"/><rect x="18.5" y="6" width="11" height="5.6" rx="2.2" fill="url(#taxi_8g)"/>'),
 }
