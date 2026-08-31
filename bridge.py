@@ -12,6 +12,74 @@
 Натыйжада сайт эч өзгөрүүсүз иштей берет, бот болсо толук менюну колдонот.
 """
 
+# ---------------------------------------------------------------------------
+# Категориянын коду -> адам окуй турган аты
+# ---------------------------------------------------------------------------
+# Эски жарыяларда аталыш ордуна ички код (мисалы "appliances_home") жазылып
+# калган. Ушул карта аркылуу код көрсөтүүдө нормалдуу атка айландырылат.
+try:
+    import tap_catalog as _tc
+except Exception:          # каталог жок болсо да көпүрө иштей берсин
+    _tc = None
+
+CAT_LABELS = {}
+if _tc is not None:
+    for _name in ("TRADE_CATEGORIES", "SERVICE_CATEGORIES", "RENTAL_CATEGORIES",
+                  "DELIVERY_CATEGORIES", "JOB_CATEGORIES", "MARKETS_TYPES"):
+        for _c in (getattr(_tc, _name, None) or []):
+            if isinstance(_c, dict) and _c.get("id"):
+                CAT_LABELS.setdefault(_c["id"], _c.get("label") or _c["id"])
+
+SECTION_LABELS = {
+    "trade":    "Соода-сатык / Торговля",
+    "service":  "Кызмат көрсөтүү / Услуги",
+    "rental":   "Ижарага берүү / Аренда",
+    "delivery": "Жеткирүү / Доставка",
+    "job":      "Жумуш берүү / Работа",
+    "markets":  "Базарлар / Рынки",
+    "taxi":     "Такси / Такси",
+}
+
+
+def cat_label(cat_id):
+    """Категориянын кодун эки тилдүү атка айландырат."""
+    if not cat_id:
+        return ""
+    return CAT_LABELS.get(cat_id, "")
+
+
+def is_code(text):
+    """Текст аталыш эмес, ички код экенин аныктайт."""
+    t = (text or "").strip()
+    if not t:
+        return False
+    if t in CAT_LABELS or t in SECTION_LABELS:
+        return True
+    # "appliances_home" сыяктуу: астын сызык бар, бош орун жок, баары кичине тамга
+    return ("_" in t) and (" " not in t) and t.islower() and t.isascii()
+
+
+def show_title(row):
+    """
+    Жарыяны көрсөткөндө колдонулуучу аталыш.
+
+    Базадагы аталыш ички код болуп калса (эски жарыялар), категориянын
+    атын кайтарат. Базага тийбейт — экрандагы жазуу гана оңолот.
+    """
+    row = row or {}
+    t = str(row.get("title") or "").strip()
+    if t and not is_code(t):
+        return t
+    cid = row.get("cat_id") or (t if t else "")
+    lbl = cat_label(cid)
+    if lbl:
+        return lbl
+    sub = str(row.get("sub_id") or "").strip()
+    if sub:
+        return sub
+    return SECTION_LABELS.get(row.get("ad_type") or "", "Жарыя / Объявление")
+
+
 # Жаңы категория -> эски категория коду
 _TRADE_MAP = {
     "realestate":            ("realty",   "flat"),
@@ -133,12 +201,26 @@ def _first(text):
 
 
 def build_title(data):
-    """Жарыянын аталышын чогултат."""
+    """
+    Жарыянын аталышын чогултат.
+
+    Эч качан ички код жазылбайт: категориянын коду болсо, ал алды менен
+    каталогдогу атка айландырылат.
+    """
     t = data.get("title")
-    if t:
+    if t and not is_code(str(t)):
         return _first(str(t))[:200]
-    sub = data.get("subcategory") or data.get("category") or ""
-    return _first(str(sub))[:200] or "Жарыя"
+
+    sub = str(data.get("subcategory") or "").strip()
+    if sub and not is_code(sub):
+        return _first(sub)[:200]
+
+    lbl = cat_label(str(data.get("category") or "").strip())
+    if lbl:
+        return _first(lbl)[:200]
+
+    sec = SECTION_LABELS.get(data.get("adType") or "", "")
+    return _first(sec)[:200] or "Жарыя"
 
 
 def build_description(data):
