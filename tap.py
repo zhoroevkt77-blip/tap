@@ -500,7 +500,7 @@ def _sections_strip(link, at, lang):
                 f'class="cat pic{"" if at else " on"}">'
                 f'<img class="pic" src="/si/all.jpg?v={secimg.VERSION}" '
                 f'alt="{T("all", lang)}">'
-                f'<span class="cap">{T("all", lang)}</span></a>')
+                f'<span class="pill">{T("all", lang)}</span></a>')
     else:
         cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
                 f'<span class="ic">{SCENES["all"]}</span>'
@@ -510,7 +510,7 @@ def _sections_strip(link, at, lang):
         if secimg.has(code):
             nm = esc(section_name(code, lang))
             inner = (f'<img class="pic" src="/si/{code}.jpg?v={secimg.VERSION}" '
-                     f'alt="{nm}" loading="lazy"><span class="cap">{nm}</span>')
+                     f'alt="{nm}" loading="lazy"><span class="pill">{nm}</span>')
             cls = f"cat pic{on}"
         else:
             inner = (f'<span class="ic">{ic}</span>'

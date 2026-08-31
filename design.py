@@ -156,11 +156,20 @@ svg{display:block}
 .cat .lb{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
  overflow:hidden;padding:7px 6px 8px;font-size:11.5px;line-height:1.22;
  font-weight:600;color:var(--ink);text-align:center;min-height:38px}
-/* Сүрөттүү бөлүм тактасы: сүрөт бүт тактаны ээлейт, аты сүрөттө жазылган */
-.cat.pic{border:0;background:none;padding:0;overflow:hidden;position:relative;
- width:104px;height:126px;border-radius:16px}
-.cat.pic .pic{width:100%;height:100%;object-fit:cover;display:block}
-.cat.pic.on{box-shadow:0 0 0 3px var(--gold),0 10px 22px -12px rgba(18,32,58,.5)}
+/* Бөлүмдөр: эки катар торчо, ар биринде көлөмдүү белги, астында аты */
+.cats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 8px;
+ overflow:visible;padding:14px 12px 10px}
+.cat.pic{border:0;background:none;padding:0;overflow:visible;position:relative;
+ width:auto;height:auto;border-radius:0;box-shadow:none;
+ display:flex;flex-direction:column;align-items:center;gap:6px}
+.cat.pic .pic{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;
+ border-radius:14px}
+.cat.pic .pill{display:block;width:100%;padding:6px 5px 7px;border-radius:999px;
+ background:#fff;border:1px solid var(--mist);text-align:center;
+ font-size:11px;font-weight:600;line-height:1.2;color:var(--ink);
+ box-shadow:0 3px 8px -6px rgba(18,32,58,.5)}
+.cat.pic.on .pic{box-shadow:0 0 0 2.5px var(--gold)}
+.cat.pic.on .pill{background:var(--moss);border-color:var(--moss);color:#fff}
 
 .cat.on{border-color:var(--gold);
  box-shadow:0 0 0 2px var(--gold),0 10px 22px -12px rgba(14,34,64,.4)}
