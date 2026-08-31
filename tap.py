@@ -21,6 +21,7 @@ from tap_catalog import (TRADE_CATEGORIES, SERVICE_CATEGORIES, RENTAL_CATEGORIES
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
 from scenes import SCENES
 import secimg
+import appicon
 from strings import T, L, H as help_text
 import bridge
 
@@ -172,12 +173,70 @@ backdrop-filter:blur(3px)}
 """
 
 
+# ── Телефонго кошулуучу колдонмо (PWA) ────────────────────────
+# Браузерден «Башкы экранга кошуу» дегенде, сайт өзүнчө тиркеме болуп
+# ачылат: браузердин дарек сабы көрүнбөйт, өз белгиси болот.
+MANIFEST = {
+    "name": "ТАП! — Кыргызстандын жарыя платформасы",
+    "short_name": "ТАП!",
+    "description": "Соода-сатык, кызмат, ижара, жумуш, такси — бүт Кыргызстан",
+    "start_url": "/?src=pwa",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#F1F4F9",
+    "theme_color": "#17365C",
+    "lang": "ky",
+    "icons": [
+        {"src": "/pwa/icon-192.png", "sizes": "192x192", "type": "image/png"},
+        {"src": "/pwa/icon-512.png", "sizes": "512x512", "type": "image/png"},
+        {"src": "/pwa/icon-512-mask.png", "sizes": "512x512",
+         "type": "image/png", "purpose": "maskable"},
+    ],
+}
+
+# Кызматчы скрипт. Тиркеме катары орнотулушу үчүн керек, ошону менен
+# бирге бет ачылганда бир аз тезирээк келет.
+SW_JS = """
+const CACHE = 'tap-v1';
+self.addEventListener('install', e => self.skipWaiting());
+self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', e => {
+  const u = new URL(e.request.url);
+  if (e.request.method !== 'GET' || u.origin !== location.origin) return;
+  // Сүрөттөр менен белгилер кэштен берилет — трафик үнөмдөлөт
+  if (u.pathname.startsWith('/si/') || u.pathname.startsWith('/pwa/')
+      || u.pathname.startsWith('/media/')) {
+    e.respondWith(caches.open(CACHE).then(c =>
+      c.match(e.request).then(r => r || fetch(e.request).then(res => {
+        c.put(e.request, res.clone());
+        return res;
+      }))));
+  }
+});
+"""
+
+PWA_JS = """<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  });
+}
+</script>"""
+
+
 def page(body, title="ТАП!", tab="home", lang="ky"):
     return f"""<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#17365C">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/pwa/apple-180.png?v={appicon.VERSION}">
+<link rel="icon" href="/pwa/icon-192.png?v={appicon.VERSION}" sizes="192x192">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ТАП!">
 <title>{esc(title)}</title>{FONTS}<style>{CSS}{EXTRA_CSS}</style></head><body>{body}{nav(tab, lang)}
-{SCROLL_JS}{FAV_JS}{SHELF_JS}</body></html>"""
+{SCROLL_JS}{FAV_JS}{SHELF_JS}{PWA_JS}</body></html>"""
 
 
 def _lang_switch(lang):
@@ -1236,6 +1295,40 @@ class H(BaseHTTPRequestHandler):
                 self._send(detail(r, lang))
             else:
                 self._send(empty_page(T("no_page", lang), T("bad_link", lang), lang), 404)
+
+        elif u.path == "/manifest.webmanifest":
+            data = json.dumps(MANIFEST, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/manifest+json; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "max-age=3600")
+            self.end_headers()
+            self.wfile.write(data)
+
+        elif u.path == "/sw.js":
+            data = SW_JS.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(data)
+
+        elif u.path.startswith("/pwa/"):
+            key = os.path.basename(urllib.parse.unquote(u.path[5:]))
+            key = key[:-4] if key.endswith(".png") else key
+            data = appicon.get(key)
+            if data:
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "max-age=604800")
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_response(404)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
 
         elif u.path.startswith("/si/"):
             # Бөлүм такталарынын сүрөттөрү — secimg.py ичинде турат
