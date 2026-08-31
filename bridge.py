@@ -12,74 +12,6 @@
 Натыйжада сайт эч өзгөрүүсүз иштей берет, бот болсо толук менюну колдонот.
 """
 
-# ---------------------------------------------------------------------------
-# Категориянын коду -> адам окуй турган аты
-# ---------------------------------------------------------------------------
-# Эски жарыяларда аталыш ордуна ички код (мисалы "appliances_home") жазылып
-# калган. Ушул карта аркылуу код көрсөтүүдө нормалдуу атка айландырылат.
-try:
-    import tap_catalog as _tc
-except Exception:          # каталог жок болсо да көпүрө иштей берсин
-    _tc = None
-
-CAT_LABELS = {}
-if _tc is not None:
-    for _name in ("TRADE_CATEGORIES", "SERVICE_CATEGORIES", "RENTAL_CATEGORIES",
-                  "DELIVERY_CATEGORIES", "JOB_CATEGORIES", "MARKETS_TYPES"):
-        for _c in (getattr(_tc, _name, None) or []):
-            if isinstance(_c, dict) and _c.get("id"):
-                CAT_LABELS.setdefault(_c["id"], _c.get("label") or _c["id"])
-
-SECTION_LABELS = {
-    "trade":    "Соода-сатык / Торговля",
-    "service":  "Кызмат көрсөтүү / Услуги",
-    "rental":   "Ижарага берүү / Аренда",
-    "delivery": "Жеткирүү / Доставка",
-    "job":      "Жумуш берүү / Работа",
-    "markets":  "Базарлар / Рынки",
-    "taxi":     "Такси / Такси",
-}
-
-
-def cat_label(cat_id):
-    """Категориянын кодун эки тилдүү атка айландырат."""
-    if not cat_id:
-        return ""
-    return CAT_LABELS.get(cat_id, "")
-
-
-def is_code(text):
-    """Текст аталыш эмес, ички код экенин аныктайт."""
-    t = (text or "").strip()
-    if not t:
-        return False
-    if t in CAT_LABELS or t in SECTION_LABELS:
-        return True
-    # "appliances_home" сыяктуу: астын сызык бар, бош орун жок, баары кичине тамга
-    return ("_" in t) and (" " not in t) and t.islower() and t.isascii()
-
-
-def show_title(row):
-    """
-    Жарыяны көрсөткөндө колдонулуучу аталыш.
-
-    Базадагы аталыш ички код болуп калса (эски жарыялар), категориянын
-    атын кайтарат. Базага тийбейт — экрандагы жазуу гана оңолот.
-    """
-    row = row or {}
-    t = str(row.get("title") or "").strip()
-    if t and not is_code(t):
-        return t
-    cid = row.get("cat_id") or (t if t else "")
-    lbl = cat_label(cid)
-    if lbl:
-        return lbl
-    sub = str(row.get("sub_id") or "").strip()
-    if sub:
-        return sub
-    return SECTION_LABELS.get(row.get("ad_type") or "", "Жарыя / Объявление")
-
-
 # Жаңы категория -> эски категория коду
 _TRADE_MAP = {
     "realestate":            ("realty",   "flat"),
@@ -201,26 +133,12 @@ def _first(text):
 
 
 def build_title(data):
-    """
-    Жарыянын аталышын чогултат.
-
-    Эч качан ички код жазылбайт: категориянын коду болсо, ал алды менен
-    каталогдогу атка айландырылат.
-    """
+    """Жарыянын аталышын чогултат."""
     t = data.get("title")
-    if t and not is_code(str(t)):
+    if t:
         return _first(str(t))[:200]
-
-    sub = str(data.get("subcategory") or "").strip()
-    if sub and not is_code(sub):
-        return _first(sub)[:200]
-
-    lbl = cat_label(str(data.get("category") or "").strip())
-    if lbl:
-        return _first(lbl)[:200]
-
-    sec = SECTION_LABELS.get(data.get("adType") or "", "")
-    return _first(sec)[:200] or "Жарыя"
+    sub = data.get("subcategory") or data.get("category") or ""
+    return _first(str(sub))[:200] or "Жарыя"
 
 
 def build_description(data):
@@ -258,17 +176,34 @@ def build_description(data):
         ("jobConditions", "Шарттары"),
         ("callTime",      "Чалуу убактысы"),
         ("duration",      "Мөөнөтү"),
+        # ── такси ───────────────────────────────
+        ("taxiName",      "Аты"),
+        ("taxiCar",       "Машина"),
+        ("taxiDate",      "Күнү"),
+        ("taxiTime",      "Саат"),
+        ("taxiSeats",     "Бош орун"),
+        ("taxiPeople",    "Жүргүнчү"),
+        ("taxiBaggage",   "Жүк"),
     ]
     for key, name in label:
         v = data.get(key)
         if v and str(v).strip() and str(v).strip() != "-":
             lines.append("%s: %s" % (name, _first(str(v))))
 
-    c = data.get("postComment")
+    c = data.get("postComment") or data.get("taxiComment")
     if c and str(c).strip() not in ("-", ""):
         lines.insert(0, str(c).strip())
 
     return "\n".join(lines)[:2000]
+
+
+def taxi_route(data):
+    """Таксинин багыты: «Ош шаары → Бишкек»."""
+    a = str(data.get("taxiFrom") or "").strip()
+    b = str(data.get("taxiTo") or "").strip()
+    if a and b:
+        return f"{a} → {b}"
+    return a or b
 
 
 def to_listing(data):
@@ -279,20 +214,28 @@ def to_listing(data):
     cat_id = data.get("category") or ""
     legacy_cat, legacy_sub = to_legacy(ad_type, cat_id)
 
+    # Такси бөлүмүнүн талаалары башка аталышта турат
+    is_taxi = ad_type == "taxi"
+    title = taxi_route(data) if is_taxi else build_title(data)
+    region = (str(data.get("taxiFrom") or "").strip()
+              if is_taxi else region_line(data))
+    price = data.get("taxiPrice") if is_taxi else data.get("price")
+    phone = data.get("taxiPhone") if is_taxi else data.get("phone")
+
     return {
         "category":    legacy_cat,
         "subcat":      legacy_sub,
-        "region":      region_line(data),
-        "title":       build_title(data),
+        "region":      region or region_line(data),
+        "title":       title or "Такси",
         "description": build_description(data),
-        "price":       _first(str(data.get("price") or "")),
-        "contact":     str(data.get("phone") or ""),
+        "price":       _first(str(price or "")),
+        "contact":     str(phone or data.get("phone") or ""),
         # жаңы тилкелер
         "ad_type":     ad_type,
         "cat_id":      cat_id,
         "sub_id":      _first(str(data.get("subcategory") or ""))[:200],
-        "oblast":      data.get("oblast") or "",
-        "district":    data.get("district") or "",
+        "oblast":      data.get("oblast") or data.get("taxiLoOblast") or "",
+        "district":    data.get("district") or data.get("taxiFrom") or "",
         "locality":    data.get("locality") or "",
         "village":     data.get("village") or "",
     }
