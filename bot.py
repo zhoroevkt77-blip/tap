@@ -811,11 +811,26 @@ def main():
     API = f"https://api.telegram.org/bot{TOKEN}/"
 
     core.init_db()
-    me = api("getMe")
-    if not me.get("ok"):
-        raise SystemExit("Токен туура эмес окшойт.")
 
-    print(f"\n  Бот иштеп жатат: @{me['result'].get('username')}", flush=True)
+    # Telegram убактылуу жооп бербей калышы мүмкүн (502, тармак үзүлүшү).
+    # Ошондо программаны токтотпойбуз — бир нече жолу кайра сурайбыз,
+    # антпесе бот менен кошо сайт да өчүп калат.
+    me = {}
+    for i in range(6):
+        me = api("getMe")
+        if me.get("ok"):
+            break
+        print(f"  getMe жооп бербеди ({i + 1}/6), кайра аракет…", flush=True)
+        time.sleep(5)
+
+    if me.get("ok"):
+        uname = me["result"].get("username")
+    else:
+        uname = "?"
+        print("  Эскертүү: Telegram жооп бербей жатат. "
+              "Бот сурамдарды кийинчерээк улантат.", flush=True)
+
+    print(f"\n  Бот иштеп жатат: @{uname}", flush=True)
     print(f"  База: {'Postgres' if core.IS_PG else 'SQLite'}", flush=True)
     print(f"  Сүрөттөр: {MEDIA}", flush=True)
     print(f"  Сайт: {SITE_URL}", flush=True)
