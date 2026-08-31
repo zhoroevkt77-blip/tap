@@ -45,6 +45,13 @@ def read_token():
         "Жергиликтүү: echo -n \"ТОКЕН\" > token.txt\n")
 
 
+# Админдер: Railway'де ADMIN_IDS деген өзгөрмөгө Telegram ID жазылат.
+# Бирден көп болсо, үтүр менен: 123456,987654
+ADMIN_IDS = [x.strip() for x in
+             (os.environ.get("ADMIN_IDS") or "").replace(" ", "").split(",")
+             if x.strip()]
+
+
 def api(method, **params):
     data = urllib.parse.urlencode(
         {k: (json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else v)
@@ -439,6 +446,33 @@ def run_search(chat, u):
     reset(u)
 
 
+def notify_admins(lid, row, uid, name):
+    """
+    Жаңы жарыя коюлганда админдерге кабар жөнөтөт.
+
+    Жарыя дароо сайтта чыга берет — бул кабар текшерүү үчүн гана.
+    Жараксыз болсо, админ бир баскыч менен өчүрөт.
+    """
+    if not ADMIN_IDS:
+        return
+    link = (f"\n🌐 {SITE_URL}/e/{lid}"
+            if SITE_URL and "localhost" not in SITE_URL else "")
+    txt = ("🆕 <b>Жаңы жарыя</b> №%d\n\n"
+           "📦 %s\n💰 %s\n📍 %s\n☎️ %s\n"
+           "👤 %s (id %s)%s" % (
+               lid, esc(row.get("title")), esc(price_label(row.get("price"))),
+               esc(row.get("region") or "—"), esc(row.get("contact") or "—"),
+               esc(name or "—"), uid, link))
+    kb = {"inline_keyboard": [[
+        {"text": "❌ Өчүрүү", "callback_data": f"adel:{lid}"}]]}
+    photo = os.path.join(MEDIA, f"{lid}.jpg")
+    for a in ADMIN_IDS:
+        if os.path.isfile(photo):
+            send_photo(a, photo, txt, kb)
+        else:
+            send(a, txt, kb)
+
+
 def save_ad(chat, uid, name, u):
     """Даяр жарыяны базага жазат."""
     lang = ulang(u)
@@ -460,6 +494,7 @@ def save_ad(chat, uid, name, u):
 
     link = (f"\n\n🌐 {SITE_URL}/e/{lid}"
             if SITE_URL and "localhost" not in SITE_URL else "")
+    notify_admins(lid, row, uid, name)
     send(chat, m("posted", lang, lid) + "\n\n"
                f"📦 {esc(row['title'])}\n"
                f"💰 {esc(price_label(row.get('price')))}\n"
@@ -671,6 +706,19 @@ def handle_callback(cb, st):
                 text=m("del_ok", ulang(u), lid))
         else:
             send(chat, m("del_fail", ulang(u)))
+        return
+
+    if data.startswith("adel:"):
+        if uid not in ADMIN_IDS:
+            send(chat, "Бул баскыч админдер үчүн.")
+            return
+        lid = int(data[5:])
+        ok = core.admin_deactivate(lid)
+        api("editMessageReplyMarkup", chat_id=chat,
+            message_id=cb["message"]["message_id"],
+            reply_markup={"inline_keyboard": []})
+        send(chat, f"🗑 Жарыя №{lid} өчүрүлдү." if ok
+                   else f"Жарыя №{lid} табылган жок (мурда өчүрүлгөнбү?).")
         return
 
     if data.startswith("more:"):

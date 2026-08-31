@@ -422,6 +422,16 @@ def deactivate(lid, tg_id):
     return True
 
 
+def admin_deactivate(lid):
+    """Админ өчүрөт — жарыянын ээси ким экенине карабай."""
+    row = query("SELECT id FROM listings WHERE id=? AND is_active=1",
+                (lid,), fetch="one")
+    if not row:
+        return False
+    query("UPDATE listings SET is_active=0 WHERE id=?", (lid,))
+    return True
+
+
 def cat_counts(region=None):
     where, p = ("", [])
     if region:
