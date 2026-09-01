@@ -775,6 +775,13 @@ _FI = {
         '<circle cx="12" cy="12" r="3"/>',
  "tag": '<path d="M4 4h7l9 9-7 7-9-9V4Z"/><circle cx="8.5" cy="8.5" r="1.6"/>',
  "info": '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.6v.1"/>',
+ "user": '<circle cx="12" cy="8" r="3.6"/>'
+         '<path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+ "sect": '<rect x="3" y="6" width="18" height="14" rx="2.5"/>'
+         '<path d="M3 10h18M9 6V4h6v2"/>',
+ "cat":  '<path d="M4 4h7l9 9-7 7-9-9V4Z"/><circle cx="8.5" cy="8.5" r="1.6"/>',
+ "sub":  '<path d="M4 11 12 4l8 7v8a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 19v-8Z"/>',
+ "city": '<path d="M4 21V8l6-4v17M14 21V11l6 3v7"/><path d="M3 21h18"/>',
 }
 
 # Сүрөттөмөдөгү «Аты: мааниси» саптарына кайсы белги туура келет
@@ -851,7 +858,36 @@ def detail(r, lang="ky"):
             f'<b class="dtx">{esc(dtext)}</b></div></div>' if dtext else "")
     tel = contact_block(r.get("contact"), lang)
 
-    rows = _frow("pin", T("region", lang), r.get("region") or "—")
+    ru = (lang == "ru")
+
+    def _lb(ky, rus):
+        return rus if ru else ky
+
+    # ── Аймак эки сапта: облус/район жана кичи район/айыл ──────
+    big = ", ".join([y for y in (
+        _place_name(r.get("oblast"), lang) if r.get("oblast") else "",
+        _place_name(r.get("district"), lang) if r.get("district") else "",
+    ) if y]) or (r.get("region") or "—")
+    small = ", ".join([y for y in (
+        _place_name(r.get("locality"), lang) if r.get("locality") else "",
+        _place_name(r.get("village"), lang) if r.get("village") else "",
+    ) if y])
+
+    rows = ""
+    if r.get("tg_name"):
+        rows += _frow("user", _lb("Аты", "Имя"), r["tg_name"])
+    rows += _frow("pin", _lb("Аймак", "Регион"), big)
+    if small:
+        rows += _frow("city", _lb("Кичи район", "Микрорайон"), small)
+    rows += _frow("sect", _lb("Бөлүмү", "Раздел"), name)
+    if at and r.get("cat_id"):
+        rows += _frow("cat", _lb("Категориясы", "Категория"),
+                      cat_label(at, r["cat_id"], lang))
+    if r.get("sub_id"):
+        rows += _frow("sub", _lb("Субкатегориясы", "Подкатегория"),
+                      _ky(r["sub_id"], lang))
+
+    # Сүрөттөмөдөгү «Аты: мааниси» саптары өз катары менен чыгат
     for k, v in dfacts:
         low = k.lower()
         ic2 = "info"
@@ -860,8 +896,10 @@ def detail(r, lang="ky"):
                 ic2 = nm
                 break
         rows += _frow(ic2, k, v)
-    rows += _frow("cal", T("posted", lang), ago(r["created_at"]))
-    rows += _frow("eye", T("views", lang), str(r["views"]))
+
+    rows += _frow("cal", _lb("Коюлган убактысы", "Размещено"),
+                  ago(r["created_at"]))
+    rows += _frow("eye", _lb("Көрүүлөр", "Просмотры"), str(r["views"]))
 
     body = f"""<main class="wrap">
 <a class="back" href="{back}">{_ARROW}{esc(name)}</a>
