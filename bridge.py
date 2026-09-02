@@ -25,12 +25,16 @@ except Exception:          # каталог жок болсо да көпүрө 
 CAT_LABELS = {}
 if _tc is not None:
     for _name in ("TRADE_CATEGORIES", "SERVICE_CATEGORIES", "RENTAL_CATEGORIES",
-                  "DELIVERY_CATEGORIES", "JOB_CATEGORIES", "MARKETS_TYPES"):
+                  "DELIVERY_CATEGORIES", "JOB_CATEGORIES", "MARKETS_TYPES",
+                  "WHOLESALE_CATEGORIES", "CARGO_CATEGORIES", "JOBSEEK_CATEGORIES"):
         for _c in (getattr(_tc, _name, None) or []):
             if isinstance(_c, dict) and _c.get("id"):
                 CAT_LABELS.setdefault(_c["id"], _c.get("label") or _c["id"])
 
 SECTION_LABELS = {
+    "wholesale": "Соода-сатык (дүң) / Оптовая торговля",
+    "cargo":     "Жүк ташуу / Грузоперевозки",
+    "jobseek":   "Жумуш издөө / Поиск работы",
     "trade":    "Соода-сатык / Торговля",
     "service":  "Кызмат көрсөтүү / Услуги",
     "rental":   "Ижарага берүү / Аренда",
@@ -266,6 +270,18 @@ def build_description(data):
         ("taxiSeats",     "Бош орун"),
         ("taxiPeople",    "Жүргүнчү"),
         ("taxiBaggage",   "Жүк"),
+        # ── дүң соода ───────────────────────────
+        ("wsMinOrder",    "Эң аз буйрутма"),
+        ("wsUnit",        "Өлчөө бирдиги"),
+        ("wsDelivery",    "Жеткирүү"),
+        # ── жүк ташуу ───────────────────────────
+        ("cargoRoute",    "Багыт"),
+        ("cargoCapacity", "Жүк көтөрүмү"),
+        ("cargoBody",     "Кузовдун түрү"),
+        # ── жумуш издөө ─────────────────────────
+        ("seekExp",       "Стажы"),
+        ("seekSchedule",  "График"),
+        ("seekEdu",       "Билими"),
     ]
     for key, name in label:
         v = data.get(key)

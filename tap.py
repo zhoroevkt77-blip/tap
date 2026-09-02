@@ -17,6 +17,7 @@ from core import (CATS, SUBS, MEDIA, category_title, category_icon, sub_title,
                   price_label, is_deal, ago)
 from tap_catalog import (TRADE_CATEGORIES, SERVICE_CATEGORIES, RENTAL_CATEGORIES,
                          DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES,
+                         WHOLESALE_CATEGORIES, CARGO_CATEGORIES, JOBSEEK_CATEGORIES,
                          OBLASTS, get_districts, get_localities, ru_name)
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
 from scenes import SCENES
@@ -37,7 +38,18 @@ SECTIONS = [
     ("job",      SCENES["job"],      "Жумуш берүү"),
     ("markets",  SCENES["markets"],  "Базарлар"),
     ("taxi",     SCENES["taxi"],     "Такси"),
+    # Жаңы бөлүмдөр — өз сүрөтү даяр болгуча жалпы белги колдонулат
+    ("wholesale", SCENES.get("trade", SCENES["all"]),   "Соода-сатык (дүң)"),
+    ("cargo",     SCENES.get("delivery", SCENES["all"]), "Жүк ташуу"),
+    ("jobseek",   SCENES.get("job", SCENES["all"]),      "Жумуш издөө"),
 ]
+
+# Жаңы бөлүмдөрдүн аттары (strings.py'де али жок)
+_NEW_SECTION_NAMES = {
+    "wholesale": ("Соода-сатык (дүң)", "Оптовая торговля"),
+    "cargo":     ("Жүк ташуу", "Грузоперевозки"),
+    "jobseek":   ("Жумуш издөө", "Поиск работы"),
+}
 
 SECTION_CODES = [c for c, _, _ in SECTIONS]
 SECTION_NAME = {code: name for code, _, name in SECTIONS}
@@ -49,6 +61,9 @@ _CAT_LISTS = {
     "delivery": DELIVERY_CATEGORIES,
     "job":      JOB_CATEGORIES,
     "markets":  MARKETS_TYPES,
+    "wholesale": WHOLESALE_CATEGORIES,
+    "cargo":     CARGO_CATEGORIES,
+    "jobseek":   JOBSEEK_CATEGORIES,
 }
 
 
@@ -83,6 +98,9 @@ def cat_label(ad_type, cat_id, lang="ky"):
 
 
 def section_name(code, lang="ky"):
+    if code in _NEW_SECTION_NAMES:
+        ky_name, ru_name = _NEW_SECTION_NAMES[code]
+        return ru_name if lang == "ru" else ky_name
     return T(code, lang) if code in ("trade", "service", "rental", "delivery",
                                      "job", "markets", "taxi") else code
 
