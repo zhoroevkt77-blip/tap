@@ -162,7 +162,7 @@ svg{display:block}
 .cat.pic{border:0;background:none;padding:0;overflow:visible;position:relative;
  width:auto;height:auto;border-radius:0;box-shadow:none;
  display:flex;flex-direction:column;align-items:center;gap:6px}
-.cat.pic .pic{width:100%;aspect-ratio:25/21;object-fit:cover;display:block;
+.cat.pic .pic{width:100%;aspect-ratio:13/17;object-fit:cover;display:block;
  border-radius:14px}
 .cat.pic .pill{display:block;width:100%;padding:6px 5px 7px;border-radius:999px;
  background:#fff;border:1px solid var(--mist);text-align:center;
