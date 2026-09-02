@@ -176,14 +176,15 @@ color:#1B3355;width:100%;max-height:2.6em;overflow:hidden;display:block}
 .nphw{position:absolute;inset:0;display:block;background:#E9EFF9}
 .nphw .nphp{position:absolute;inset:0;width:100%;height:100%;
 object-fit:cover;object-position:50% 30%;display:block}
-.dph .nphw{position:relative;width:100%;height:230px;flex:1 0 100%}
+.dph .nphw{position:relative;width:100%;height:150px;flex:1 0 100%}
 .dph .nphw .nphp{height:100%}
 .cap{position:absolute;left:8px;right:8px;bottom:8px;z-index:2;
 display:flex;align-items:center;justify-content:center;gap:6px;
 padding:6px 10px;border-radius:12px;background:rgba(16,28,48,.72);
 color:#fff;font-size:11.5px;font-weight:700;line-height:1.2;text-align:center;
 backdrop-filter:blur(3px)}
-.dph .cap{font-size:14px;padding:8px 14px;left:14px;right:14px;bottom:12px}
+.dph .cap{font-size:13px;padding:6px 12px;left:auto;right:auto;bottom:10px;
+width:max-content;max-width:80%;margin:0 auto;transform:translateX(-50%);left:50%}
 .dph .nph{min-height:190px}
 .dph .nph .nphi{width:76px;height:76px}
 .dph .nph em{font-size:14px}
