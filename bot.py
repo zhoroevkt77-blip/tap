@@ -10,6 +10,7 @@ TAP! — Telegram бот.
 Иштетүү: python bot.py
 """
 
+import threading
 import copy, json, os, ssl, time, urllib.parse, urllib.request, mimetypes
 
 import core
