@@ -496,7 +496,7 @@ def _group(title, inner):
     return f'<div class="fbox"><div class="fhd">{esc(title)}</div>{inner}</div>'
 
 
-def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang):
+def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
     """Бөлүм жана аймак чыпкалары — тандоо тизмелери менен."""
     ru = (lang == "ru")
     flt = {"q": q or None, "ad_type": at, "cat_id": cid, "sub_id": sid}
@@ -564,6 +564,15 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang):
                           opts, vi)
 
     out += _group("Откуда" if ru else "Кайсы жерден", inner)
+
+    # ── Тартиби: жаңысынан, арзандан, кымбаттан ───────────────
+    names = ([("new", "Сначала новые"), ("cheap", "Сначала дешёвые"),
+              ("rich", "Сначала дорогие"), ("views", "Популярные")] if ru else
+             [("new", "Жаңысынан"), ("cheap", "Арзандан"),
+              ("rich", "Кымбаттан"), ("views", "Көп көрүлгөн")])
+    opts = [(code, link(sort=code), nm, None) for code, nm in names]
+    inner = _sel("Сортировка" if ru else "Тартиби", opts, sort or "new")
+    out += _group("Как показать" if ru else "Кантип көрсөтүү", inner)
     return out
 
 
@@ -625,7 +634,7 @@ def shelves(lang="ky"):
 
 
 def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
-         lang="ky"):
+         lang="ky", sort="new"):
     """
     Башкы бет.
       at  — бөлүм (trade/service/…)
@@ -636,7 +645,8 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
     def link(**kw):
         """Учурдагы чыпкаларды сактап, бирөөнү гана өзгөрткөн шилтеме."""
         prm = {"q": q or None, "at": at, "cid": cid, "sid": sid,
-               "ob": ob, "di": di, "vi": vi}
+               "ob": ob, "di": di, "vi": vi,
+               "sort": (sort if sort and sort != "new" else None)}
         prm.update(kw)
         prm = {k: v for k, v in prm.items() if v}
         return ("/?" + urllib.parse.urlencode(prm)) if prm else "/"
@@ -649,8 +659,8 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
                     "ТАП!", "home", lang)
 
     rows = core.find(q, limit=60, ad_type=at, cat_id=cid, sub_id=sid,
-                     oblast=ob, district=di, village=vi)
-    body = _filter_bars(link, q, at, cid, sid, ob, di, vi, lang)
+                     oblast=ob, district=di, village=vi, sort=sort)
+    body = _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort)
 
     if rows:
         if q:
@@ -876,6 +886,19 @@ def detail(r, lang="ky"):
             f'<b class="dtx">{esc(dtext)}</b></div></div>' if dtext else "")
     tel = contact_block(r.get("contact"), lang)
 
+    # Бөлүшүү: WhatsApp жана Telegram аркылуу шилтемени жиберүү
+    share_url = f"{core.SITE_URL}/e/{r['id']}" if core.SITE_URL else ""
+    share = ""
+    if share_url:
+        txt = urllib.parse.quote(f"{bridge.show_title(r)} — {share_url}")
+        lb = "Поделиться" if lang == "ru" else "Бөлүшүү"
+        share = (f'<div class="share"><span>{lb}</span>'
+                 f'<a href="https://wa.me/?text={txt}" target="_blank" '
+                 f'rel="noopener">WhatsApp</a>'
+                 f'<a href="https://t.me/share/url?url='
+                 f'{urllib.parse.quote(share_url)}" target="_blank" '
+                 f'rel="noopener">Telegram</a></div>')
+
     ru = (lang == "ru")
 
     def _lb(ky, rus):
@@ -933,7 +956,7 @@ def detail(r, lang="ky"):
 <div class="dp{' dpd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
 <h1>{esc(L(bridge.show_title(r), lang))}</h1>
 </div>
-<div class="dcard facts">{rows}</div>{desc}{tel}</main>"""
+<div class="dcard facts">{rows}</div>{desc}{tel}{share}</main>"""
     return page(header("", None, None, lang) + body,
                 L(bridge.show_title(r), lang), tab="home", lang=lang)
 
@@ -1304,6 +1327,7 @@ class H(BaseHTTPRequestHandler):
                 at = None
             cid = (qs.get("cid", [""])[0]).strip() or None
             sid = (qs.get("sid", [""])[0]).strip() or None
+            sort = (qs.get("sort", [""])[0]).strip() or "new"
             ob = (qs.get("ob", [""])[0]).strip() or None
             di = (qs.get("di", [""])[0]).strip() or None
             vi = (qs.get("vi", [""])[0]).strip() or None
@@ -1317,7 +1341,7 @@ class H(BaseHTTPRequestHandler):
                       "personal": "trade", "service": "service",
                       "shop": "markets", "business": "job"}.get(old)
 
-            self._send(home(q, at, cid, sid, ob, di, vi, lang))
+            self._send(home(q, at, cid, sid, ob, di, vi, lang, sort))
 
         elif u.path == "/fav":
             self._send(fav_page(lang))

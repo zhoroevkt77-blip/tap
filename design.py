@@ -201,6 +201,14 @@ svg{display:block}
 .ft b{display:block;font-size:14px;font-weight:700;line-height:1.25}
 .ft b.dtx{font-weight:500;font-size:14.5px;line-height:1.45;white-space:pre-line}
 
+/* ---- Бөлүшүү ---- */
+.share{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+ margin:14px 0 4px;font-size:13px}
+.share span{color:var(--faint);font-weight:600}
+.share a{padding:8px 15px;border-radius:999px;background:#fff;
+ border:1px solid var(--mist);color:var(--moss);font-weight:700;
+ text-decoration:none}
+
 /* ---- Чыпка тизмелери ---- */
 .fbox{background:#fff;border-top:1px solid var(--mist);
  border-bottom:1px solid var(--mist);padding:12px 14px 14px;margin-bottom:8px}

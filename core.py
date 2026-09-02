@@ -13,7 +13,7 @@ TAP! — жалпы өзөк. bot.py да, tap.py да ушуну колдоно
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -154,6 +154,17 @@ def expand(text):
     return " ".join(extra)
 
 
+def price_number(price):
+    """
+    «4 000 000 сом», «25 сом/кг» сыяктуу жазуудан санды бөлүп алат.
+    Келишим баада болсо, None кайтат — иргөөдө четте калат.
+    """
+    digits = "".join(ch for ch in str(price or "") if ch.isdigit())
+    if not digits or len(digits) > 12:
+        return None
+    return int(digits)
+
+
 def mkstext(title, desc, sub_name=""):
     """Издөө талаасы: кириллица + синонимдер + латынча жазылышы."""
     raw = f"{title or ''} {desc or ''} {sub_name or ''}".lower()
@@ -245,7 +256,10 @@ CREATE TABLE IF NOT EXISTS listings (
 
 
 NEW_COLUMNS = ["ad_type", "cat_id", "sub_id",
-               "oblast", "district", "locality", "village", "photos"]
+               "oblast", "district", "locality", "village", "photos",
+               # жарыянын мөөнөтү бүтө турган күн (ISO), жана
+               # иргөө үчүн бааны сан түрүндө сактайбыз
+               "expires_at", "price_num"]
 
 
 def _add_missing_columns():
@@ -296,26 +310,54 @@ def now_str():
 
 # ==================== Жарыялар ====================
 
+# Колдонуучу тандаган мөөнөт — канча күн
+DURATION_DAYS = {
+    "1 күн": 1, "3 күн": 3, "1 апта": 7, "2 апта": 14,
+    "1 ай": 30, "2 ай": 60, "3 ай": 90,
+}
+
+
+def expiry_from(duration, days=None):
+    """Мөөнөттүн бүтөр күнү. Тандалбаса — 30 күн."""
+    if days is None:
+        d = str(duration or "").strip().lower()
+        days = 30
+        for k, v in DURATION_DAYS.items():
+            if k.lower() in d:
+                days = v
+                break
+    return (datetime.now(timezone.utc)
+            + timedelta(days=int(days))).strftime("%Y-%m-%d %H:%M:%S")
+
+
 def add_listing(d, tg_id, tg_name):
     """Жаңы жарыя кошот, номерин кайтарат."""
+    # Издөө талаасына категориянын, бөлүмдүн аттары да кирет —
+    # «телефон» деп издегенде «Смартфондор» табылсын.
     stext = mkstext(
         d["title"],
         " ".join([d.get("description", "") or "",
                   d.get("sub_id", "") or "",
-                  d.get("region", "") or ""]),
+                  d.get("cat_name", "") or "",
+                  d.get("sec_name", "") or "",
+                  d.get("region", "") or "",
+                  d.get("oblast", "") or "",
+                  d.get("district", "") or ""]),
         sub_title(d["category"], d.get("subcat")))
     return query(
         """INSERT INTO listings
            (category, subcat, region, title, description, price, contact,
             tg_id, tg_name, stext, created_at,
-            ad_type, cat_id, sub_id, oblast, district, locality, village)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            ad_type, cat_id, sub_id, oblast, district, locality, village,
+            expires_at, price_num)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (d["category"], d.get("subcat"), d.get("region", ""), d["title"],
          d.get("description", ""), d.get("price", ""), d.get("contact", ""),
          str(tg_id), tg_name, stext, now_str(),
          d.get("ad_type", ""), d.get("cat_id", ""), d.get("sub_id", ""),
          d.get("oblast", ""), d.get("district", ""),
-         d.get("locality", ""), d.get("village", "")),
+         d.get("locality", ""), d.get("village", ""),
+         expiry_from(d.get("duration")), price_number(d.get("price"))),
         fetch="id")
 
 
@@ -355,7 +397,7 @@ def photo_list(row):
 
 def _filters(q=None, cat=None, region=None, sub=None,
              ad_type=None, cat_id=None, oblast=None, district=None,
-             village=None, sub_id=None):
+             village=None, sub_id=None, pmin=None, pmax=None):
     sql, p = "", []
     if cat:
         sql += " AND category=?"; p.append(cat)
@@ -375,27 +417,45 @@ def _filters(q=None, cat=None, region=None, sub=None,
         sql += " AND district=?"; p.append(district)
     if village:
         sql += " AND " + VILLAGE_EXPR + "=?"; p.append(village)
+    if pmin is not None:
+        sql += " AND price_num IS NOT NULL AND price_num>=?"; p.append(int(pmin))
+    if pmax is not None:
+        sql += " AND price_num IS NOT NULL AND price_num<=?"; p.append(int(pmax))
     if q and q.strip():
-        sql += " AND (stext LIKE ? OR stext LIKE ?)"
-        p += [f"%{q.lower()}%", f"%{norm(q)}%"]
+        # Ар бир сөз өз-өзүнчө изделет — «кызыл кийим» деп жазса да табылат
+        for w in [x for x in str(q).lower().split() if len(x) > 1][:5]:
+            sql += " AND (stext LIKE ? OR stext LIKE ?)"
+            p += [f"%{w}%", f"%{norm(w)}%"]
     return sql, p
+
+
+# Сайттагы иргөө тартиптери
+SORTS = {
+    "new":   "id DESC",                                   # жаңысынан
+    "old":   "id ASC",                                    # эскисинен
+    "cheap": "price_num IS NULL, price_num ASC, id DESC",  # арзандан
+    "rich":  "price_num IS NULL, price_num DESC, id DESC",  # кымбаттан
+    "views": "views DESC, id DESC",                        # көп көрүлгөн
+}
 
 
 def find(q=None, cat=None, region=None, sub=None, limit=30, offset=0,
          ad_type=None, cat_id=None, oblast=None, district=None, village=None,
-         sub_id=None):
+         sub_id=None, pmin=None, pmax=None, sort="new"):
     where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast,
-                        district, village, sub_id)
+                        district, village, sub_id, pmin, pmax)
+    order = SORTS.get(sort or "new", SORTS["new"])
     return query(
         "SELECT * FROM listings WHERE is_active=1" + where +
-        " ORDER BY id DESC LIMIT ? OFFSET ?", tuple(p + [limit, offset]), fetch="all")
+        " ORDER BY " + order + " LIMIT ? OFFSET ?",
+        tuple(p + [limit, offset]), fetch="all")
 
 
 def count(q=None, cat=None, region=None, sub=None,
           ad_type=None, cat_id=None, oblast=None, district=None, village=None,
-          sub_id=None):
+          sub_id=None, pmin=None, pmax=None):
     where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast,
-                        district, village, sub_id)
+                        district, village, sub_id, pmin, pmax)
     r = query("SELECT COUNT(*) AS n FROM listings WHERE is_active=1" + where,
               tuple(p), fetch="one")
     return (r or {}).get("n", 0)
@@ -419,6 +479,58 @@ def deactivate(lid, tg_id):
     if not before:
         return False
     query("UPDATE listings SET is_active=0 WHERE id=? AND tg_id=?", (lid, str(tg_id)))
+    return True
+
+
+def expire_old(limit=200):
+    """
+    Мөөнөтү бүткөн жарыяларды жашырат жана ээлеринин тизмесин кайтарат
+    (ошолорго кабар жөнөтүү үчүн). Күнүнө бир жолу чакырылат.
+    """
+    rows = query(
+        "SELECT id, tg_id, title FROM listings WHERE is_active=1"
+        " AND expires_at IS NOT NULL AND expires_at<>'' AND expires_at<?"
+        " ORDER BY id LIMIT ?", (now_str(), limit), fetch="all") or []
+    for r in rows:
+        query("UPDATE listings SET is_active=0 WHERE id=?", (r["id"],))
+    return rows
+
+
+def revive(lid, tg_id, days=30):
+    """Жарыяны кайра жандырат жана мөөнөтүн узартат."""
+    row = query("SELECT id FROM listings WHERE id=? AND tg_id=?",
+                (lid, str(tg_id)), fetch="one")
+    if not row:
+        return False
+    query("UPDATE listings SET is_active=1, expires_at=? WHERE id=?",
+          (expiry_from(None, days=days), lid))
+    return True
+
+
+def posted_today(tg_id):
+    """Бүгүн ушул колдонуучу канча жарыя койду."""
+    day = now_str()[:10]
+    r = query("SELECT COUNT(*) AS n FROM listings WHERE tg_id=?"
+              " AND created_at>=?", (str(tg_id), day + " 00:00:00"), fetch="one")
+    return (r or {}).get("n", 0)
+
+
+def update_listing(lid, tg_id, fields):
+    """Жарыянын айрым талааларын оңдойт (ээси гана)."""
+    allowed = ("title", "description", "price", "contact")
+    sets, p = [], []
+    for k, v in fields.items():
+        if k in allowed:
+            sets.append(f"{k}=?"); p.append(v)
+    if not sets:
+        return False
+    if "price" in fields:
+        sets.append("price_num=?"); p.append(price_number(fields["price"]))
+    row = query("SELECT id FROM listings WHERE id=? AND tg_id=?",
+                (lid, str(tg_id)), fetch="one")
+    if not row:
+        return False
+    query(f"UPDATE listings SET {', '.join(sets)} WHERE id=?", tuple(p + [lid]))
     return True
 
 

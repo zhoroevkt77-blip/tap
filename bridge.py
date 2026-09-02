@@ -327,7 +327,14 @@ def to_listing(data):
     price = data.get("taxiPrice") if is_taxi else data.get("price")
     phone = data.get("taxiPhone") if is_taxi else data.get("phone")
 
+    # Издөө үчүн: категориянын жана бөлүмдүн аты да сакталсын
+    cat_nm = cat_label(cat_id)
+    sec_nm = SECTION_LABELS.get(ad_type, "")
+
     return {
+        "cat_name":    cat_nm,
+        "sec_name":    sec_nm,
+        "duration":    _first(str(data.get("duration") or "")),
         "category":    legacy_cat,
         "subcat":      legacy_sub,
         "region":      region or region_line(data),

@@ -473,10 +473,21 @@ def notify_admins(lid, row, uid, name):
             send(a, txt, kb)
 
 
+# Бир колдонуучу суткасына канча жарыя коё алат
+DAILY_LIMIT = int(os.environ.get("DAILY_LIMIT", "10"))
+
+
 def save_ad(chat, uid, name, u):
     """Даяр жарыяны базага жазат."""
     lang = ulang(u)
     d = u["data"]
+
+    # Спамга каршы: суткасына чектелген сандан ашык жарыя коюлбайт
+    if str(uid) not in ADMIN_IDS and core.posted_today(uid) >= DAILY_LIMIT:
+        send(chat, "⚠️ Бүгүнкү чек жетти: бир күндө %d жарыя.\n"
+                   "Эртең кайра коё аласыз." % DAILY_LIMIT)
+        return
+
     row = bridge.to_listing(d)
     if not row["title"]:
         row["title"] = m("untitled", lang)
@@ -708,6 +719,14 @@ def handle_callback(cb, st):
             send(chat, m("del_fail", ulang(u)))
         return
 
+    if data.startswith("revive:"):
+        lid = int(data[7:])
+        if core.revive(lid, uid):
+            send(chat, f"✅ Жарыя №{lid} кайра жандырылды, 30 күн турат.")
+        else:
+            send(chat, f"Жарыя №{lid} табылган жок.")
+        return
+
     if data.startswith("adel:"):
         if uid not in ADMIN_IDS:
             send(chat, "Бул баскыч админдер үчүн.")
@@ -805,6 +824,27 @@ def start_site():
         print("  Витрина иштебей калды:", e, flush=True)
 
 
+def expire_worker():
+    """
+    Күнүнө бир жолу мөөнөтү бүткөн жарыяларды жашырат жана ээсине
+    кабар жөнөтөт. Бөлөк жипте, ботко тоскоол болбойт.
+    """
+    while True:
+        try:
+            for r in core.expire_old():
+                kb = {"inline_keyboard": [[
+                    {"text": "🔄 Кайра жандыруу / Возобновить",
+                     "callback_data": f"revive:{r['id']}"}]]}
+                send(r["tg_id"],
+                     "⏳ <b>Жарыяңыздын мөөнөтү бүттү</b>\n\n"
+                     f"№{r['id']} — {esc(r['title'])}\n\n"
+                     "Керек болсо, бир баскыч менен кайра жандырсаңыз болот.",
+                     kb)
+        except Exception as e:
+            print("  Мөөнөт текшерүү катасы:", e, flush=True)
+        time.sleep(6 * 60 * 60)      # алты сааттан кийин кайра карайт
+
+
 def main():
     global TOKEN, API
     TOKEN = read_token()
@@ -829,6 +869,8 @@ def main():
         uname = "?"
         print("  Эскертүү: Telegram жооп бербей жатат. "
               "Бот сурамдарды кийинчерээк улантат.", flush=True)
+
+    threading.Thread(target=expire_worker, daemon=True).start()
 
     print(f"\n  Бот иштеп жатат: @{uname}", flush=True)
     print(f"  База: {'Postgres' if core.IS_PG else 'SQLite'}", flush=True)
