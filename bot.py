@@ -554,14 +554,18 @@ def do_edit(chat, uid, u, text):
         send(chat, m("write_smth", lang))
         return
     u.pop("edit", None)
-    ok = core.update_listing(e["lid"], uid, {e["field"]: text[:2000]})
+    ok = core.update_listing(e["lid"], uid, {e["field"]: text[:2000]},
+                             phone=u.get("myphone"))
     send(chat, m("edit_ok", lang, e["lid"]) if ok else m("edit_fail", lang),
          home_kb(lang))
 
 
-def show_my(chat, uid, u):
+def show_my(chat, uid, u, phone=None):
     lang = ulang(u)
-    rows = core.my_listings(uid)
+    # Телефонду эстеп калабыз — өчүрүү/оңдоо баскычтары үчүн керек
+    if phone:
+        u["myphone"] = phone
+    rows = core.my_listings(uid, phone)
     if not rows:
         send(chat, m("no_posts", lang), home_kb(lang))
     else:
@@ -623,7 +627,7 @@ def step_forward(chat, uid, name, u, value):
         ask(chat, u, short=True)
         return
     if u["step"] == "my_posts":
-        show_my(chat, u["data"].get("phone") or uid, u)
+        show_my(chat, uid, u, u["data"].get("phone"))
         ask(chat, u, short=True)
         return
     if u["step"] == "post_done":
@@ -807,7 +811,7 @@ def handle_callback(cb, st):
 
     if data.startswith("del:"):
         lid = int(data[4:])
-        if core.deactivate(lid, uid):
+        if core.deactivate(lid, uid, u.get("myphone")):
             api("editMessageText", chat_id=chat,
                 message_id=cb["message"]["message_id"],
                 text=m("del_ok", ulang(u), lid))
@@ -817,7 +821,7 @@ def handle_callback(cb, st):
 
     if data.startswith("revive:"):
         lid = int(data[7:])
-        if core.revive(lid, uid):
+        if core.revive(lid, uid, phone=u.get("myphone")):
             send(chat, f"✅ Жарыя №{lid} кайра жандырылды, 30 күн турат.")
         else:
             send(chat, f"Жарыя №{lid} табылган жок.")

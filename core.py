@@ -468,17 +468,57 @@ def one(lid, count_view=True):
     return r
 
 
-def my_listings(tg_id):
-    return query("SELECT * FROM listings WHERE tg_id=? ORDER BY id DESC",
-                 (str(tg_id),), fetch="all")
+def _digits(s):
+    return "".join(c for c in str(s or "") if c.isdigit())
 
 
-def deactivate(lid, tg_id):
-    before = query("SELECT id FROM listings WHERE id=? AND tg_id=? AND is_active=1",
-                   (lid, str(tg_id)), fetch="one")
+# Байланыш номерин базада тазалап салыштыруу үчүн (боштук, дефис, плюс)
+_CLEAN = ("REPLACE(REPLACE(REPLACE(contact, ' ', ''), '-', ''), '+', '')")
+
+
+def owns(lid, tg_id, phone=None):
+    """Жарыя ушул колдонуучунуку бекен: Telegram ID же телефон боюнча."""
+    r = query("SELECT id FROM listings WHERE id=? AND tg_id=?",
+              (lid, str(tg_id)), fetch="one")
+    if r:
+        return True
+    d = _digits(phone)[-9:]
+    if len(d) == 9:
+        r = query("SELECT id FROM listings WHERE id=? AND %s LIKE ?" % _CLEAN,
+                  (lid, "%" + d), fetch="one")
+        if r:
+            return True
+    return False
+
+
+def my_listings(tg_id, phone=None):
+    """
+    Колдонуучунун жарыялары.
+
+    Telegram аркылуу коюлганы `tg_id` менен, ал эми башка түзмөктөн же
+    сайттан коюлганы байланыш номери боюнча табылат.
+    """
+    rows = query("SELECT * FROM listings WHERE tg_id=? ORDER BY id DESC",
+                 (str(tg_id),), fetch="all") or []
+    d = _digits(phone)[-9:]
+    if len(d) == 9:
+        extra = query("SELECT * FROM listings WHERE %s LIKE ?"
+                      " ORDER BY id DESC" % _CLEAN,
+                      ("%" + d,), fetch="all") or []
+        seen = {r["id"] for r in rows}
+        rows = rows + [r for r in extra if r["id"] not in seen]
+        rows.sort(key=lambda r: r["id"], reverse=True)
+    return rows
+
+
+def deactivate(lid, tg_id, phone=None):
+    if not owns(lid, tg_id, phone):
+        return False
+    before = query("SELECT id FROM listings WHERE id=? AND is_active=1",
+                   (lid,), fetch="one")
     if not before:
         return False
-    query("UPDATE listings SET is_active=0 WHERE id=? AND tg_id=?", (lid, str(tg_id)))
+    query("UPDATE listings SET is_active=0 WHERE id=?", (lid,))
     return True
 
 
@@ -496,11 +536,9 @@ def expire_old(limit=200):
     return rows
 
 
-def revive(lid, tg_id, days=30):
+def revive(lid, tg_id, days=30, phone=None):
     """Жарыяны кайра жандырат жана мөөнөтүн узартат."""
-    row = query("SELECT id FROM listings WHERE id=? AND tg_id=?",
-                (lid, str(tg_id)), fetch="one")
-    if not row:
+    if not owns(lid, tg_id, phone):
         return False
     query("UPDATE listings SET is_active=1, expires_at=? WHERE id=?",
           (expiry_from(None, days=days), lid))
@@ -515,7 +553,7 @@ def posted_today(tg_id):
     return (r or {}).get("n", 0)
 
 
-def update_listing(lid, tg_id, fields):
+def update_listing(lid, tg_id, fields, phone=None):
     """Жарыянын айрым талааларын оңдойт (ээси гана)."""
     allowed = ("title", "description", "price", "contact")
     sets, p = [], []
@@ -526,8 +564,9 @@ def update_listing(lid, tg_id, fields):
         return False
     if "price" in fields:
         sets.append("price_num=?"); p.append(price_number(fields["price"]))
-    row = query("SELECT * FROM listings WHERE id=? AND tg_id=?",
-                (lid, str(tg_id)), fetch="one")
+    if not owns(lid, tg_id, phone):
+        return False
+    row = query("SELECT * FROM listings WHERE id=?", (lid,), fetch="one")
     if not row:
         return False
     # Аталыш же сүрөттөмө өзгөрсө, издөө талаасын кайра курабыз —
