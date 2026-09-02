@@ -526,10 +526,21 @@ def update_listing(lid, tg_id, fields):
         return False
     if "price" in fields:
         sets.append("price_num=?"); p.append(price_number(fields["price"]))
-    row = query("SELECT id FROM listings WHERE id=? AND tg_id=?",
+    row = query("SELECT * FROM listings WHERE id=? AND tg_id=?",
                 (lid, str(tg_id)), fetch="one")
     if not row:
         return False
+    # Аталыш же сүрөттөмө өзгөрсө, издөө талаасын кайра курабыз —
+    # антпесе жарыя эски сөздөр боюнча табылып калат.
+    if "title" in fields or "description" in fields:
+        t = fields.get("title", row.get("title"))
+        d = fields.get("description", row.get("description"))
+        sets.append("stext=?")
+        p.append(mkstext(t, " ".join([
+            d or "",
+            row.get("sub_id") or "", row.get("region") or "",
+            row.get("oblast") or "", row.get("district") or ""]),
+            sub_title(row.get("category") or "", row.get("subcat"))))
     query(f"UPDATE listings SET {', '.join(sets)} WHERE id=?", tuple(p + [lid]))
     return True
 

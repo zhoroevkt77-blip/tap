@@ -10,7 +10,6 @@ TAP! — Telegram бот.
 Иштетүү: python bot.py
 """
 
-import threading
 import copy, json, os, ssl, time, urllib.parse, urllib.request, mimetypes
 
 import core
@@ -160,6 +159,8 @@ def reset(u, full=False):
     lang = (u.get("data") or {}).get("uiLanguage")
     u["picked"] = []
     u["hist"] = []
+    u.pop("titleasked", None)
+    u.pop("edit", None)
     if lang and not full:
         u["step"] = "main_menu"
         u["data"] = {"uiLanguage": lang}
@@ -215,6 +216,26 @@ MSG = {
     "photo_few":  ("Жок дегенде %d сүрөт керек.", "Нужно минимум %d фото."),
     "photo_done": ("✅ Даяр",                 "✅ Готово"),
     "back_btn":   ("⬅️ Артка", "⬅️ Назад"),
+    # ── Аталышты колдонуучу өзү жазат ──
+    "ask_title":  ("✍️ <b>Жарыяңызга аталыш жазыңыз</b>\n\n"
+                   "Кыска жана түшүнүктүү болсун.\n"
+                   "Мисалы: <i>Муздаткыч Beko, аз колдонулган</i>",
+                   "✍️ <b>Напишите заголовок объявления</b>\n\n"
+                   "Коротко и понятно.\n"
+                   "Например: <i>Холодильник Beko, мало б/у</i>"),
+    "skip_title": ("⏭ Өткөрүп жиберүү", "⏭ Пропустить"),
+    # ── Жарыяны оңдоо ──
+    "edit_btn":   ("✏️ Оңдоо",            "✏️ Изменить"),
+    "edit_what":  ("✏️ Жарыя №%d — эмнени оңдойсуз?",
+                   "✏️ Объявление №%d — что изменить?"),
+    "ed_title":   ("📦 Аталышы",          "📦 Заголовок"),
+    "ed_price":   ("💰 Баасы",            "💰 Цена"),
+    "ed_desc":    ("📝 Сүрөттөмөсү",      "📝 Описание"),
+    "ed_contact": ("☎️ Байланыш",         "☎️ Контакт"),
+    "edit_ask":   ("Жаңы маанисин жазыңыз:", "Напишите новое значение:"),
+    "edit_ok":    ("✅ Жарыя №%d оңдолду.", "✅ Объявление №%d изменено."),
+    "edit_fail":  ("Оңдоо мүмкүн болбоду. Жарыя сиздики эмес окшойт.",
+                   "Не удалось изменить. Похоже, объявление не ваше."),
 }
 
 # Бир жарыяга канча сүрөт. strings.py'дагы сандар менен бирдей.
@@ -514,6 +535,29 @@ def save_ad(chat, uid, name, u):
     reset(u)
 
 
+def ask_title(chat, u):
+    """Жарыя сакталардын алдында аталышын сурайт."""
+    lang = ulang(u)
+    kb = {"inline_keyboard": [[{"text": m("skip_title", lang),
+                                "callback_data": "skiptitle"}]]}
+    send(chat, m("ask_title", lang), kb)
+
+
+def do_edit(chat, uid, u, text):
+    """Колдонуучу жазган жаңы маанини жарыяга жазат."""
+    lang = ulang(u)
+    e = u.get("edit") or {}
+    if not e:
+        return
+    if not text:
+        send(chat, m("write_smth", lang))
+        return
+    u.pop("edit", None)
+    ok = core.update_listing(e["lid"], uid, {e["field"]: text[:2000]})
+    send(chat, m("edit_ok", lang, e["lid"]) if ok else m("edit_fail", lang),
+         home_kb(lang))
+
+
 def show_my(chat, uid, u):
     lang = ulang(u)
     rows = core.my_listings(uid)
@@ -523,8 +567,11 @@ def show_my(chat, uid, u):
         send(chat, m("my_posts", lang, len(rows)))
         for r in rows:
             status = "🟢" if r["is_active"] else "🔴 " + m("removed", lang)
-            kb = ({"inline_keyboard": [[{"text": m("del_btn", lang),
-                                         "callback_data": f"del:{r['id']}"}]]}
+            kb = ({"inline_keyboard": [[
+                      {"text": m("edit_btn", lang),
+                       "callback_data": f"ed:{r['id']}"},
+                      {"text": m("del_btn", lang),
+                       "callback_data": f"del:{r['id']}"}]]}
                   if r["is_active"] else None)
             send(chat, f"{status} №{r['id']}\n"
                        f"📦 {esc(r['title'])}\n"
@@ -579,6 +626,11 @@ def step_forward(chat, uid, name, u, value):
         ask(chat, u, short=True)
         return
     if u["step"] == "post_done":
+        # Сактаардын алдында аталышты колдонуучунун өзүнөн сурайбыз
+        if not u.get("titleasked"):
+            u["titleasked"] = True
+            ask_title(chat, u)
+            return
         save_ad(chat, uid, name, u)
         ask(chat, u, short=True)
         return
@@ -630,6 +682,21 @@ def handle_message(msg, st):
                 "❌ Жокко чыгаруу", "/cancel"):
         reset(u)
         ask(chat, u)
+        return
+
+    # ── Жарыяны оңдоо: жаңы маани күтүлүп жатат ──
+    if u.get("edit"):
+        do_edit(chat, uid, u, text)
+        return
+
+    # ── Аталыш күтүлүп жатат ──
+    if u.get("titleasked") and u["step"] == "post_done":
+        if not text:
+            send(chat, m("write_smth", ulang(u)))
+            return
+        u["data"]["title"] = text[:120]
+        save_ad(chat, uid, name, u)
+        ask(chat, u, short=True)
         return
 
     # Текст күтүлүп жатабы?
@@ -708,6 +775,33 @@ def handle_callback(cb, st):
     if data == "home":
         reset(u)
         ask(chat, u)
+        return
+
+    if data == "skiptitle":
+        # Аталыш жазылбады — bridge.py автоматтык түрдө курат
+        if u.get("titleasked") and u["step"] == "post_done":
+            save_ad(chat, uid, name, u)
+            ask(chat, u, short=True)
+        return
+
+    if data.startswith("ed:"):
+        lid = int(data[3:])
+        lang = ulang(u)
+        kb = {"inline_keyboard": [
+            [{"text": m("ed_title", lang),   "callback_data": f"edf:{lid}:title"}],
+            [{"text": m("ed_price", lang),   "callback_data": f"edf:{lid}:price"}],
+            [{"text": m("ed_desc", lang),    "callback_data": f"edf:{lid}:description"}],
+            [{"text": m("ed_contact", lang), "callback_data": f"edf:{lid}:contact"}]]}
+        send(chat, m("edit_what", lang, lid), kb)
+        return
+
+    if data.startswith("edf:"):
+        try:
+            _, slid, field = data.split(":", 2)
+            u["edit"] = {"lid": int(slid), "field": field}
+        except ValueError:
+            return
+        send(chat, m("edit_ask", ulang(u)))
         return
 
     if data.startswith("del:"):
