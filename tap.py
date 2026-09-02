@@ -175,7 +175,7 @@ background:linear-gradient(160deg,#F6F9FD 0%,#E4ECF8 100%)}
 color:#1B3355;width:100%;max-height:2.6em;overflow:hidden;display:block}
 .nphw{position:absolute;inset:0;display:block;background:#E9EFF9}
 .nphw .nphp{position:absolute;inset:0;width:100%;height:100%;
-object-fit:cover;object-position:50% 30%;display:block}
+object-fit:contain;object-position:center;display:block}
 .dph .nphw{position:relative;width:100%;height:150px;flex:1 0 100%}
 .dph .nphw .nphp{height:100%}
 .cap{position:absolute;left:8px;right:8px;bottom:8px;z-index:2;
