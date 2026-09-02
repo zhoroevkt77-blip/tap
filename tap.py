@@ -31,17 +31,16 @@ import bridge
 # Бот кайсы бөлүмдөрдү колдонсо, сайт да ошолорду көрсөтөт.
 
 SECTIONS = [
-    ("trade",    SCENES["trade"],    "Соода-сатык"),
-    ("service",  SCENES["service"],  "Кызмат көрсөтүү"),
-    ("rental",   SCENES["rental"],   "Ижарага берүү"),
-    ("delivery", SCENES["delivery"], "Жеткирүү"),
-    ("job",      SCENES["job"],      "Жумуш берүү"),
-    ("markets",  SCENES["markets"],  "Базарлар"),
-    ("taxi",     SCENES["taxi"],     "Такси"),
-    # Жаңы бөлүмдөр — өз сүрөтү даяр болгуча жалпы белги колдонулат
-    ("wholesale", SCENES.get("trade", SCENES["all"]),   "Соода-сатык (дүң)"),
-    ("cargo",     SCENES.get("delivery", SCENES["all"]), "Жүк ташуу"),
-    ("jobseek",   SCENES.get("job", SCENES["all"]),      "Жумуш издөө"),
+    ("trade",     SCENES["trade"],     "Соода-сатык"),
+    ("wholesale", SCENES.get("wholesale", SCENES["trade"]), "Соода-сатык (дүң)"),
+    ("service",   SCENES["service"],   "Кызмат көрсөтүү"),
+    ("rental",    SCENES["rental"],    "Ижарага берүү"),
+    ("delivery",  SCENES["delivery"],  "Жеткирүү"),
+    ("cargo",     SCENES.get("cargo", SCENES["delivery"]), "Жүк ташуу"),
+    ("jobseek",   SCENES.get("jobseek", SCENES["job"]),    "Жумуш издөө"),
+    ("job",       SCENES["job"],       "Жумуш берүү"),
+    ("markets",   SCENES["markets"],   "Базарлар"),
+    ("taxi",      SCENES["taxi"],      "Такси"),
 ]
 
 # Жаңы бөлүмдөрдүн аттары (strings.py'де али жок)
