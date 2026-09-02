@@ -905,8 +905,12 @@ def detail(r, lang="ky"):
         rows += _frow("sub", _lb("Субкатегориясы", "Подкатегория"),
                       _ky(r["sub_id"], lang))
 
-    # Сүрөттөмөдөгү «Аты: мааниси» саптары өз катары менен чыгат
+    # Сүрөттөмөдөгү «Аты: мааниси» саптары өз катары менен чыгат.
+    # Субкатегория менен бирдей болгон катар кайталанбасын.
+    _sub = str(_ky(r.get("sub_id") or "", lang)).strip().lower()
     for k, v in dfacts:
+        if str(v).strip().lower() == _sub and _sub:
+            continue
         low = k.lower()
         ic2 = "info"
         for keys, nm in _FKEY:
