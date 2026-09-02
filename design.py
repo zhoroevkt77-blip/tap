@@ -168,7 +168,7 @@ svg{display:block}
  background:#fff;border:1px solid var(--mist);text-align:center;
  font-size:11px;font-weight:600;line-height:1.2;color:var(--ink);
  box-shadow:0 3px 8px -6px rgba(18,32,58,.5)}
-.cat.pic.on .pic{box-shadow:0 0 0 2.5px var(--gold)}
+.cat.pic.on .pic{box-shadow:0 0 0 2.5px var(--moss)}
 .cat.pic.on .pill{background:var(--moss);border-color:var(--moss);color:#fff}
 
 .cat.on{border-color:var(--gold);
