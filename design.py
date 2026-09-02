@@ -173,6 +173,8 @@ svg{display:block}
 
 .cat.on{border-color:var(--gold);
  box-shadow:0 0 0 2px var(--gold),0 10px 22px -12px rgba(14,34,64,.4)}
+/* Сүрөттүү тактада сырткы кыр керек эмес — сүрөттүн өз кыры жетиштүү */
+.cat.pic.on{border:0;box-shadow:none}
 .cat.on .lb{background:transparent;color:var(--ink);font-weight:700}
 .cat.on .ic{background:linear-gradient(160deg,#FFFFFF 0%,#E7EEF9 100%);
  border-bottom:1px solid #C9D6EA}
