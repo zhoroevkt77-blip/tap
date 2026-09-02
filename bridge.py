@@ -73,6 +73,13 @@ def show_title(row):
     row = row or {}
     t = str(row.get("title") or "").strip()
     if t and not is_code(t):
+        # «appliances_home | Чекене | …» сыяктуу аталыштын биринчи бөлүгү
+        # ички код болуп калышы мүмкүн — ошону гана атка алмаштырабыз.
+        head, sep, tail = t.partition(" | ")
+        if sep and is_code(head):
+            lbl = cat_label(head)
+            if lbl:
+                return (lbl.split(" / ")[0] + sep + tail)
         return t
     cid = row.get("cat_id") or (t if t else "")
     lbl = cat_label(cid)

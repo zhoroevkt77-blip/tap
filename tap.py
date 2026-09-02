@@ -886,17 +886,19 @@ def detail(r, lang="ky"):
         _place_name(r.get("oblast"), lang) if r.get("oblast") else "",
         _place_name(r.get("district"), lang) if r.get("district") else "",
     ) if y]) or (r.get("region") or "—")
-    small = ", ".join([y for y in (
-        _place_name(r.get("locality"), lang) if r.get("locality") else "",
-        _place_name(r.get("village"), lang) if r.get("village") else "",
-    ) if y])
+    mid = _place_name(r.get("locality"), lang) if r.get("locality") else ""
+    vil = _place_name(r.get("village"), lang) if r.get("village") else ""
 
     rows = ""
     if r.get("tg_name"):
         rows += _frow("user", _lb("Аты", "Имя"), r["tg_name"])
     rows += _frow("pin", _lb("Аймак", "Регион"), big)
-    if small:
-        rows += _frow("city", _lb("Кичи район", "Микрорайон"), small)
+    if mid:
+        rows += _frow("city",
+                      _lb("Кичи район · айыл аймагы", "Микрорайон · айыльный округ"),
+                      mid)
+    if vil:
+        rows += _frow("city", _lb("Айыл", "Село"), vil)
     rows += _frow("sect", _lb("Бөлүмү", "Раздел"), name)
     if at and r.get("cat_id"):
         rows += _frow("cat", _lb("Категориясы", "Категория"),
