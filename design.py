@@ -258,6 +258,9 @@ svg{display:block}
  padding:7px 14px;font-size:12.5px;font-weight:500;color:#14304F;white-space:nowrap}
 .sb2.on{background:var(--leaf);color:#fff;border-color:var(--leaf);font-weight:600}
 .sb2 em{font-style:normal;opacity:.62;font-size:11px;margin-left:2px}
+/* Аймак баскычындагы сан — курсив эмес, кадимки тамга */
+.rg em{font-style:normal;opacity:.62;font-size:11px;margin-left:2px;
+ font-variant-numeric:tabular-nums}
 
 /* ---- Жыйынтык ---- */
 .rl{display:flex;align-items:baseline;gap:7px;padding:16px 0 11px}
