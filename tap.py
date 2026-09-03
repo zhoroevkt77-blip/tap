@@ -146,7 +146,9 @@ document.addEventListener("click",function(e){
  b.parentNode.querySelectorAll(".sb2").forEach(function(x){x.classList.remove("on")});
  b.classList.add("on");
  row.classList.add("load");
- fetch("/api/ads?at="+encodeURIComponent(sec)+"&cid="+encodeURIComponent(cid))
+ var ob=b.parentNode.getAttribute("data-ob")||"";
+ fetch("/api/ads?at="+encodeURIComponent(sec)+"&cid="+encodeURIComponent(cid)
+       +"&ob="+encodeURIComponent(ob))
   .then(function(r){return r.text()})
   .then(function(h){
     row.innerHTML=h||"";
@@ -606,7 +608,29 @@ def _sections_strip(link, at, lang):
     return f'<nav class="cats">{cats}</nav>'
 
 
-def shelves(lang="ky"):
+def _obq(ob):
+    """Шилтемеге «&ob=…» кошот (аймак тандалган болсо)."""
+    return ("&" + urllib.parse.urlencode({"ob": ob})) if ob else ""
+
+
+def _regions_strip(link, ob, lang):
+    """
+    Облустар менен республикалык шаарлар — горизонталдуу тилке.
+    Бирөөнү баскандан кийин бүт бет ошол аймакка өтөт.
+    """
+    try:
+        oc = core.oblast_counts()
+    except Exception:
+        oc = {}
+    out = _chip(link(ob=None, di=None, vi=None), T("all_kg", lang),
+                not ob, 0, lang, short=False)
+    for rg in _by_count(list(OBLASTS), oc):
+        out += _chip(link(ob=rg, di=None, vi=None), rg,
+                     ob == rg, oc.get(rg, 0), lang)
+    return f'<nav class="regbar">{out}</nav>'
+
+
+def shelves(lang="ky", ob=None):
     """
     Башкы бет: ар бир бөлүм өзүнчө катар болуп турат, жарыялары оңго-солго
     сүрүлөт. Категория чиптерин басканда ошол катардын ичи алмашат —
@@ -614,10 +638,10 @@ def shelves(lang="ky"):
     """
     out = []
     for code, _ic, _n in SECTIONS:
-        rows = core.find(limit=12, ad_type=code)
+        rows = core.find(limit=12, ad_type=code, oblast=ob)
         if not rows:
             continue
-        cc = core.catid_counts(code)
+        cc = core.catid_counts(code, oblast=ob)
         chips = (f'<button class="sb2 on" data-sec="{code}" data-cid="">'
                  f'{T("all", lang)}</button>')
         for cid, n in sorted(cc.items(), key=lambda x: -x[1])[:12]:
@@ -626,8 +650,9 @@ def shelves(lang="ky"):
         out.append(
             f'<section class="shelf" id="sh-{code}">'
             f'<div class="shead"><h2>{esc(section_name(code, lang))}</h2>'
-            f'<a href="/?at={code}" class="more">{T("show_all", lang)} ›</a></div>'
-            f'<nav class="subbar shchips">{chips}</nav>'
+            f'<a href="/?at={code}{_obq(ob)}" class="more">'
+            f'{T("show_all", lang)} ›</a></div>'
+            f'<nav class="subbar shchips" data-ob="{esc(ob or "")}">{chips}</nav>'
             f'<div class="srow" id="row-{code}">'
             f'{"".join(card(r, lang) for r in rows)}</div></section>')
     return "".join(out)
@@ -651,11 +676,14 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
         prm = {k: v for k, v in prm.items() if v}
         return ("/?" + urllib.parse.urlencode(prm)) if prm else "/"
 
-    top = header(q, at, vi or di or ob, lang) + _sections_strip(link, at, lang)
+    top = (header(q, at, vi or di or ob, lang)
+           + _sections_strip(link, at, lang)
+           + _regions_strip(link, ob, lang))
 
-    # Чыпкасыз башкы бет — катар-катар тизме
-    if not (q or at or cid or sid or ob or di or vi):
-        return page(top + f'<main class="wrap">{shelves(lang)}</main>',
+    # Бөлүм/категория/издөө жок — катар-катар тизме.
+    # Аймак гана тандалса, ошол аймактын ичинде катарлар көрүнөт.
+    if not (q or at or cid or sid or di or vi):
+        return page(top + f'<main class="wrap">{shelves(lang, ob)}</main>',
                     "ТАП!", "home", lang)
 
     rows = core.find(q, limit=60, ad_type=at, cat_id=cid, sub_id=sid,
@@ -1360,7 +1388,8 @@ class H(BaseHTTPRequestHandler):
             if at not in SECTION_NAME:
                 at = None
             cid = (qs.get("cid", [""])[0]).strip() or None
-            rows = core.find(limit=12, ad_type=at, cat_id=cid)
+            ob = (qs.get("ob", [""])[0]).strip() or None
+            rows = core.find(limit=12, ad_type=at, cat_id=cid, oblast=ob)
             self._send("".join(card(r, _lang(self)) for r in rows))
 
         elif u.path == "/api/favs":
