@@ -277,10 +277,30 @@ def _add_missing_columns():
             pass   # тилке мурунтан бар — баары жайында
 
 
+SCHEMA_USERS_SQLITE = """
+CREATE TABLE IF NOT EXISTS users (
+    tg_id TEXT PRIMARY KEY,
+    ref_count INTEGER NOT NULL DEFAULT 0,
+    referred_by TEXT,
+    bonus_posts INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT)
+"""
+
+SCHEMA_USERS_PG = """
+CREATE TABLE IF NOT EXISTS users (
+    tg_id TEXT PRIMARY KEY,
+    ref_count INTEGER NOT NULL DEFAULT 0,
+    referred_by TEXT,
+    bonus_posts INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT)
+"""
+
+
 def init_db():
     """Таблицаны түзөт. Кайра-кайра чакырса коопсуз."""
     os.makedirs(MEDIA, exist_ok=True)
     query(SCHEMA_PG if IS_PG else SCHEMA_SQLITE)
+    query(SCHEMA_USERS_PG if IS_PG else SCHEMA_USERS_SQLITE)
     _add_missing_columns()
     query("CREATE INDEX IF NOT EXISTS idx_active ON listings(is_active)")
     query("CREATE INDEX IF NOT EXISTS idx_cat ON listings(category)")
@@ -542,6 +562,75 @@ def revive(lid, tg_id, days=30, phone=None):
         return False
     query("UPDATE listings SET is_active=1, expires_at=? WHERE id=?",
           (expiry_from(None, days=days), lid))
+    return True
+
+
+# ==================== ДОС ЧАКЫРУУ ====================
+#
+# Ар бир колдонуучунун өз шилтемеси бар: t.me/BOT?start=ref<tg_id>.
+# Досу ошол шилтеме менен кирсе, чакыруучуга бонус жарыя кошулат.
+# Бонус суткалык чек толгондо жумшалат.
+
+# Биринчи дос үчүн канча жарыя, кийинкилери үчүн канча
+REF_FIRST_BONUS = int(os.environ.get("REF_FIRST_BONUS", "3"))
+REF_NEXT_BONUS = int(os.environ.get("REF_NEXT_BONUS", "1"))
+
+
+def get_user(tg_id):
+    """Колдонуучунун сабы. Жок болсо түзүп берет."""
+    tg_id = str(tg_id)
+    r = query("SELECT * FROM users WHERE tg_id=?", (tg_id,), fetch="one")
+    if r:
+        return r
+    try:
+        query("INSERT INTO users (tg_id, ref_count, bonus_posts, created_at)"
+              " VALUES (?,?,?,?)", (tg_id, 0, 0, now_str()))
+    except Exception:
+        pass   # башка агым мурда түзүп койгон болушу мүмкүн
+    return query("SELECT * FROM users WHERE tg_id=?",
+                 (tg_id,), fetch="one") or {
+        "tg_id": tg_id, "ref_count": 0, "referred_by": None, "bonus_posts": 0}
+
+
+def register_referral(tg_id, inviter_id):
+    """
+    Жаңы келген колдонуучуну чакыруучуга байлайт.
+
+    Кайтарат: (ok, чакыруучунун жаңы саны, кошулган бонус).
+    Өзүн-өзү чакыруу, кайра чакыруу жана жок аккаунт эсептелбейт.
+    """
+    tg_id, inviter_id = str(tg_id), str(inviter_id)
+    if tg_id == inviter_id:
+        return False, 0, 0
+
+    me = get_user(tg_id)
+    if me.get("referred_by"):
+        return False, 0, 0          # мурда башка киши чакырган
+
+    # Мурдатан жарыя коюп жүргөн адам «жаңы дос» болуп эсептелбейт
+    old = query("SELECT id FROM listings WHERE tg_id=?", (tg_id,), fetch="one")
+    if old:
+        return False, 0, 0
+
+    inv = get_user(inviter_id)
+    n = int(inv.get("ref_count") or 0) + 1
+    add = REF_FIRST_BONUS if n == 1 else REF_NEXT_BONUS
+    bonus = int(inv.get("bonus_posts") or 0) + add
+
+    query("UPDATE users SET referred_by=? WHERE tg_id=?", (inviter_id, tg_id))
+    query("UPDATE users SET ref_count=?, bonus_posts=? WHERE tg_id=?",
+          (n, bonus, inviter_id))
+    return True, n, add
+
+
+def use_bonus_post(tg_id):
+    """Бонус жарыядан бирөөнү жумшайт. Бонус жок болсо False."""
+    u = get_user(tg_id)
+    left = int(u.get("bonus_posts") or 0)
+    if left <= 0:
+        return False
+    query("UPDATE users SET bonus_posts=? WHERE tg_id=?",
+          (left - 1, str(tg_id)))
     return True
 
 

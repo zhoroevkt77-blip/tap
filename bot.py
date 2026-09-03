@@ -237,6 +237,45 @@ MSG = {
     "edit_ok":    ("✅ Жарыя №%d оңдолду.", "✅ Объявление №%d изменено."),
     "edit_fail":  ("Оңдоо мүмкүн болбоду. Жарыя сиздики эмес окшойт.",
                    "Не удалось изменить. Похоже, объявление не ваше."),
+    # ── Дос чакыруу ──
+    "ref_btn":    ("🎁 Дос чакыруу", "🎁 Пригласить друга"),
+    "ref_head":   ("🎁 <b>Дос чакырыңыз — көбүрөөк жарыя коюңуз!</b>",
+                   "🎁 <b>Приглашайте друзей — больше объявлений!</b>"),
+    "ref_rule":   ("Досуңуз сиздин шилтемеңиз менен ботко кирсе:\n"
+                   "• 1-дос үчүн — <b>%d кошумча жарыя</b>\n"
+                   "• Ар кийинки дос үчүн — <b>+%d жарыя</b>\n\n"
+                   "Кошумча жарыялар суткалык чек толгондо жумшалат.",
+                   "Если друг зайдёт в бот по вашей ссылке:\n"
+                   "• за 1-го друга — <b>%d дополнительных объявления</b>\n"
+                   "• за каждого следующего — <b>+%d объявление</b>\n\n"
+                   "Дополнительные объявления тратятся, когда исчерпан "
+                   "суточный лимит."),
+    "ref_stat":   ("👥 Чакырган досторуңуз: <b>%d</b>\n"
+                   "🎁 Кошумча жарыяңыз: <b>%d</b>",
+                   "👥 Приглашено друзей: <b>%d</b>\n"
+                   "🎁 Дополнительных объявлений: <b>%d</b>"),
+    "ref_link":   ("👇 Ушул шилтемени досторуңузга жибериңиз:",
+                   "👇 Отправьте эту ссылку друзьям:"),
+    "ref_share":  ("📤 Досторго жиберүү", "📤 Отправить друзьям"),
+    "ref_share_t": ("ТАП! — Кыргызстандын жарыя платформасы. "
+                    "Телефонго эч нерсе орнотуунун кереги жок!",
+                    "ТАП! — доска объявлений Кыргызстана. "
+                    "Ничего устанавливать не нужно!"),
+    "ref_got":    ("🎉 Жаңы дос кошулду! Жалпы: <b>%d</b>.\n"
+                   "🎁 Сизге <b>+%d жарыя</b> кошулду.",
+                   "🎉 Новый друг присоединился! Всего: <b>%d</b>.\n"
+                   "🎁 Вам добавлено <b>+%d объявление(й)</b>."),
+    "ref_hello":  ("👋 Досуңуз сизди ТАП!ке чакырды. Кош келиңиз!",
+                   "👋 Друг пригласил вас в ТАП!. Добро пожаловать!"),
+    "limit_ref":  ("⚠️ Бүгүнкү чек жетти: бир күндө %d жарыя.\n\n"
+                   "🎁 Дос чакырсаңыз, кошумча жарыя аласыз — "
+                   "«%s» баскычын басыңыз.",
+                   "⚠️ Суточный лимит исчерпан: %d объявлений в день.\n\n"
+                   "🎁 Пригласите друга и получите дополнительные "
+                   "объявления — нажмите «%s»."),
+    "bonus_used": ("🎁 Кошумча жарыядан бирөө жумшалды. Калды: <b>%d</b>.",
+                   "🎁 Использовано одно дополнительное объявление. "
+                   "Осталось: <b>%d</b>."),
 }
 
 # Бир жарыяга канча сүрөт. strings.py'дагы сандар менен бирдей.
@@ -499,17 +538,55 @@ def notify_admins(lid, row, uid, name):
 # Бир колдонуучу суткасына канча жарыя коё алат
 DAILY_LIMIT = int(os.environ.get("DAILY_LIMIT", "10"))
 
+# Боттун @аты — чакыруу шилтемесин куруу үчүн. main() ичинде
+# getMe'ден толтурулат, ошондуктан кол менен жазуунун кереги жок.
+BOT_USERNAME = os.environ.get("BOT_USERNAME", "TapmeniBot")
+
+
+def ref_link(uid):
+    """Колдонуучунун жеке чакыруу шилтемеси."""
+    return f"https://t.me/{BOT_USERNAME}?start=ref{uid}"
+
+
+def show_invite(chat, uid, u):
+    """«🎁 Дос чакыруу» экраны: эреже, санак жана шилтеме."""
+    lang = ulang(u)
+    try:
+        me = core.get_user(uid)
+    except Exception:
+        me = {}
+    n = int(me.get("ref_count") or 0)
+    bonus = int(me.get("bonus_posts") or 0)
+    link = ref_link(uid)
+
+    share = ("https://t.me/share/url?url=" + urllib.parse.quote(link)
+             + "&text=" + urllib.parse.quote(m("ref_share_t", lang)))
+    kb = {"inline_keyboard": [[{"text": m("ref_share", lang), "url": share}]]}
+
+    send(chat,
+         m("ref_head", lang) + "\n\n"
+         + m("ref_rule", lang, core.REF_FIRST_BONUS, core.REF_NEXT_BONUS)
+         + "\n\n" + m("ref_stat", lang, n, bonus)
+         + "\n\n" + m("ref_link", lang) + f"\n<code>{esc(link)}</code>",
+         kb)
+
 
 def save_ad(chat, uid, name, u):
     """Даяр жарыяны базага жазат."""
     lang = ulang(u)
     d = u["data"]
 
-    # Спамга каршы: суткасына чектелген сандан ашык жарыя коюлбайт
+    # Спамга каршы: суткасына чектелген сандан ашык жарыя коюлбайт.
+    # Бирок дос чакырып бонус тапкан адам ошону жумшап улантат.
     if str(uid) not in ADMIN_IDS and core.posted_today(uid) >= DAILY_LIMIT:
-        send(chat, "⚠️ Бүгүнкү чек жетти: бир күндө %d жарыя.\n"
-                   "Эртең кайра коё аласыз." % DAILY_LIMIT)
-        return
+        if core.use_bonus_post(uid):
+            left = int((core.get_user(uid) or {}).get("bonus_posts") or 0)
+            send(chat, m("bonus_used", lang, left))
+        else:
+            send(chat, m("limit_ref", lang, DAILY_LIMIT, m("ref_btn", lang)),
+                 {"inline_keyboard": [[{"text": m("ref_btn", lang),
+                                        "callback_data": "invite"}]]})
+            return
 
     row = bridge.to_listing(d)
     if not row["title"]:
@@ -675,12 +752,33 @@ def handle_message(msg, st):
 
     if text.startswith("/start") or text == "/help":
         payload = text[6:].strip() if text.startswith("/start") else ""
+
+        # «/start ref12345» — дос чакыруу шилтемеси менен келди
+        if payload.startswith("ref") and payload[3:].isdigit():
+            try:
+                ok, n, add = core.register_referral(uid, payload[3:])
+            except Exception as e:
+                print("  Чакыруу катасы:", e, flush=True)
+                ok, n, add = False, 0, 0
+            if ok:
+                send(chat, m("ref_hello", ulang(u)))
+                try:
+                    send(int(payload[3:]),
+                         m("ref_got", ulang(u), n, add))
+                except Exception:
+                    pass       # чакыруучу ботту бөгөттөп койгон болушу мүмкүн
+            payload = ""
+
         had_lang = bool((u.get("data") or {}).get("uiLanguage"))
         reset(u, full=not had_lang)
         u["pending"] = payload if payload in ("post", "search", "my") else None
         if u["pending"] and had_lang:
             _apply_pending(u)
         ask(chat, u)
+        return
+
+    if text in ("/ref", "/dos", "🎁 Дос чакыруу", "🎁 Пригласить друга"):
+        show_invite(chat, uid, u)
         return
 
     if text in ("🏠 Башкы меню", "🏠 Главное меню",
@@ -780,6 +878,10 @@ def handle_callback(cb, st):
     if data == "home":
         reset(u)
         ask(chat, u)
+        return
+
+    if data == "invite":
+        show_invite(chat, uid, u)
         return
 
     if data == "skiptitle":
@@ -965,6 +1067,9 @@ def main():
 
     if me.get("ok"):
         uname = me["result"].get("username")
+        if uname:
+            global BOT_USERNAME
+            BOT_USERNAME = uname   # чакыруу шилтемеси туура курулсун
     else:
         uname = "?"
         print("  Эскертүү: Telegram жооп бербей жатат. "
