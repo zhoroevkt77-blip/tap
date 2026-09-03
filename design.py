@@ -297,7 +297,7 @@ svg{display:block}
  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .m{margin-top:auto;display:flex;gap:8px;align-items:center;font-size:11.5px;
  color:var(--faint);white-space:nowrap}
-.m span:first-child{color:var(--gold);font-weight:600}
+.m span:first-child{color:var(--moss);font-weight:600}
 .m span:first-child{overflow:hidden;text-overflow:ellipsis}
 .m .vw{margin-left:auto;display:flex;align-items:center;gap:3px}
 .m .vw svg{width:13px;height:13px}
