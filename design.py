@@ -100,6 +100,7 @@ CSS = """
  --moss:#17365C; --leaf:#17365C; --wheat:#C9A03A;
  --paper:#F1F4F9; --card:#FFFDF7; --mist:#E1E7F1;
  --gold:#C9A03A; --gold2:#E3C368; --cream:#FBF5E6;
+ --heart:#F07A72;
  --r:18px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -263,7 +264,7 @@ svg{display:block}
 .g{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;padding-bottom:26px}
 @media(min-width:620px){.g{grid-template-columns:repeat(3,1fr);gap:13px}}
 @media(min-width:900px){.g{grid-template-columns:repeat(4,1fr)}}
-.c{background:var(--card);border:1px solid #EBE3D0;border-radius:var(--r);
+.c{background:var(--card);border:1px solid var(--moss);border-radius:var(--r);
  overflow:hidden;display:flex;flex-direction:column;transition:.16s}
 .c:active{transform:scale(.985)}
 .ph{position:relative;aspect-ratio:16/11;background:#EDF1F8;overflow:hidden;
@@ -278,10 +279,10 @@ svg{display:block}
  color:var(--faint);box-shadow:0 1px 4px rgba(18,32,58,.1);border:0;padding:0;
  cursor:pointer;transition:.15s}
 .fav svg{width:17px;height:17px;transition:.15s}
-.fav{color:var(--gold)}
-.fav.on{color:var(--gold)}
+.fav{color:var(--heart)}
+.fav.on{color:var(--heart)}
 .fav svg{fill:none}
-.fav.on svg{fill:var(--gold);transform:scale(1.12)}
+.fav.on svg{fill:var(--heart);transform:scale(1.12)}
 .fav:active{transform:scale(.88)}
 .cb{padding:11px 12px 13px;display:flex;flex-direction:column;flex:1}
 .p{font-family:"Manrope",system-ui,sans-serif;font-size:18px;font-weight:800;
