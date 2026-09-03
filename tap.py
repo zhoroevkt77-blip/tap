@@ -826,6 +826,13 @@ def _ficon(name):
     return (f'<svg viewBox="0 0 24 24">{_FI.get(name, _FI["info"])}</svg>')
 
 
+# Сүрөттөмөдө сакталган кыска аталыштар бетте толук жазылат.
+# (Базадагы текст өзгөрбөйт — эски жарыялар да туура көрүнөт.)
+FACT_RENAME = {
+    "Мөөнөтү": ("Жарыя канча мөөнөткө жарыяланды", "Срок публикации"),
+}
+
+
 def _frow(icon, label, value):
     return (f'<div class="fr">{_ficon(icon)}<div class="ft">'
             f'<i>{esc(label)}</i><b>{esc(value)}</b></div></div>')
@@ -942,11 +949,13 @@ def detail(r, lang="ky"):
             if any(w in low for w in keys):
                 ic2 = nm
                 break
-        rows += _frow(ic2, k, v)
+        nm = FACT_RENAME.get(k)
+        rows += _frow(ic2, _lb(nm[0], nm[1]) if nm else k, v)
 
-    rows += _frow("cal", _lb("Коюлган убактысы", "Размещено"),
+    rows += _frow("cal", _lb("Жарыя жарыяланган убактысы", "Опубликовано"),
                   ago(r["created_at"]))
-    rows += _frow("eye", _lb("Көрүүлөр", "Просмотры"), str(r["views"]))
+    rows += _frow("eye", _lb("Көргөндөр саны", "Количество просмотров"),
+                  str(r["views"]))
 
     body = f"""<main class="wrap">
 <a class="back" href="{back}">{_ARROW}{esc(name)}</a>
