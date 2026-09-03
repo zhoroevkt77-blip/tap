@@ -578,16 +578,33 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
     return out
 
 
-def _sections_strip(link, at, lang):
+def _sections_strip(link, at, lang, ob=None):
     """
     Бөлүм такталары. Сүрөтү бар бөлүмдө сүрөт бүт тактаны ээлейт (аты
     сүрөттүн өзүндө жазылган), сүрөтү жогунда мурункудай белги чыгат.
+
+    Аймак тандалганда ар бир бөлүмдүн жанында ошол аймактагы
+    жарыялардын саны чыгат.
     """
+    ac = {}
+    if ob:
+        try:
+            ac = core.adtype_counts(ob)
+        except Exception:
+            ac = {}
+
+    def _n(code):
+        """Бөлүмдүн жанындагы сан (аймак тандалганда гана)."""
+        if not ob:
+            return ""
+        return f'<span class="secn">{ac.get(code, 0)}</span>'
+
     if secimg.has("all"):
         cats = (f'<a href="{link(at=None, cid=None)}" '
                 f'class="cat pic{"" if at else " on"}">'
                 f'<img class="pic" src="/si/all.jpg?v={secimg.VERSION}" '
                 f'alt="{T("all", lang)}">'
+                f'{f"<span class=\'secn\'>{sum(ac.values())}</span>" if ob else ""}'
                 f'<span class="pill">{T("all", lang)}</span></a>')
     else:
         cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
@@ -598,10 +615,11 @@ def _sections_strip(link, at, lang):
         if secimg.has(code):
             nm = esc(section_name(code, lang))
             inner = (f'<img class="pic" src="/si/{code}.jpg?v={secimg.VERSION}" '
-                     f'alt="{nm}" loading="lazy"><span class="pill">{nm}</span>')
+                     f'alt="{nm}" loading="lazy">{_n(code)}'
+                     f'<span class="pill">{nm}</span>')
             cls = f"cat pic{on}"
         else:
-            inner = (f'<span class="ic">{ic}</span>'
+            inner = (f'<span class="ic">{ic}</span>{_n(code)}'
                      f'<span class="lb">{esc(section_name(code, lang))}</span>')
             cls = f"cat{on}"
         cats += f'<a href="{link(at=code, cid=None)}" class="{cls}">{inner}</a>'
@@ -613,13 +631,16 @@ def _obq(ob):
     return ("&" + urllib.parse.urlencode({"ob": ob})) if ob else ""
 
 
-def _regions_strip(link, ob, lang):
+def _regions_strip(link, ob, lang, at=None, q=None):
     """
     Облустар менен республикалык шаарлар — горизонталдуу тилке.
     Бирөөнү баскандан кийин бүт бет ошол аймакка өтөт.
+
+    Сандар учурдагы бөлүмдү жана издөө сөзүн эсепке алат — ошондуктан
+    тилкедеги сан менен экрандагы тизме дал келет.
     """
     try:
-        oc = core.oblast_counts()
+        oc = core.oblast_counts(ad_type=at, q=q or None)
     except Exception:
         oc = {}
     out = _chip(link(ob=None, di=None, vi=None), T("all_kg", lang),
@@ -677,8 +698,8 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
         return ("/?" + urllib.parse.urlencode(prm)) if prm else "/"
 
     top = (header(q, at, vi or di or ob, lang)
-           + _sections_strip(link, at, lang)
-           + _regions_strip(link, ob, lang))
+           + _sections_strip(link, at, lang, ob)
+           + _regions_strip(link, ob, lang, at, q))
 
     # Бөлүм/категория/издөө жок — катар-катар тизме.
     # Аймак гана тандалса, ошол аймактын ичинде катарлар көрүнөт.

@@ -170,6 +170,12 @@ svg{display:block}
  font-size:11px;font-weight:600;line-height:1.2;color:var(--ink);
  box-shadow:0 3px 8px -6px rgba(18,32,58,.5)}
 .cat.pic.on .pic{box-shadow:0 0 0 2.5px var(--moss)}
+/* Аймак тандалганда бөлүмдүн бурчундагы жарыялардын саны */
+.secn{position:absolute;top:5px;left:5px;z-index:2;min-width:19px;height:19px;
+ padding:0 5px;border-radius:999px;background:var(--moss);color:#fff;
+ font-size:10.5px;font-weight:700;line-height:19px;text-align:center;
+ font-variant-numeric:tabular-nums;box-shadow:0 2px 6px -2px rgba(14,34,64,.55)}
+.cat{position:relative}
 .cat.pic.on .pill{background:var(--moss);border-color:var(--moss);color:#fff}
 
 .cat.on{border-color:var(--gold);
