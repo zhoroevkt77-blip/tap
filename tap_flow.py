@@ -32,7 +32,8 @@ from taxi_geo import (REGIONS as TX_REGIONS, REGION_LIST as TX_REGION_LIST,
                       steps_of, day_hours, date_label)
 from tap_catalog import (
     GREETING, MAIN_OPTIONS, OBLASTS, STANDALONE, GEO,
-    TRADE_CATEGORIES, HEATING_FUEL_SUBS, TRADE_PRICE_PRESETS, TRADE_CONDITION,
+    TRADE_CATEGORIES, PROPERTY_CATEGORIES,
+    HEATING_FUEL_SUBS, TRADE_PRICE_PRESETS, TRADE_CONDITION,
     DEMOGRAPHICS, SEASONS, REALESTATE_TYPES, REALESTATE_SUBS,
     VEHICLE_BODY_TYPES, VEHICLE_ENGINE_TYPES, VEHICLE_CATEGORIES, VEHICLE_SUBS,
     MARKETS_TYPES, MARKETS_GROUPS, MARKETS_SUBS_BY_TYPE,
@@ -270,6 +271,7 @@ CHAIN_TRADE_TAIL_TEXT = (
 
 COMMENT_PROMPTS = {
     "trade":    "📝 Сатып жаткан товарларыңыз жөнүндө кыскача жазыңыз! / Напишите кратко о продаваемых товарах!",
+    "property": "📝 Сатып жаткан мүлкүңүз жөнүндө кыскача жазыңыз! / Напишите кратко о продаваемом имуществе!",
     "service":  "📝 Көрсөткөн кызматыңыз жөнүндө кыскача жазыңыз! / Напишите кратко о предоставляемой услуге!",
     "rental":   "📝 Ижарага берген нерсеңиз жөнүндө кыскача жазыңыз! / Напишите кратко о сдаваемом в аренду!",
     "delivery": "📝 Жеткирүү боюнча кыскача жазыңыз! / Напишите кратко о доставке!",
@@ -353,6 +355,7 @@ def render(step, data=None):
         return _view(head + q, _opts([
             ("🛍 Соода-сатык / Торговля", "trade"),
             ("🏭 Соода-сатык (дүң) / Оптовая торговля", "wholesale"),
+            ("🏘 Мүлк сатуу / Продажа имущества", "property"),
             ("🛠 Кызмат көрсөтүү / Услуги", "service"),
             ("🔑 Ижарага берүү / Аренда", "rental"),
             ("📦 Жеткирүү кызматы / Доставка", "delivery"),
@@ -449,16 +452,24 @@ def render(step, data=None):
 
     # ── Соода-сатык категориялары ───────────────────────────
     if step == "trade_category":
-        q = ("Кандай товар сатасыз? / Что продаёте?" if act == "post"
-             else "Кандай товар издеп жатасыз? / Какой товар ищете?")
-        excluded = ["realestate", "vehicles", "agro_machinery"]
+        if at == "property":
+            q = ("Кандай мүлк сатасыз? / Какое имущество продаёте?" if act == "post"
+                 else "Кандай мүлк издеп жатасыз? / Какое имущество ищете?")
+        else:
+            q = ("Кандай товар сатасыз? / Что продаёте?" if act == "post"
+                 else "Кандай товар издеп жатасыз? / Какой товар ищете?")
+
+        # Мүлктүн категориялары өзүнчө тизмеде — базар үчүн экөөн кошобуз
+        _ALL_TRADE = PROPERTY_CATEGORIES + TRADE_CATEGORIES
         mt = d.get("marketsType")
-        if at == "markets" and mt == "car_market":
-            cats = [c for c in TRADE_CATEGORIES if c["id"] in ("vehicles", "auto_parts")]
+        if at == "property":
+            cats = PROPERTY_CATEGORIES
+        elif at == "markets" and mt == "car_market":
+            cats = [c for c in _ALL_TRADE if c["id"] in ("vehicles", "auto_parts")]
         elif at == "markets" and mt == "livestock_market":
             cats = [c for c in TRADE_CATEGORIES if c["id"] == "animals"]
         elif at == "markets":
-            cats = [c for c in TRADE_CATEGORIES if c["id"] not in excluded]
+            cats = TRADE_CATEGORIES
         else:
             cats = TRADE_CATEGORIES
         return _view(q,
@@ -663,8 +674,7 @@ def render(step, data=None):
                      input=True, placeholder="700 000 000")
 
     if step == "post_duration":
-        return _view("⏳ Жарыя канча мөөнөткө жарыяланат? / "
-                     "На какой срок разместить объявление?",
+        return _view("⏳ Жарыя канча күн жарыяланат? / На сколько дней разместить рекламу?",
                      [{"label": p["label"], "value": p["value"]} for p in DURATION_PLANS])
 
     if step == "post_comment":
@@ -836,7 +846,8 @@ def render(step, data=None):
 def _after_region(d):
     """Аймак тандалгандан кийин кайда барабыз."""
     if d.get("action") == "post":
-        return "trade_category" if d.get("adType") == "trade" else "category_select"
+        return ("trade_category" if d.get("adType") in ("trade", "property")
+                else "category_select")
     if d.get("searchByRegion"):
         return "search_results"
     return "search_method_choice"
@@ -845,7 +856,9 @@ def _after_region(d):
 def _after_subcategory(d):
     """Подкатегория тандалгандан кийин кайда барабыз."""
     if d.get("action") == "post":
-        return "trade_title" if d.get("adType") in ("trade", "markets") else "post_name"
+        return ("trade_title"
+                if d.get("adType") in ("trade", "markets", "property")
+                else "post_name")
     return "search_results"
 
 
@@ -880,7 +893,9 @@ def _taxi_next(d, current):
 def _after_subcategory(d):
     """Подкатегория тандалгандан кийин кайда барабыз."""
     if d.get("action") == "post":
-        return "trade_title" if d.get("adType") in ("trade", "markets") else "post_name"
+        return ("trade_title"
+                if d.get("adType") in ("trade", "markets", "property")
+                else "post_name")
     return "search_results"
 
 
@@ -1217,7 +1232,8 @@ def advance(step, value, data=None):
     if step == "search_method_choice":
         if value == "keyword":
             return go("search_keyword_input")
-        return ("trade_category" if at == "trade" else "category_select"), d
+        return (("trade_category" if at in ("trade", "property")
+                 else "category_select"), d)
 
     if step == "search_keyword_input":
         return go("search_results", keyword=value)

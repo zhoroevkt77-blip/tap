@@ -3615,6 +3615,20 @@ TRADE_CATEGORIES = [
     }
 ]
 
+# ── Мүлк сатуу ────────────────────────────────────────────────
+# Кыймылсыз (үй, жер) жана кыймылдуу (унаа, техника) мүлк соода
+# бөлүмүнөн бөлүнүп чыкты: Кыргызстанда мүлк өзүнчө чоң багыт,
+# аны кийим-кечек менен бир тизмеде издөө ыңгайсыз эле.
+PROPERTY_CAT_IDS = ("realestate", "vehicles", "agro_machinery")
+
+PROPERTY_CATEGORIES = [c for c in TRADE_CATEGORIES
+                       if c["id"] in PROPERTY_CAT_IDS]
+
+# Соодадан алып салабыз — эки жерде кайталанбасын
+TRADE_CATEGORIES = [c for c in TRADE_CATEGORIES
+                    if c["id"] not in PROPERTY_CAT_IDS]
+
+
 HEATING_FUEL_SUBS = [
     "Көмүр / Уголь",
     "Отун / Дрова",
@@ -10204,6 +10218,7 @@ def get_categories(ad_type):
     """Жарыя түрү боюнча категориялар тизмеси."""
     return {
         "trade": TRADE_CATEGORIES,
+        "property": PROPERTY_CATEGORIES,
         "rental": RENTAL_CATEGORIES,
         "delivery": DELIVERY_CATEGORIES,
         "service": SERVICE_CATEGORIES,
