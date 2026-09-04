@@ -203,17 +203,6 @@ main.wrap{animation:pageIn .26s ease-out both}
 .cat.pic.on .pic{transform:translateY(-3px) scale(1.03);
  animation:livePic 7s ease-in-out infinite}
 
-/* Тандаган учурда сүрөттүн үстүнөн бир жолу жарык жарк этип өтөт */
-@keyframes tileShine{
- from{background-position:-140% 0}
- to  {background-position:240% 0}}
-.cat.pic.on::after{content:"";position:absolute;top:0;left:0;width:100%;
- aspect-ratio:13/17;border-radius:14px;pointer-events:none;z-index:1;
- background:linear-gradient(100deg,transparent 36%,
-  rgba(255,255,255,.6) 50%,transparent 64%);
- background-size:250% 100%;
- animation:tileShine 1.1s ease-out .05s 1 both}
-
 /* Аты жазылган баскыч да тандалганда бир кыймылдап коёт */
 @keyframes pillPop{
  0%{transform:scale(.9)} 60%{transform:scale(1.06)} 100%{transform:none}}
