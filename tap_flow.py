@@ -663,7 +663,8 @@ def render(step, data=None):
                      input=True, placeholder="700 000 000")
 
     if step == "post_duration":
-        return _view("⏳ Жарыя канча күн жарыяланат? / На сколько дней разместить рекламу?",
+        return _view("⏳ Жарыя канча мөөнөткө жарыяланат? / "
+                     "На какой срок разместить объявление?",
                      [{"label": p["label"], "value": p["value"]} for p in DURATION_PLANS])
 
     if step == "post_comment":
