@@ -112,6 +112,10 @@ body{margin:0;background:var(--paper);color:var(--ink);
 a{color:inherit;text-decoration:none}
 svg{display:block}
 .wrap{max-width:1040px;margin:0 auto;padding:0 14px}
+/* Жаңы бет ачылганда мазмун жумшак пайда болот — бөлүмдөн бөлүмгө
+   өтүү секирип эмес, агылып өткөндөй сезилет. */
+@keyframes pageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+main.wrap{animation:pageIn .26s ease-out both}
 
 /* ---- Башкы тилке ---- */
 .top{background:url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'><g fill='none' stroke='%23ffffff' stroke-opacity='.12' stroke-width='2' stroke-linecap='round'><path d='M45 8c-9 0-14 7-14 14s6 12 14 12 14-5 14-12-5-14-14-14z'/><path d='M45 34v22'/><path d='M31 56c0 8 6 14 14 14s14-6 14-14'/><circle cx='45' cy='22' r='4'/></g></svg>\") right -14px top -10px/150px repeat-y,linear-gradient(168deg,#1E4574 0%,#17365C 62%,#122B4C 100%);
@@ -177,6 +181,67 @@ svg{display:block}
  font-variant-numeric:tabular-nums;box-shadow:0 2px 6px -2px rgba(14,34,64,.55)}
 .cat{position:relative}
 .cat.pic.on .pill{background:var(--moss);border-color:var(--moss);color:#fff}
+
+/* ── Бөлүмдөрдүн жандуулугу ────────────────────────────────
+   Басканда такта ичине басылгандай кичирейет — манжага дароо
+   жооп берет. Коё бергенде өз ордуна жумшак кайтат.            */
+.cat.pic .pic{transition:transform .18s cubic-bezier(.34,1.4,.5,1),
+ box-shadow .18s, filter .18s}
+.cat.pic .pill{transition:transform .18s cubic-bezier(.34,1.4,.5,1),
+ background .18s, color .18s, border-color .18s}
+.cat.pic:active .pic{transform:scale(.9);filter:brightness(.94)}
+.cat.pic:active .pill{transform:scale(.94)}
+.cat:not(.pic):active{transform:scale(.93)}
+
+/* Тандалганы бир аз өйдө көтөрүлүп, жай дем алгандай кыймылдап
+   турат: көз ошого өзүнөн-өзү тартылат, бирок жети секунддук жай
+   цикл болгондуктан жүдөтпөйт. */
+@keyframes livePic{
+ 0%  {transform:translateY(-3px) scale(1.03)}
+ 50% {transform:translateY(-5px) scale(1.075)}
+ 100%{transform:translateY(-3px) scale(1.03)}}
+.cat.pic.on .pic{transform:translateY(-3px) scale(1.03);
+ animation:livePic 7s ease-in-out infinite}
+
+/* Тандаган учурда сүрөттүн үстүнөн бир жолу жарык жарк этип өтөт */
+@keyframes tileShine{
+ from{background-position:-140% 0}
+ to  {background-position:240% 0}}
+.cat.pic.on::after{content:"";position:absolute;top:0;left:0;width:100%;
+ aspect-ratio:13/17;border-radius:14px;pointer-events:none;z-index:1;
+ background:linear-gradient(100deg,transparent 36%,
+  rgba(255,255,255,.6) 50%,transparent 64%);
+ background-size:250% 100%;
+ animation:tileShine 1.1s ease-out .05s 1 both}
+
+/* Аты жазылган баскыч да тандалганда бир кыймылдап коёт */
+@keyframes pillPop{
+ 0%{transform:scale(.9)} 60%{transform:scale(1.06)} 100%{transform:none}}
+.cat.pic.on .pill{animation:pillPop .34s cubic-bezier(.34,1.5,.5,1) both}
+
+/* Жарыясы бар бөлүмдүн саны басканда сезилерлик чоңоюп коёт */
+@keyframes numPop{
+ 0%{transform:scale(.4);opacity:0} 70%{transform:scale(1.15)}
+ 100%{transform:none;opacity:1}}
+.secn{animation:numPop .3s cubic-bezier(.34,1.5,.5,1) both}
+
+/* Такталар бет ачылганда бирден өйдө калкып чыгат */
+@keyframes tileUp{
+ from{opacity:0;transform:translateY(10px) scale(.97)}
+ to{opacity:1;transform:none}}
+.cats .cat{animation:tileUp .34s cubic-bezier(.2,.8,.3,1) both}
+.cats .cat:nth-child(1){animation-delay:.00s}
+.cats .cat:nth-child(2){animation-delay:.03s}
+.cats .cat:nth-child(3){animation-delay:.06s}
+.cats .cat:nth-child(4){animation-delay:.09s}
+.cats .cat:nth-child(5){animation-delay:.12s}
+.cats .cat:nth-child(6){animation-delay:.15s}
+.cats .cat:nth-child(7){animation-delay:.18s}
+.cats .cat:nth-child(8){animation-delay:.21s}
+.cats .cat:nth-child(9){animation-delay:.24s}
+.cats .cat:nth-child(10){animation-delay:.27s}
+.cats .cat:nth-child(11){animation-delay:.30s}
+.cats .cat:nth-child(12){animation-delay:.33s}
 
 .cat.on{border-color:var(--gold);
  box-shadow:0 0 0 2px var(--gold),0 10px 22px -12px rgba(14,34,64,.4)}
@@ -259,6 +324,10 @@ svg{display:block}
 .sb2.on{background:var(--leaf);color:#fff;border-color:var(--leaf);font-weight:600}
 .sb2 em{font-style:normal;opacity:.62;font-size:11px;margin-left:2px}
 /* Аймак баскычындагы сан — курсив эмес, кадимки тамга */
+.rg{transition:transform .16s, background .16s, border-color .16s}
+.rg:active{transform:scale(.94)}
+.sb2{transition:transform .16s, background .16s, border-color .16s}
+.sb2:active{transform:scale(.94)}
 .rg em{font-style:normal;opacity:.62;font-size:11px;margin-left:2px;
  font-variant-numeric:tabular-nums}
 
