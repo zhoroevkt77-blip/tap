@@ -167,13 +167,15 @@ main.wrap{animation:pageIn .26s ease-out both}
 .cat.pic{border:0;background:none;padding:0;overflow:visible;position:relative;
  width:auto;height:auto;border-radius:0;box-shadow:none;
  display:flex;flex-direction:column;align-items:center;gap:6px}
-.cat.pic .pic{width:100%;aspect-ratio:13/17;object-fit:cover;display:block;
- border-radius:14px}
+.cat.pic .picw{display:block;width:100%;aspect-ratio:13/17;border-radius:14px;
+ overflow:hidden;position:relative;transition:box-shadow .18s,transform .18s}
+.cat.pic .pic{width:100%;height:100%;object-fit:cover;display:block;
+ border-radius:0}
 .cat.pic .pill{display:block;width:100%;padding:6px 5px 7px;border-radius:999px;
  background:#fff;border:1px solid var(--mist);text-align:center;
  font-size:11px;font-weight:600;line-height:1.2;color:var(--ink);
  box-shadow:0 3px 8px -6px rgba(18,32,58,.5)}
-.cat.pic.on .pic{box-shadow:0 0 0 2.5px var(--moss)}
+.cat.pic.on .picw{box-shadow:0 0 0 2.5px var(--moss)}
 /* Аймак тандалганда бөлүмдүн бурчундагы жарыялардын саны */
 .secn{position:absolute;top:5px;left:5px;z-index:2;min-width:19px;height:19px;
  padding:0 5px;border-radius:999px;background:var(--moss);color:#fff;
@@ -185,23 +187,51 @@ main.wrap{animation:pageIn .26s ease-out both}
 /* ── Бөлүмдөрдүн жандуулугу ────────────────────────────────
    Басканда такта ичине басылгандай кичирейет — манжага дароо
    жооп берет. Коё бергенде өз ордуна жумшак кайтат.            */
-.cat.pic .pic{transition:transform .18s cubic-bezier(.34,1.4,.5,1),
+.cat.pic .picw{transition:transform .18s cubic-bezier(.34,1.4,.5,1),
  box-shadow .18s, filter .18s}
 .cat.pic .pill{transition:transform .18s cubic-bezier(.34,1.4,.5,1),
  background .18s, color .18s, border-color .18s}
-.cat.pic:active .pic{transform:scale(.9);filter:brightness(.94)}
+.cat.pic:active .picw{transform:scale(.9);filter:brightness(.94)}
 .cat.pic:active .pill{transform:scale(.94)}
 .cat:not(.pic):active{transform:scale(.93)}
 
 /* Тандалганы бир аз өйдө көтөрүлүп, жай дем алгандай кыймылдап
    турат: көз ошого өзүнөн-өзү тартылат, бирок жети секунддук жай
    цикл болгондуктан жүдөтпөйт. */
-@keyframes livePic{
- 0%  {transform:translateY(-3px) scale(1.03)}
- 50% {transform:translateY(-5px) scale(1.075)}
- 100%{transform:translateY(-3px) scale(1.03)}}
-.cat.pic.on .pic{transform:translateY(-3px) scale(1.03);
- animation:livePic 7s ease-in-out infinite}
+.cat.pic.on .picw{transform:translateY(-3px) scale(1.03)}
+
+/* ---- Сүрөттүн ичи жай жылып турат ----
+   Сүрөт алкагынан бир аз чоң кылынып, акырын жылдырылат: мотоцикл
+   жүрүп бараткандай, үй жанаша өткөндөй сезилет. Ар тактанын өз
+   багыты жана өз ылдамдыгы бар — баары бир убакта бирдей кыймылдаса,
+   көзгө жагымсыз болмок. 18-24 секунддук жай цикл: көзгө урунбайт,
+   бирок бет тирүү көрүнөт. */
+@keyframes drift1{
+ 0%  {transform:scale(1.10) translate(-1.4%, 1.2%)}
+ 50% {transform:scale(1.14) translate(1.6%, -1.4%)}
+ 100%{transform:scale(1.10) translate(-1.4%, 1.2%)}}
+@keyframes drift2{
+ 0%  {transform:scale(1.13) translate(1.6%, 1.0%)}
+ 50% {transform:scale(1.09) translate(-1.5%, -1.2%)}
+ 100%{transform:scale(1.13) translate(1.6%, 1.0%)}}
+@keyframes drift3{
+ 0%  {transform:scale(1.09) translate(1.2%, -1.3%)}
+ 50% {transform:scale(1.15) translate(-1.3%, 1.5%)}
+ 100%{transform:scale(1.09) translate(1.2%, -1.3%)}}
+
+.cat.pic .pic{animation:drift1 22s ease-in-out infinite;will-change:transform}
+.cat.pic:nth-child(3n+2) .pic{animation-name:drift2;animation-duration:19s}
+.cat.pic:nth-child(3n) .pic{animation-name:drift3;animation-duration:25s}
+.cat.pic:nth-child(4n) .pic{animation-delay:-6s}
+.cat.pic:nth-child(4n+2) .pic{animation-delay:-11s}
+.cat.pic:nth-child(4n+3) .pic{animation-delay:-3s}
+
+/* Тандалганынын кыймылы кыйла сезилерлик — көз ошого тартылат */
+@keyframes driftOn{
+ 0%  {transform:scale(1.14) translate(-2.2%, 1.8%)}
+ 50% {transform:scale(1.22) translate(2.4%, -2.0%)}
+ 100%{transform:scale(1.14) translate(-2.2%, 1.8%)}}
+.cat.pic.on .pic{animation:driftOn 11s ease-in-out infinite}
 
 /* Аты жазылган баскыч да тандалганда бир кыймылдап коёт */
 @keyframes pillPop{
