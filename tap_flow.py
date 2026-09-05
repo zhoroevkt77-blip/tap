@@ -117,8 +117,16 @@ def _from_groups(groups):
     return out
 
 
+# Аймакты тандабай эле, бүт өлкө боюнча жарыя бергиси келгендер үчүн
+ALL_KG = "__all_kg__"
+
+
 def _regions():
-    return [{"label": "%s / %s" % (o, ru_name(o)), "value": o} for o in OBLASTS]
+    """Аймактардын тизмеси. Башында — бүт өлкө."""
+    return ([{"label": "🇰🇬 Бүт Кыргызстан / Весь Кыргызстан",
+              "value": ALL_KG}]
+            + [{"label": "%s / %s" % (o, ru_name(o)), "value": o}
+               for o in OBLASTS])
 
 
 # Категориянын коду -> адам окуй турган аталышы.
@@ -947,6 +955,10 @@ def advance(step, value, data=None):
 
     # ── Аймак ───────────────────────────────────────────────
     if step == "oblast_select":
+        if value == ALL_KG:
+            # Бүт өлкө: район, конуш сурабайбыз — жарыя баары жерде көрүнөт
+            d.update(oblast="", district=None, locality=None, village=None)
+            return _after_region(d), d
         d["oblast"] = value
         return ("city_scope_select" if _is_city(value) else "district_select"), d
 

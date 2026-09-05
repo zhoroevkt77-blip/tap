@@ -26,13 +26,15 @@ CAT_LABELS = {}
 if _tc is not None:
     for _name in ("TRADE_CATEGORIES", "SERVICE_CATEGORIES", "RENTAL_CATEGORIES",
                   "DELIVERY_CATEGORIES", "JOB_CATEGORIES", "MARKETS_TYPES",
-                  "WHOLESALE_CATEGORIES", "CARGO_CATEGORIES", "JOBSEEK_CATEGORIES"):
+                  "WHOLESALE_CATEGORIES", "CARGO_CATEGORIES", "JOBSEEK_CATEGORIES",
+                  "PROPERTY_CATEGORIES"):
         for _c in (getattr(_tc, _name, None) or []):
             if isinstance(_c, dict) and _c.get("id"):
                 CAT_LABELS.setdefault(_c["id"], _c.get("label") or _c["id"])
 
 SECTION_LABELS = {
     "wholesale": "Соода-сатык (дүң) / Оптовая торговля",
+    "property":  "Мүлк сатуу / Продажа имущества",
     "cargo":     "Жүк ташуу / Грузоперевозки",
     "jobseek":   "Жумуш издөө / Поиск работы",
     "trade":    "Соода-сатык / Торговля",
@@ -195,7 +197,8 @@ def region_line(data):
         v = data.get(key)
         if v and isinstance(v, str) and v.strip():
             parts.append(v.strip())
-    return ", ".join(parts)[:200]
+    # Аймак тандалбаса — жарыя бүт өлкө боюнча
+    return (", ".join(parts)[:200]) or "Бүт Кыргызстан"
 
 
 def _first(text):
