@@ -1095,7 +1095,7 @@ _ADD_CSS = """<style>
 </style>"""
 
 
-def add_page(lang="ky"):
+def add_page(lang="ky", task="post"):
     """
     «Жарыя берүү» — эки боттун бирин тандоо.
 
@@ -1105,10 +1105,18 @@ def add_page(lang="ky"):
     ru = (lang == "ru")
     wa_num = "".join(c for c in os.environ.get("WA_NUMBER", "") if c.isdigit())
 
-    head = "Разместить объявление" if ru else "Жарыя берүү"
-    lead = ("Объявление размещается через бота — выберите, где вам удобнее."
-            if ru else
-            "Жарыя бот аркылуу коюлат — кайсынысы ыңгайлуу болсо, ошону тандаңыз.")
+    mine = (task == "my")
+    if mine:
+        head = "Мои объявления" if ru else "Менин жарыяларым"
+        lead = ("Ваши объявления хранятся в боте — выберите, где вам "
+                "удобнее." if ru else
+                "Жарыяларыңыз ботто турат — кайсынысы ыңгайлуу болсо, "
+                "ошону тандаңыз.")
+    else:
+        head = "Разместить объявление" if ru else "Жарыя берүү"
+        lead = ("Объявление размещается через бота — выберите, где вам удобнее."
+                if ru else
+                "Жарыя бот аркылуу коюлат — кайсынысы ыңгайлуу болсо, ошону тандаңыз.")
     tg_t = "Перейти в Telegram-бот" if ru else "Telegram ботко өтүү"
     wa_t = "Перейти в WhatsApp-бот" if ru else "WhatsApp ботко өтүү"
     soon = "WhatsApp — скоро" if ru else "WhatsApp — жакында"
@@ -1126,12 +1134,12 @@ def add_page(lang="ky"):
     body = f"""<main class="wrap">
 <h1 class="ftitle">{esc(head)}</h1>
 <p class="flead">{esc(lead)}</p>
-<a class="btn tgbtn" href="https://t.me/{BOT}?start=post">
+<a class="btn tgbtn" href="https://t.me/{BOT}?start={task}">
 <span>{esc(tg_t)}</span></a>
 {wa}
 <p class="flead">{esc(note)}</p></main>""" + _ADD_CSS
     return page(header("", None, None, lang) + body,
-                head + " — ТАП!", "add", lang)
+                head + " — ТАП!", ("me" if mine else "add"), lang)
 
 
 # Жардам жана Кабинет барактарынын стили. Кадимки сап — f-string
@@ -1212,7 +1220,7 @@ def me_page(lang="ky"):
         ("🌐", ("Язык: Кыргызча" if ru else "Тил: Русский"),
          "/lang/" + ("ky" if ru else "ru")),
         ("📋", ("Мои объявления" if ru else "Менин жарыяларым"),
-         f"https://t.me/{BOT}?start=my"),
+         "/my"),
         ("📢", ("Разместить объявление" if ru else "Жарыя берүү"), "/add"),
         ("❤️", ("Избранное" if ru else "Тандалгандар"), "/fav"),
         ("❓", ("Помощь" if ru else "Жардам"), "/msg"),
@@ -1376,6 +1384,10 @@ class H(BaseHTTPRequestHandler):
 
         if u.path == "/add":
             self._send(add_page(lang))
+            return
+
+        if u.path == "/my":
+            self._send(add_page(lang, "my"))
             return
 
         if u.path == "/me":
