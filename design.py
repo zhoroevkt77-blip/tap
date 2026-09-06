@@ -167,7 +167,7 @@ main.wrap{animation:pageIn .26s ease-out both}
 .cat.pic{border:0;background:none;padding:0;overflow:visible;position:relative;
  width:auto;height:auto;border-radius:0;box-shadow:none;
  display:flex;flex-direction:column;align-items:center;gap:6px}
-.cat.pic .picw{display:block;width:100%;aspect-ratio:13/17;border-radius:14px;
+.cat.pic .picw{display:block;width:100%;aspect-ratio:1/1;border-radius:14px;
  overflow:hidden;position:relative;transition:box-shadow .18s,transform .18s}
 .cat.pic .pic{width:100%;height:100%;object-fit:cover;display:block;
  border-radius:0}
