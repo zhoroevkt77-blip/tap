@@ -106,6 +106,12 @@ def _from_list(items):
     return [{"label": s, "value": s} for s in items]
 
 
+def _has_choice(items):
+    """Тизмеде чыныгы тандоо барбы (\"Башка\" гана болсо — жок)."""
+    items = [str(x) for x in (items or [])]
+    return any(not x.startswith("Башка") for x in items)
+
+
 def _from_groups(groups):
     """[{id,label,emoji?}] -> опциялар."""
     out = []
@@ -1062,7 +1068,11 @@ def advance(step, value, data=None):
         return go("trade_vehicle_engine", vehicleBody=value)
 
     if step == "trade_vehicle_engine":
-        return go("trade_vehicle_sub", vehicleEngine=value)
+        d["vehicleEngine"] = value
+        if not _has_choice(VEHICLE_SUBS.get(d.get("vehicleCategory"))):
+            d["subcategory"] = d.get("vehicleBody") or ""
+            return _after_subcategory(d), d
+        return "trade_vehicle_sub", d
 
     if step == "trade_group":
         return go("trade_group_sub", tradeGroup=value)
@@ -1072,6 +1082,9 @@ def advance(step, value, data=None):
         d["category"] = value
         if at == "service" and value in SERVICE_GROUP_TABLES:
             return "svc_group", d
+        if not _has_choice(get_subs_for_category(at, value)):
+            d.update(subcategory="", title="")
+            return _after_subcategory(d), d
         return "subcategory_select", d
 
     if step == "svc_group":
