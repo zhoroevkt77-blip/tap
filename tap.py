@@ -1183,9 +1183,8 @@ _ME_CSS = """<style>
 .mehead{display:flex;align-items:center;gap:13px;padding:4px 4px 10px;
  color:var(--ink)}
 .meav{flex:none;width:58px;height:58px;border-radius:50%;
- background:var(--mist);display:flex;align-items:center;justify-content:center;
- color:var(--soft)}
-.meav svg{width:30px;height:30px}
+ object-fit:cover;display:block;background:var(--mist);
+ box-shadow:0 2px 8px -3px rgba(18,32,58,.45)}
 .metx{display:flex;flex-direction:column;gap:2px;min-width:0}
 .metx b{font-size:16px;font-weight:700}
 .metx i{font-style:normal;font-size:13.5px;color:var(--soft)}
@@ -1313,7 +1312,8 @@ def me_page(lang="ky"):
                 f'<span>WhatsApp — {esc(soon_t)}</span></span>')
 
     top = (f'<div class="mehead">'
-           f'<span class="meav">{NAV_ICONS["me"]}</span>'
+           f'<img class="meav" src="/pwa/icon-192.png?v={appicon.VERSION}" '
+           f'alt="ТАП!" width="58" height="58">'
            f'<span class="metx"><b>{esc(top_t)}</b>'
            f'<i>{esc(top_p)}</i></span></div>'
            f'<div class="ments">{ent}</div>')
