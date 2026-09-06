@@ -45,6 +45,7 @@ from tap_catalog import (
     get_clothing_subs, get_footwear_subs, ru_name,
 )
 from strings import H as _help_text
+from strings import TOPICS as _HELP_TOPICS, topic_title as _topic_title
 
 START_STEP = "language_select"
 
@@ -107,7 +108,12 @@ def _from_list(items):
 
 
 def _has_choice(items):
-    """Тизмеде чыныгы тандоо барбы (\"Башка\" гана болсо — жок)."""
+    """Тизмеде чыныгы тандоо барбы.
+
+    Бош болсо, же ичинде «Башка» дегенден башка эч нерсе жок болсо —
+    ал экранды көрсөтүүнүн мааниси жок: колдонуучу бир гана нерсени
+    басып, кийинки кадамга өтмөк. Ошондуктан аттап өтөбүз.
+    """
     items = [str(x) for x in (items or [])]
     return any(not x.startswith("Башка") for x in items)
 
@@ -351,14 +357,16 @@ def render(step, data=None):
                      _opts([(_hb("home", d), "home")]), localized=True)
 
     if step == "help_menu":
-        return _view(_help_text("head", _ui_lang(d)),
-                     _opts([(_hb("guide", d), "guide"),
-                            (_hb("faq", d), "faq"),
-                            (_hb("home", d), "home")]), localized=True)
+        lg = _ui_lang(d)
+        pairs = [(_topic_title(k, lg), "t:" + k) for k, _, _ in _HELP_TOPICS]
+        pairs.append((_hb("home", d), "home"))
+        return _view(_help_text("head", lg), _opts(pairs), localized=True)
 
-    if step in ("help_guide", "help_faq"):
-        key = "guide" if step == "help_guide" else "faq"
-        return _view(_help_text(key, _ui_lang(d)),
+    if step == "help_topic":
+        lg = _ui_lang(d)
+        key = d.get("helpTopic") or "about"
+        return _view(_topic_title(key, lg).upper() + "\n\n"
+                     + _help_text(key, lg),
                      _opts([(_hb("back", d), "back"),
                             (_hb("home", d), "home")]), localized=True)
 
@@ -943,13 +951,11 @@ def advance(step, value, data=None):
         return go("main_menu")
 
     if step == "help_menu":
-        if value == "guide":
-            return go("help_guide")
-        if value == "faq":
-            return go("help_faq")
+        if str(value).startswith("t:"):
+            return go("help_topic", helpTopic=str(value)[2:])
         return go("main_menu")
 
-    if step in ("help_guide", "help_faq"):
+    if step == "help_topic":
         return go("help_menu") if value == "back" else go("main_menu")
 
     if step == "type_select":
@@ -1069,6 +1075,8 @@ def advance(step, value, data=None):
 
     if step == "trade_vehicle_engine":
         d["vehicleEngine"] = value
+        # Жеңил автоунаада кузов менен кыймылдаткыч ансыз да
+        # тактап берди — бош «Башка» экранын көрсөтпөйбүз
         if not _has_choice(VEHICLE_SUBS.get(d.get("vehicleCategory"))):
             d["subcategory"] = d.get("vehicleBody") or ""
             return _after_subcategory(d), d
@@ -1082,6 +1090,8 @@ def advance(step, value, data=None):
         d["category"] = value
         if at == "service" and value in SERVICE_GROUP_TABLES:
             return "svc_group", d
+        # «Башка» сыяктуу категорияларда тагыраак тандоо жок —
+        # бош экранды көрсөтпөй, кийинки кадамга өтөбүз
         if not _has_choice(get_subs_for_category(at, value)):
             d.update(subcategory="", title="")
             return _after_subcategory(d), d
