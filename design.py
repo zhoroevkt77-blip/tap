@@ -168,8 +168,9 @@ main.wrap{animation:pageIn .26s ease-out both}
  width:auto;height:auto;border-radius:0;box-shadow:none;
  display:flex;flex-direction:column;align-items:center;gap:6px}
 .cat.pic .picw{display:block;width:100%;aspect-ratio:1/1;border-radius:14px;
- overflow:hidden;position:relative;transition:box-shadow .18s,transform .18s}
-.cat.pic .pic{width:100%;height:100%;object-fit:cover;display:block;
+ overflow:hidden;position:relative;background:#EDF2F9;
+ transition:box-shadow .18s,transform .18s}
+.cat.pic .pic{width:100%;height:100%;object-fit:contain;display:block;
  border-radius:0}
 .cat.pic .pill{display:block;width:100%;padding:6px 5px 7px;border-radius:999px;
  background:#fff;border:1px solid var(--mist);text-align:center;
