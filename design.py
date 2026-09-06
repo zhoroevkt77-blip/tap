@@ -71,6 +71,34 @@ NAV_ICONS = {
     "help": _N + '<circle cx="12" cy="12" r="8.6"/>'
                  '<path d="M9.6 9.4a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.8-.9 1.4v.5"/>'
                  '<path d="M12 17.1h.01"/></svg>',
+    # ── Кабинеттин катарлары үчүн ──
+    "grid": _N + '<rect x="3.4" y="3.4" width="7.2" height="7.2" rx="1.6"/>'
+                 '<rect x="13.4" y="3.4" width="7.2" height="7.2" rx="1.6"/>'
+                 '<rect x="3.4" y="13.4" width="7.2" height="7.2" rx="1.6"/>'
+                 '<rect x="13.4" y="13.4" width="7.2" height="7.2" rx="1.6"/></svg>',
+    "search": _N + '<circle cx="10.8" cy="10.8" r="6.6"/>'
+                   '<path d="m15.6 15.6 4.2 4.2"/></svg>',
+    "list": _N + '<rect x="4" y="3.6" width="16" height="16.8" rx="2.2"/>'
+                 '<path d="M8 9h8M8 12.6h8M8 16.2h5"/></svg>',
+    "globe": _N + '<circle cx="12" cy="12" r="8.6"/><path d="M3.6 12h16.8"/>'
+                  '<path d="M12 3.4c2.2 2.4 3.3 5.4 3.3 8.6s-1.1 6.2-3.3 8.6'
+                  'c-2.2-2.4-3.3-5.4-3.3-8.6S9.8 5.8 12 3.4Z"/></svg>',
+    "doc": _N + '<path d="M13.4 3.6H7a2 2 0 0 0-2 2v12.8a2 2 0 0 0 2 2h10'
+                'a2 2 0 0 0 2-2V9.2Z"/><path d="M13.4 3.6V9.2H19"/></svg>',
+    "tg":  _N + '<path d="m21 4.6-2.9 14.2c-.2 1-.8 1.2-1.6.8l-4.4-3.3-2.1 2'
+                'c-.2.2-.4.4-.9.4l.3-4.5 8.2-7.4c.4-.3-.1-.5-.6-.2L6.9 12.3'
+                'l-4.3-1.4c-.9-.3-.9-.9.2-1.4l16.8-6.5c.8-.3 1.5.2 1.4 1.6Z"/></svg>',
+    "wa":  _N + '<path d="M20.2 11.6a8.2 8.2 0 0 1-12.2 7.1L3.8 20l1.3-4.1'
+                'a8.2 8.2 0 1 1 15.1-4.3Z"/>'
+                '<path d="M9.2 9.1c.3-.7.6-.7.9-.7h.7c.2 0 .5 0 .8.6l1 2.3'
+                'c.1.3.1.5 0 .7l-.4.6c-.1.2-.3.4-.1.7.5.8 1.4 1.7 2.4 2.2'
+                '.3.2.5.1.7-.1l.6-.7c.2-.2.4-.2.7-.1l2 1c.3.2.4.3.4.5'
+                'a2 2 0 0 1-1.4 1.6c-.6.1-1.4.2-4-.9-2.9-1.2-4.6-4.2-4.7-4.4'
+                '-.2-.3-1.1-1.5-1.1-2.8 0-1.3.7-1.9 1-2.2Z"/></svg>',
+    "ig":  _N + '<rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4.6"/>'
+                '<circle cx="12" cy="12" r="4"/><path d="M16.9 7.1h.01"/></svg>',
+    "fb":  _N + '<path d="M14.8 8.4h2.4V5.2h-2.4a4 4 0 0 0-4 4v2h-2.2v3.2h2.2'
+                'v6.4h3.2v-6.4h2.4l.6-3.2h-3v-2c0-.4.3-.8.8-.8Z"/></svg>',
 }
 
 # Ботсуз иштей турган бет — «Тандалган» гана. Калган үчөө ботко алып барат,
@@ -98,7 +126,7 @@ CSS = """
 :root{
  --ink:#152741; --soft:#5A6982; --faint:#8B97AC;
  --moss:#17365C; --leaf:#17365C; --wheat:#C9A03A;
- --paper:#F1F4F9; --card:#F6FAFF; --mist:#E1E7F1;
+ --paper:#F1F4F9; --card:#FFFDF7; --mist:#E1E7F1;
  --gold:#C9A03A; --gold2:#E3C368; --cream:#FBF5E6;
  --heart:#F07A72;
  --r:18px;
@@ -170,6 +198,7 @@ main.wrap{animation:pageIn .26s ease-out both}
 .cat.pic .picw{display:block;width:100%;aspect-ratio:1/1;border-radius:14px;
  overflow:hidden;position:relative;background:#EDF2F9;
  transition:box-shadow .18s,transform .18s}
+/* Сүрөт кыркылбай, толук батат — капталдарында бир аз бош жер калат */
 .cat.pic .pic{width:100%;height:100%;object-fit:contain;display:block;
  border-radius:0}
 .cat.pic .pill{display:block;width:100%;padding:6px 5px 7px;border-radius:999px;
@@ -208,17 +237,17 @@ main.wrap{animation:pageIn .26s ease-out both}
    көзгө жагымсыз болмок. 18-24 секунддук жай цикл: көзгө урунбайт,
    бирок бет тирүү көрүнөт. */
 @keyframes drift1{
- 0%  {transform:scale(1.04) translate(-1.0%, 0.8%)}
- 50% {transform:scale(1.06) translate(1.1%, -1.0%)}
- 100%{transform:scale(1.04) translate(-1.0%, 0.8%)}}
+ 0%  {transform:scale(1.03) translate(-0.9%, 0.8%)}
+ 50% {transform:scale(1.06) translate(1.0%, -0.9%)}
+ 100%{transform:scale(1.03) translate(-0.9%, 0.8%)}}
 @keyframes drift2{
- 0%  {transform:scale(1.05) translate(1.1%, 0.7%)}
- 50% {transform:scale(1.04) translate(-1.0%, -0.8%)}
- 100%{transform:scale(1.05) translate(1.1%, 0.7%)}}
+ 0%  {transform:scale(1.06) translate(1.0%, 0.7%)}
+ 50% {transform:scale(1.03) translate(-0.9%, -0.8%)}
+ 100%{transform:scale(1.06) translate(1.0%, 0.7%)}}
 @keyframes drift3{
- 0%  {transform:scale(1.04) translate(0.8%, -0.9%)}
- 50% {transform:scale(1.06) translate(-0.9%, 1.0%)}
- 100%{transform:scale(1.04) translate(0.8%, -0.9%)}}
+ 0%  {transform:scale(1.03) translate(0.8%, -0.9%)}
+ 50% {transform:scale(1.07) translate(-1.0%, 1.1%)}
+ 100%{transform:scale(1.03) translate(0.8%, -0.9%)}}
 
 .cat.pic .pic{animation:drift1 22s ease-in-out infinite;will-change:transform}
 .cat.pic:nth-child(3n+2) .pic{animation-name:drift2;animation-duration:19s}
@@ -229,9 +258,9 @@ main.wrap{animation:pageIn .26s ease-out both}
 
 /* Тандалганынын кыймылы кыйла сезилерлик — көз ошого тартылат */
 @keyframes driftOn{
- 0%  {transform:scale(1.06) translate(-1.5%, 1.3%)}
- 50% {transform:scale(1.09) translate(1.7%, -1.4%)}
- 100%{transform:scale(1.06) translate(-1.5%, 1.3%)}}
+ 0%  {transform:scale(1.04) translate(-1.3%, 1.1%)}
+ 50% {transform:scale(1.09) translate(1.5%, -1.3%)}
+ 100%{transform:scale(1.04) translate(-1.3%, 1.1%)}}
 .cat.pic.on .pic{animation:driftOn 11s ease-in-out infinite}
 
 /* Аты жазылган баскыч да тандалганда бир кыймылдап коёт */

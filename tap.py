@@ -1097,15 +1097,19 @@ _ADD_CSS = """<style>
 
 def add_page(lang="ky", task="post"):
     """
-    «Жарыя берүү» — эки боттун бирин тандоо.
+    Эки боттун бирин тандоо экраны.
+
+    task="post" — жарыя берүү, task="my" — өз жарыяларын көрүү.
+    Экөө тең бот аркылуу болот: сайтта каттоо жок, колдонуучуну
+    Telegram же WhatsApp таанытат.
 
     WhatsApp номери WA_NUMBER өзгөрмөсүнөн алынат. Ал коюла электе
     баскыч көрүнөт, бирок басылбайт: «жакында» деп турат.
     """
     ru = (lang == "ru")
     wa_num = "".join(c for c in os.environ.get("WA_NUMBER", "") if c.isdigit())
-
     mine = (task == "my")
+
     if mine:
         head = "Мои объявления" if ru else "Менин жарыяларым"
         lead = ("Ваши объявления хранятся в боте — выберите, где вам "
@@ -1120,12 +1124,21 @@ def add_page(lang="ky", task="post"):
     tg_t = "Перейти в Telegram-бот" if ru else "Telegram ботко өтүү"
     wa_t = "Перейти в WhatsApp-бот" if ru else "WhatsApp ботко өтүү"
     soon = "WhatsApp — скоро" if ru else "WhatsApp — жакында"
-    note = ("Оба бота работают с одной базой: объявление появится и здесь, "
-            "на сайте." if ru else
-            "Эки бот бир базада иштейт: жарыя ушул сайтта да чыгат.")
+    if mine:
+        note = ("Оба бота работают с одной базой: объявления, размещённые "
+                "через любой из них, будут в списке." if ru else
+                "Эки бот бир базада иштейт: кайсынысы аркылуу койсоңуз да, "
+                "жарыяларыңыз бир тизмеде турат.")
+    else:
+        note = ("Оба бота работают с одной базой: объявление появится и здесь, "
+                "на сайте." if ru else
+                "Эки бот бир базада иштейт: жарыя ушул сайтта да чыгат.")
 
+    # WhatsApp'та баскыч жок — кабар талаасына даяр текст коёбуз
+    wa_text = "Менин жарыяларым" if mine else "Салам"
     if wa_num:
-        wa = (f'<a class="btn wabtn" href="https://wa.me/{wa_num}?text=%D0%A1%D0%B0%D0%BB%D0%B0%D0%BC"'
+        wa = (f'<a class="btn wabtn" href="https://wa.me/{wa_num}'
+              f'?text={urllib.parse.quote(wa_text)}"'
               f' target="_blank" rel="noopener">'
               f'<span>{esc(wa_t)}</span></a>')
     else:
@@ -1139,11 +1152,40 @@ def add_page(lang="ky", task="post"):
 {wa}
 <p class="flead">{esc(note)}</p></main>""" + _ADD_CSS
     return page(header("", None, None, lang) + body,
-                head + " — ТАП!", ("me" if mine else "add"), lang)
+                head + " — ТАП!", "add" if not mine else "me", lang)
 
 
 # Жардам жана Кабинет барактарынын стили. Кадимки сап — f-string
 # эмес, ошондуктан CSS'тин { } белгилери коопсуз.
+_ME_CSS = """<style>
+.mewrap{padding-top:10px}
+/* Үстүңкү блок — аватардын ордуна ботко чакыруу */
+.mehead{display:flex;align-items:center;gap:13px;padding:4px 4px 10px;
+ color:var(--ink)}
+.meav{flex:none;width:58px;height:58px;border-radius:50%;
+ background:var(--mist);display:flex;align-items:center;justify-content:center;
+ color:var(--soft)}
+.meav svg{width:30px;height:30px}
+.metx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.metx b{font-size:16px;font-weight:700}
+.metx i{font-style:normal;font-size:13.5px;color:var(--soft)}
+.mesub{margin:0 4px 14px;font-size:13px;color:var(--faint)}
+
+/* Жалпак катарлар: карточка эмес, чек сызык менен бөлүнөт */
+.mesec{background:var(--card);border-radius:var(--r);overflow:hidden;
+ margin-bottom:12px;border:1px solid var(--mist)}
+.mrow2{display:flex;align-items:center;gap:14px;padding:14px 16px;
+ color:var(--ink);font-weight:600;font-size:15px;
+ border-bottom:1px solid var(--mist);transition:background .15s}
+.mesec .mrow2:last-child{border-bottom:0}
+.mrow2 svg{flex:none;width:22px;height:22px;color:var(--soft)}
+.mrow2:active{background:var(--mist)}
+.mrow2.off{opacity:.45}
+.mrow2.accent{color:var(--moss);font-weight:700}
+.mrow2.accent svg{color:var(--moss)}
+.meabout{margin:6px 4px 0;font-size:13px;line-height:1.5;color:var(--faint)}
+</style>"""
+
 _HELP_CSS = """<style>
 .htext{white-space:pre-wrap;font-size:15px;line-height:1.55;
        color:var(--ink);margin:0}
@@ -1208,31 +1250,70 @@ def help_page(lang="ky"):
 
 def me_page(lang="ky"):
     """
-    Кабинет: жөндөөлөр жана шилтемелер.
+    Кабинет — жалпак тизме түрүндө: сол жакта белги, ортодо жазуу.
 
-    Сайтта каттоо жок, ошондуктан «менин жарыяларым» ботко жөнөтөт —
-    ал жерде Telegram каттоо эсеби тааныткыч болот.
+    Сайтта каттоо жок, ошондуктан эң үстүндө аватар эмес, ботко
+    чакырган блок турат: тааныткыч Telegram каттоо эсеби болот.
+    Ылдый жагындагы блокто расмий баракчаларыбыз — алар Railway'дин
+    өзгөрмөлөрүнөн алынат, коюла электери көрүнбөйт.
     """
     ru = (lang == "ru")
     head = "Кабинет"
-    other = "RU" if lang == "ky" else "KG"
+
+    # ── Үстүңкү блок: ботко чакыруу ──
+    top_t = "Войдите через Telegram" if ru else "Telegram аркылуу кириңиз"
+    top_p = ("Объявления и избранное привязаны к боту"
+             if ru else "Жарыялар менен тандалгандар ботко байланган")
+    top = (f'<a class="mehead" href="https://t.me/{BOT}">'
+           f'<span class="meav">{NAV_ICONS["me"]}</span>'
+           f'<span class="metx"><b>{esc(top_t)}</b>'
+           f'<i>@{esc(BOT)}</i></span></a>'
+           f'<p class="mesub">{esc(top_p)}</p>')
+
+    # ── Тил ──
+    lang_row = (f'<a class="mrow2 accent" href="/lang/'
+                f'{"ky" if ru else "ru"}">{NAV_ICONS["globe"]}'
+                f'<span>{esc("Язык: Кыргызча" if ru else "Тил: Русский")}'
+                f'</span></a>')
+
+    # ── Негизги тизме ──
     rows = [
-        ("🌐", ("Язык: Кыргызча" if ru else "Тил: Русский"),
-         "/lang/" + ("ky" if ru else "ru")),
-        ("📋", ("Мои объявления" if ru else "Менин жарыяларым"),
-         "/my"),
-        ("📢", ("Разместить объявление" if ru else "Жарыя берүү"), "/add"),
-        ("❤️", ("Избранное" if ru else "Тандалгандар"), "/fav"),
-        ("❓", ("Помощь" if ru else "Жардам"), "/msg"),
+        ("grid",   ("Объявления" if ru else "Жарыялар"),          "/"),
+        ("search", ("Поиск" if ru else "Издөө"),                  "/?q="),
+        ("add",    ("Разместить объявление" if ru else "Жарыя берүү"), "/add"),
+        ("list",   ("Мои объявления" if ru else "Менин жарыяларым"),   "/my"),
+        ("fav",    ("Избранное" if ru else "Тандалгандар"),       "/fav"),
+        ("help",   ("Помощь" if ru else "Жардам"),                "/msg"),
     ]
     items = ""
     for ic, label, href in rows:
-        items += (f'<a class="mrow" href="{href}"><span>{ic}</span>'
-                  f'<span>{esc(label)}</span><span class="ar">›</span></a>')
+        items += (f'<a class="mrow2" href="{href}">{NAV_ICONS[ic]}'
+                  f'<span>{esc(label)}</span></a>')
 
     terms = "Условия использования — скоро" if ru else "Колдонуу шарттары — жакында"
-    items += (f'<span class="mrow off"><span>📄</span>'
+    items += (f'<span class="mrow2 off">{NAV_ICONS["doc"]}'
               f'<span>{esc(terms)}</span></span>')
+
+    # ── Расмий баракчалар ──
+    wa_num = "".join(c for c in os.environ.get("WA_NUMBER", "") if c.isdigit())
+    links = [("tg", "Telegram", f"https://t.me/{BOT}")]
+    chan = os.environ.get("TG_CHANNEL", "").strip()
+    if chan:
+        links.append(("tg", ("Наш канал" if ru else "Каналыбыз"),
+                      chan if chan.startswith("http")
+                      else "https://t.me/" + chan.lstrip("@")))
+    if wa_num:
+        links.append(("wa", "WhatsApp", f"https://wa.me/{wa_num}"))
+    for key, nm in (("INSTAGRAM", "Instagram"), ("FACEBOOK", "Facebook")):
+        u = os.environ.get(key, "").strip()
+        if u:
+            links.append((key[:2].lower().replace("in", "ig"), nm, u))
+
+    social = ""
+    for ic, nm, href in links:
+        social += (f'<a class="mrow2" href="{href}" target="_blank" '
+                   f'rel="noopener">{NAV_ICONS.get(ic, NAV_ICONS["tg"])}'
+                   f'<span>{esc(nm)}</span></a>')
 
     about = ("ТАП! — доска объявлений Кыргызстана. Работает в Telegram, "
              "WhatsApp и на этом сайте — база одна."
@@ -1240,10 +1321,12 @@ def me_page(lang="ky"):
              "ТАП! — Кыргызстандын жарыя платформасы. Telegram'да, "
              "WhatsApp'та жана ушул сайтта иштейт — база бир эле.")
 
-    body = f"""<main class="wrap">
-<h1 class="ftitle">{esc(head)}</h1>
-{items}
-<div class="dcard"><p class="qp">{esc(about)}</p></div></main>""" + _HELP_CSS
+    body = f"""<main class="wrap mewrap">
+{top}
+<div class="mesec">{lang_row}</div>
+<div class="mesec">{items}</div>
+<div class="mesec">{social}</div>
+<p class="meabout">{esc(about)}</p></main>""" + _HELP_CSS + _ME_CSS
     return page(header("", None, None, lang) + body,
                 head + " — ТАП!", "me", lang)
 
