@@ -207,17 +207,17 @@ main.wrap{animation:pageIn .26s ease-out both}
    көзгө жагымсыз болмок. 18-24 секунддук жай цикл: көзгө урунбайт,
    бирок бет тирүү көрүнөт. */
 @keyframes drift1{
- 0%  {transform:scale(1.10) translate(-1.4%, 1.2%)}
- 50% {transform:scale(1.14) translate(1.6%, -1.4%)}
- 100%{transform:scale(1.10) translate(-1.4%, 1.2%)}}
+ 0%  {transform:scale(1.04) translate(-1.0%, 0.8%)}
+ 50% {transform:scale(1.06) translate(1.1%, -1.0%)}
+ 100%{transform:scale(1.04) translate(-1.0%, 0.8%)}}
 @keyframes drift2{
- 0%  {transform:scale(1.13) translate(1.6%, 1.0%)}
- 50% {transform:scale(1.09) translate(-1.5%, -1.2%)}
- 100%{transform:scale(1.13) translate(1.6%, 1.0%)}}
+ 0%  {transform:scale(1.05) translate(1.1%, 0.7%)}
+ 50% {transform:scale(1.04) translate(-1.0%, -0.8%)}
+ 100%{transform:scale(1.05) translate(1.1%, 0.7%)}}
 @keyframes drift3{
- 0%  {transform:scale(1.09) translate(1.2%, -1.3%)}
- 50% {transform:scale(1.15) translate(-1.3%, 1.5%)}
- 100%{transform:scale(1.09) translate(1.2%, -1.3%)}}
+ 0%  {transform:scale(1.04) translate(0.8%, -0.9%)}
+ 50% {transform:scale(1.06) translate(-0.9%, 1.0%)}
+ 100%{transform:scale(1.04) translate(0.8%, -0.9%)}}
 
 .cat.pic .pic{animation:drift1 22s ease-in-out infinite;will-change:transform}
 .cat.pic:nth-child(3n+2) .pic{animation-name:drift2;animation-duration:19s}
@@ -228,9 +228,9 @@ main.wrap{animation:pageIn .26s ease-out both}
 
 /* Тандалганынын кыймылы кыйла сезилерлик — көз ошого тартылат */
 @keyframes driftOn{
- 0%  {transform:scale(1.14) translate(-2.2%, 1.8%)}
- 50% {transform:scale(1.22) translate(2.4%, -2.0%)}
- 100%{transform:scale(1.14) translate(-2.2%, 1.8%)}}
+ 0%  {transform:scale(1.06) translate(-1.5%, 1.3%)}
+ 50% {transform:scale(1.09) translate(1.7%, -1.4%)}
+ 100%{transform:scale(1.06) translate(-1.5%, 1.3%)}}
 .cat.pic.on .pic{animation:driftOn 11s ease-in-out infinite}
 
 /* Аты жазылган баскыч да тандалганда бир кыймылдап коёт */
