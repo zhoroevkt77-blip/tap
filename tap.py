@@ -954,7 +954,8 @@ def detail(r, lang="ky"):
     share = ""
     if share_url:
         txt = urllib.parse.quote(f"{bridge.show_title(r)} — {share_url}")
-        lb = "Поделиться" if lang == "ru" else "Бөлүшүү"
+        lb = ("Поделиться с другом" if lang == "ru"
+              else "Дос менен бөлүшүү")
         share = (f'<div class="share"><span>{lb}</span>'
                  f'<a href="https://wa.me/?text={txt}" target="_blank" '
                  f'rel="noopener">WhatsApp</a>'
