@@ -191,17 +191,18 @@ main.wrap{animation:pageIn .26s ease-out both}
  font-weight:600;color:var(--ink);text-align:center;min-height:38px}
 /* Бөлүмдөр: эки катар торчо, ар биринде көлөмдүү белги, астында аты */
 .cats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 8px;
- overflow:visible;padding:14px 12px 10px}
+ overflow:visible;padding:14px 12px 10px;align-items:start}
 .cat.pic{border:0;background:none;padding:0;overflow:visible;position:relative;
  width:auto;height:auto;border-radius:0;box-shadow:none;
  display:flex;flex-direction:column;align-items:center;gap:6px}
-.cat.pic .picw{display:block;width:100%;aspect-ratio:1/1;border-radius:14px;
- overflow:hidden;position:relative;background:#EDF2F9;
+.cat.pic .picw{display:block;width:100%;flex:none;aspect-ratio:1/1;
+ border-radius:14px;overflow:hidden;position:relative;background:#EDF2F9;
  transition:box-shadow .18s,transform .18s}
 /* Сүрөт кыркылбай, толук батат — капталдарында бир аз бош жер калат */
 .cat.pic .pic{width:100%;height:100%;object-fit:contain;display:block;
  border-radius:0}
-.cat.pic .pill{display:block;width:100%;padding:6px 5px 7px;border-radius:999px;
+.cat.pic .pill{display:flex;align-items:center;justify-content:center;
+ width:100%;flex:none;min-height:36px;padding:5px 6px;border-radius:999px;
  background:#fff;border:1px solid var(--mist);text-align:center;
  font-size:11px;font-weight:600;line-height:1.2;color:var(--ink);
  box-shadow:0 3px 8px -6px rgba(18,32,58,.5)}
