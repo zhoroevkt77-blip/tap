@@ -1171,6 +1171,17 @@ _ME_CSS = """<style>
 .metx i{font-style:normal;font-size:13.5px;color:var(--soft)}
 .mesub{margin:0 4px 14px;font-size:13px;color:var(--faint)}
 
+/* Ботко кирүү баскычтары — эки платформа тең */
+.ments{display:flex;gap:8px;margin:2px 0 16px}
+.ment{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;
+ padding:11px 8px;border-radius:14px;color:#fff;font-weight:700;
+ font-size:14px;transition:transform .15s,filter .15s}
+.ment svg{width:19px;height:19px;flex:none}
+.ment.tg{background:#2AA3DA}
+.ment.wa{background:#22C15E}
+.ment.off{background:var(--mist);color:var(--faint);font-weight:600}
+.ment:active{transform:scale(.96);filter:brightness(.95)}
+
 /* Жалпак катарлар: карточка эмес, чек сызык менен бөлүнөт */
 .mesec{background:var(--card);border-radius:var(--r);overflow:hidden;
  margin-bottom:12px;border:1px solid var(--mist)}
@@ -1260,15 +1271,28 @@ def me_page(lang="ky"):
     ru = (lang == "ru")
     head = "Кабинет"
 
-    # ── Үстүңкү блок: ботко чакыруу ──
-    top_t = "Войдите через Telegram" if ru else "Telegram аркылуу кириңиз"
+    # ── Үстүңкү блок: ботко чакыруу (эки платформа тең) ──
+    wa_top = "".join(c for c in os.environ.get("WA_NUMBER", "") if c.isdigit())
+    top_t = "Войдите через бота" if ru else "Ботко кириңиз"
     top_p = ("Объявления и избранное привязаны к боту"
              if ru else "Жарыялар менен тандалгандар ботко байланган")
-    top = (f'<a class="mehead" href="https://t.me/{BOT}">'
+    soon_t = "скоро" if ru else "жакында"
+
+    ent = (f'<a class="ment tg" href="https://t.me/{BOT}">'
+           f'{NAV_ICONS["tg"]}<span>Telegram</span></a>')
+    if wa_top:
+        ent += (f'<a class="ment wa" href="https://wa.me/{wa_top}" '
+                f'target="_blank" rel="noopener">'
+                f'{NAV_ICONS["wa"]}<span>WhatsApp</span></a>')
+    else:
+        ent += (f'<span class="ment wa off">{NAV_ICONS["wa"]}'
+                f'<span>WhatsApp — {esc(soon_t)}</span></span>')
+
+    top = (f'<div class="mehead">'
            f'<span class="meav">{NAV_ICONS["me"]}</span>'
            f'<span class="metx"><b>{esc(top_t)}</b>'
-           f'<i>@{esc(BOT)}</i></span></a>'
-           f'<p class="mesub">{esc(top_p)}</p>')
+           f'<i>{esc(top_p)}</i></span></div>'
+           f'<div class="ments">{ent}</div>')
 
     # ── Тил ──
     lang_row = (f'<a class="mrow2 accent" href="/lang/'
