@@ -565,7 +565,18 @@ main.wrap{animation:pageIn .26s ease-out both}
 .nav a svg{width:22px;height:22px}
 .nav a:nth-child(1) svg{color:#7FB2F0}
 .nav a:nth-child(2) svg{color:#F07A72}
-.nav a:nth-child(3) svg{color:#5BC98A}
+.nav a:nth-child(3) svg{color:#fff}
+/* Ортодогу «Жарыя берүү» — жогору көтөрүлгөн чоң тегерек баскыч.
+   Эң көп басылуучу иш ошол, ошондуктан көзгө биринчи урунсун. */
+.nav a:nth-child(3){position:relative}
+.nav a:nth-child(3) svg{width:30px;height:30px;box-sizing:content-box;
+ padding:11px;border-radius:50%;margin-top:-26px;
+ background:linear-gradient(180deg,#3FD07A,#22B45E);
+ box-shadow:0 6px 16px -4px rgba(34,180,94,.65),
+            0 0 0 5px #17365C;
+ transition:transform .16s cubic-bezier(.34,1.5,.5,1)}
+.nav a:nth-child(3):active svg{transform:scale(.9)}
+.nav a:nth-child(3){color:#EAF6EF}
 .nav a:nth-child(4) svg{color:#A38BE8}
 .nav a:nth-child(5) svg{color:#E0C267}
 .nav a.on{color:#fff;font-weight:700}
