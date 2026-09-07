@@ -15,6 +15,7 @@ import copy, json, os, ssl, time, urllib.parse, urllib.request, mimetypes
 
 import core
 from core import MEDIA, SITE_URL, price_label
+import badwords
 import bridge
 from strings import L as _pick
 from tap_flow import render, advance, START_STEP
@@ -240,6 +241,14 @@ MSG = {
                    "Кыскараак тартып жиберип көрүңүз.",
                    "🎬 Видео слишком большое (%d МБ). Максимум %d МБ.\n"
                    "Попробуйте снять покороче."),
+    "bad_hard":   ("🚫 Жарыя жарыяланган жок — тыюу салынган мазмун табылды (%s).\n"
+                   "Эрежелерди «Жардам» бөлүмүнөн окуңуз.",
+                   "🚫 Объявление не опубликовано — найден запрещённый контент (%s).\n"
+                   "Правила смотрите в разделе «Помощь»."),
+    "bad_swear":  ("🚫 Жарыя жарыяланган жок — адепсиз же кемсинтүү сөз бар (%s).\n"
+                   "Сураныч, сылык жазыңыз.",
+                   "🚫 Объявление не опубликовано — нецензурные или оскорбительные слова (%s).\n"
+                   "Пожалуйста, пишите вежливо."),
     "vid_no":     ("🎬 Бул бөлүмдө видео кабыл алынбайт — сүрөт гана.",
                    "🎬 В этом разделе видео не принимается — только фото."),
     "vid_one":    ("🎬 Бир гана видео кошууга болот. Мурункусу алмаштырылды.",
@@ -549,7 +558,7 @@ def run_search(chat, u):
     reset(u)
 
 
-def notify_admins(lid, row, uid, name):
+def notify_admins(lid, row, uid, name, warn=""):
     """
     Жаңы жарыя коюлганда админдерге кабар жөнөтөт.
 
@@ -560,7 +569,7 @@ def notify_admins(lid, row, uid, name):
         return
     link = (f"\n🌐 {SITE_URL}/e/{lid}"
             if SITE_URL and "localhost" not in SITE_URL else "")
-    txt = ("🆕 <b>Жаңы жарыя</b> №%d\n\n"
+    txt = (warn + "🆕 <b>Жаңы жарыя</b> №%d\n\n"
            "📦 %s\n💰 %s\n📍 %s\n☎️ %s\n"
            "👤 %s (id %s)%s" % (
                lid, esc(row.get("title")), esc(price_label(row.get("price"))),
@@ -634,6 +643,15 @@ def save_ad(chat, uid, name, u):
                                         "callback_data": "invite"}]]})
             return
 
+    level, hits = badwords.scan(
+        d.get("title"), d.get("postComment"),
+        d.get("subcategory"), d.get("description"))
+    if level in ("hard", "swear"):
+        key = "bad_swear" if level == "swear" else "bad_hard"
+        send(chat, m(key, lang, ", ".join(hits[:3])), home_kb(lang))
+        reset(u)
+        return
+
     row = bridge.to_listing(d)
     if not row["title"]:
         row["title"] = m("untitled", lang)
@@ -657,7 +675,9 @@ def save_ad(chat, uid, name, u):
 
     link = (f"\n\n🌐 {SITE_URL}/e/{lid}"
             if SITE_URL and "localhost" not in SITE_URL else "")
-    notify_admins(lid, row, uid, name)
+    warn = ("⚠️ <b>Шектүү сөз:</b> %s\n\n" % esc(", ".join(hits[:5]))
+            if level == "soft" else "")
+    notify_admins(lid, row, uid, name, warn)
     send(chat, m("posted", lang, lid) + "\n\n"
                f"📦 {esc(row['title'])}\n"
                f"💰 {esc(price_label(row.get('price')))}\n"
