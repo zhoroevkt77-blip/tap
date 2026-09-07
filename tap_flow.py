@@ -370,6 +370,16 @@ def render(step, data=None):
     at = d.get("adType")
     act = d.get("action")
 
+    # Аймактар тандалып бүткөндөн кийинки биринчи суроонун башында
+    # тандалган маршрут көрүнөт.
+    if (step.startswith("taxi_") and not d.get("_rtshown")
+            and step == _taxi_first_step(d)):
+        _d2 = dict(d)
+        _d2["_rtshown"] = 1
+        _v = render(step, _d2)
+        _v["text"] = _taxi_route(d) + _v["text"]
+        return _v
+
     # ── Башталышы ───────────────────────────────────────────
     if step == "language_select":
         return _view("Колдонуу тилин тандаңыз / Выберите язык использования",
@@ -917,6 +927,12 @@ def _after_subcategory(d):
                 if d.get("adType") in ("trade", "markets", "property")
                 else "post_name")
     return "search_results"
+
+
+def _taxi_route(d):
+    """«Манас → Бишкек» түрүндөгү маршрут сабы."""
+    a, b = d.get("taxiFrom"), d.get("taxiTo")
+    return "🚕 %s → %s\n\n" % (a, b) if a and b else ""
 
 
 def _taxi_step_name(step):
