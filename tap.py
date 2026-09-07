@@ -632,8 +632,8 @@ def _sections_strip(link, at, lang, ob=None):
             # аны кыркып туруучу кабыкка ороп коёбуз.
             inner = (f'<span class="picw">'
                      f'<img class="pic" src="/si/{code}.jpg?v={secimg.VERSION}" '
-                     f'alt="{nm}" loading="lazy"></span>{_n(code)}'
-                     f'<span class="pill">{nm}</span>')
+                     f'alt="{nm}" loading="lazy">'
+                     f'<span class="pill">{nm}</span></span>{_n(code)}')
             cls = f"cat pic{on}"
         else:
             inner = (f'<span class="ic">{ic}</span>{_n(code)}'
