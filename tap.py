@@ -976,12 +976,13 @@ def detail(r, lang="ky"):
                 + str(len(shots)) + '</span>')
     # Видео (бир гана). Автоматтык ойнобойт — колдонуучунун трафигин
     # аяйбыз: басканда гана жүктөлүп, ойной баштайт.
+    dvid = ""  # __TAP_VID_V2__ — .dph'тан сыртта турат
     vid = core.video_of(r)
     if vid and os.path.isfile(os.path.join(MEDIA, vid)):
         vlbl = "Видео" if lang == "ru" else "Видео"
-        dimg += (f'{_VID_CSS}<div class="dvid"><span class="dvl">🎬 {vlbl}'
-                 f'</span><video controls preload="metadata" playsinline '
-                 f'src="/media/{esc(vid)}"></video></div>')
+        dvid = (f'{_VID_CSS}<div class="dvid"><span class="dvl">🎬 {vlbl}'
+                f'</span><video controls preload="metadata" playsinline '
+                f'src="/media/{esc(vid)}"></video></div>')
 
     dfacts, dtext = _split_desc(r.get("description"))
     dlbl = "Описание" if lang == "ru" else "Сүрөттөмө"
@@ -1057,7 +1058,7 @@ def detail(r, lang="ky"):
 
     body = f"""<main class="wrap">
 <a class="back" href="{back}">{_ARROW}{esc(name)}</a>
-<div class="dph">{dimg}</div>
+<div class="dph">{dimg}</div>{dvid}
 <div class="dcard">
 <div class="eb">{ic}{esc(sname or name)} · №{r['id']}</div>
 <div class="dp{' dpd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
@@ -1199,8 +1200,8 @@ def add_page(lang="ky", task="post"):
 # Жардам жана Кабинет барактарынын стили. Кадимки сап — f-string
 # эмес, ошондуктан CSS'тин { } белгилери коопсуз.
 _VID_CSS = """<style>
-.dvid{margin:10px 0 4px;border-radius:16px;overflow:hidden;
- background:#0E1F38;position:relative}
+.dvid{display:block;width:100%;margin:10px 0 4px;border-radius:16px;
+ overflow:hidden;background:#0E1F38;position:relative}
 .dvid video{display:block;width:100%;max-height:70vh;background:#0E1F38}
 .dvl{position:absolute;top:9px;left:11px;z-index:2;pointer-events:none;
  padding:3px 9px;border-radius:999px;background:rgba(14,31,56,.72);
