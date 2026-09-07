@@ -616,10 +616,12 @@ def _sections_strip(link, at, lang, ob=None):
     if secimg.has("all"):
         cats = (f'<a href="{link(at=None, cid=None)}" '
                 f'class="cat pic{"" if at else " on"}">'
+                f'<span class="picw">'
                 f'<img class="pic" src="/si/all.jpg?v={secimg.VERSION}" '
                 f'alt="{T("all", lang)}">'
+                f'<span class="pill">{T("all", lang)}</span></span>'
                 f'{f"<span class=\'secn\'>{sum(ac.values())}</span>" if ob else ""}'
-                f'<span class="pill">{T("all", lang)}</span></a>')
+                f'</a>')
     else:
         cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
                 f'<span class="ic">{SCENES["all"]}</span>'
@@ -632,8 +634,8 @@ def _sections_strip(link, at, lang, ob=None):
             # аны кыркып туруучу кабыкка ороп коёбуз.
             inner = (f'<span class="picw">'
                      f'<img class="pic" src="/si/{code}.jpg?v={secimg.VERSION}" '
-                     f'alt="{nm}" loading="lazy"></span>{_n(code)}'
-                     f'<span class="pill">{nm}</span>')
+                     f'alt="{nm}" loading="lazy">'
+                     f'<span class="pill">{nm}</span></span>{_n(code)}')
             cls = f"cat pic{on}"
         else:
             inner = (f'<span class="ic">{ic}</span>{_n(code)}'
