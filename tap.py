@@ -841,16 +841,36 @@ _GAL_CSS = """<style>
      font-size:13px;font-weight:600;pointer-events:none}
 </style>
 <script>
+/* __TAP_GAL_V2__ */
 (function(){
-  var g=document.getElementById("pgal"), c=document.getElementById("pgc");
-  if(!g||!c) return;
-  var n=g.children.length;
-  g.addEventListener("scroll", function(){
-    var i=Math.round(g.scrollLeft/g.clientWidth)+1;
-    if(i<1) i=1;
-    if(i>n) i=n;
-    c.textContent=i+" / "+n;
-  }, {passive:true});
+  function init(){
+    var g=document.getElementById("pgal"), c=document.getElementById("pgc");
+    if(!g||!c) return;
+    var n=g.children.length;
+    if(n<2) return;
+    function step(){
+      var a=g.children[0], b=g.children[1];
+      var s=b.offsetLeft-a.offsetLeft;
+      return s>0 ? s : (g.clientWidth||1);
+    }
+    var t=null;
+    function upd(){
+      var i=Math.round(g.scrollLeft/step())+1;
+      if(i<1) i=1;
+      if(i>n) i=n;
+      c.textContent=i+" / "+n;
+    }
+    g.addEventListener("scroll", function(){
+      if(t) return;
+      t=requestAnimationFrame(function(){ t=null; upd(); });
+    }, {passive:true});
+    window.addEventListener("resize", upd, {passive:true});
+    upd();
+  }
+  if(document.readyState==="loading")
+    document.addEventListener("DOMContentLoaded", init);
+  else
+    init();
 })();
 </script>"""
 
