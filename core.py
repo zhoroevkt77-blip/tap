@@ -816,28 +816,48 @@ def used_regions():
     return [r["region"] for r in rows]
 
 
-def ago(ts):
-    """'2026-08-23 03:53:00' -> '2 саат мурун'"""
+def ago(ts, lang="ky"):
+    """'2026-08-23 03:53:00' -> '2 саат мурун' / '2 часа назад'"""
     try:
         t = datetime.strptime(str(ts)[:19], "%Y-%m-%d %H:%M:%S").replace(
             tzinfo=timezone.utc)
     except Exception:
         return str(ts)[:16]
     sec = (datetime.now(timezone.utc) - t).total_seconds()
+    ru = (lang == "ru")
+
+    def _plural(n, one, few, many):
+        """Орусчада сан жактан жөндөлөт: 1 час, 2 часа, 5 часов."""
+        n10, n100 = n % 10, n % 100
+        if n10 == 1 and n100 != 11:
+            return one
+        if 2 <= n10 <= 4 and not (12 <= n100 <= 14):
+            return few
+        return many
+
     if sec < 60:
-        return "азыр эле"
+        return "только что" if ru else "азыр эле"
     if sec < 3600:
-        return f"{int(sec // 60)} мүнөт мурун"
+        n = int(sec // 60)
+        return (f"{n} {_plural(n, 'минуту', 'минуты', 'минут')} назад" if ru
+                else f"{n} мүнөт мурун")
     if sec < 86400:
-        return f"{int(sec // 3600)} саат мурун"
+        n = int(sec // 3600)
+        return (f"{n} {_plural(n, 'час', 'часа', 'часов')} назад" if ru
+                else f"{n} саат мурун")
     d = int(sec // 86400)
     if d == 1:
-        return "кечээ"
+        return "вчера" if ru else "кечээ"
     if d < 30:
-        return f"{d} күн мурун"
+        return (f"{d} {_plural(d, 'день', 'дня', 'дней')} назад" if ru
+                else f"{d} күн мурун")
     if d < 365:
-        return f"{d // 30} ай мурун"
-    return f"{d // 365} жыл мурун"
+        n = d // 30
+        return (f"{n} {_plural(n, 'месяц', 'месяца', 'месяцев')} назад" if ru
+                else f"{n} ай мурун")
+    n = d // 365
+    return (f"{n} {_plural(n, 'год', 'года', 'лет')} назад" if ru
+            else f"{n} жыл мурун")
 
 
 def price_label(price):

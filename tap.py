@@ -72,8 +72,16 @@ _CAT_LISTS = {
 
 
 def _ky(text, lang="ky"):
-    """Эки тилдүү жазуунун керектүү бөлүгү."""
-    return L(text, lang)
+    """
+    Эки тилдүү жазуунун керектүү бөлүгү.
+
+    «А / Б» түрүндөгү жазуудан тилге ылайыгын алат. Базадан келген
+    жалаң кыргызча маани болсо (жарыя коюлганда кыргызчасы гана
+    сакталат), каталогдон курулган сөздүк аркылуу которобуз —
+    антпесе орусча бетте кыргызча сөздөр аралашып калат.
+    """
+    out = L(text, lang)
+    return bridge.ru_value(out, lang) if lang == "ru" else out
 
 
 def cat_labels(ad_type, lang="ky"):
@@ -300,6 +308,7 @@ _ABBR_CSS = """<style>
 def _price(price, lang):
     """Баа. Келишим болсо, тандалган тилде жазылат."""
     if is_deal(price):
+        # «Келишим баада» деген маани базада кыргызча турат
         return "Договорная цена" if lang == "ru" else "Келишим баада"
     return price_label(price)
 
@@ -463,7 +472,7 @@ def card(r, lang="ky"):
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
 {_reg_lines(r, lang)}
 <h2 class="t">{esc(L(bridge.show_title(r), lang))}</h2>
-<div class="m"><span>{esc(ago(r['created_at']))}</span>
+<div class="m"><span>{esc(ago(r['created_at'], lang))}</span>
 <span class="vw">{_EYE}{r['views']}</span></div>
 </div></a>"""
 
@@ -1008,10 +1017,11 @@ def detail(r, lang="ky"):
                 ic2 = nm
                 break
         nm = FACT_RENAME.get(k)
-        rows += _frow(ic2, _lb(nm[0], nm[1]) if nm else k, v)
+        rows += _frow(ic2, _lb(nm[0], nm[1]) if nm else _ky(k, lang),
+                      _ky(v, lang))
 
     rows += _frow("cal", _lb("Жарыя жарыяланган убактысы", "Опубликовано"),
-                  ago(r["created_at"]))
+                  ago(r["created_at"], lang))
     rows += _frow("eye", _lb("Көргөндөр саны", "Количество просмотров"),
                   str(r["views"]))
 
@@ -1166,6 +1176,7 @@ _ACC_CSS = """<style>
  font-size:15px;font-weight:700;color:var(--ink);position:relative;
  transition:background .15s}
 .acc summary::-webkit-details-marker{display:none}
+/* Оң жактагы жебе: жабыкта ылдый, ачыкта өйдө карайт */
 .acc summary::after{content:"";position:absolute;right:17px;top:50%;
  width:9px;height:9px;margin-top:-6px;border-right:2px solid var(--soft);
  border-bottom:2px solid var(--soft);transform:rotate(45deg);
@@ -1173,8 +1184,8 @@ _ACC_CSS = """<style>
 .acc[open] summary::after{transform:rotate(-135deg);margin-top:-2px}
 .acc[open] summary{color:var(--moss)}
 .acc summary:active{background:var(--mist)}
-.accb{padding:0 16px 17px;font-size:16px;line-height:1.65;
- font-weight:500;color:#0E1F38;white-space:pre-wrap}
+.accb{padding:0 16px 15px;font-size:14.5px;line-height:1.6;
+ color:var(--soft);white-space:pre-wrap}
 </style>"""
 
 _ME_CSS = """<style>
@@ -1183,8 +1194,9 @@ _ME_CSS = """<style>
 .mehead{display:flex;align-items:center;gap:13px;padding:4px 4px 10px;
  color:var(--ink)}
 .meav{flex:none;width:58px;height:58px;border-radius:50%;
- object-fit:cover;display:block;background:var(--mist);
- box-shadow:0 2px 8px -3px rgba(18,32,58,.45)}
+ background:var(--mist);display:flex;align-items:center;justify-content:center;
+ color:var(--soft)}
+.meav svg{width:30px;height:30px}
 .metx{display:flex;flex-direction:column;gap:2px;min-width:0}
 .metx b{font-size:16px;font-weight:700}
 .metx i{font-style:normal;font-size:13.5px;color:var(--soft)}
@@ -1250,10 +1262,15 @@ def _admin_buttons(lang):
 
 def help_page(lang="ky", open_key=None):
     """
-    Жардам: Нускама жана Көп берилүүчү суроолор.
+    Жардам — ачылып-жабылуучу бөлүмдөр (аккордеон).
 
-    Тексттер strings.H()'тен алынат — боттогу менен бирдей.
-    Бир жерде оңдосоң, эки жерде тең өзгөрөт.
+    Он алты бөлүм бир баракка тизилсе, эч ким аягына чейин окубайт.
+    Ошондуктан ар бири басканда гана ачылат. JavaScript колдонулбайт:
+    браузердин өз <details> элементи иштейт, ошондуктан тез ачылат
+    жана интернет начар жерде да иштейт.
+
+    Тексттер strings.py'ден алынат — ботто да ошолор чыгат, бир
+    жерден оңдосоң эки жерде тең жаңырат.
     """
     ru = (lang == "ru")
     head = "Помощь" if ru else "Жардам"
@@ -1312,8 +1329,7 @@ def me_page(lang="ky"):
                 f'<span>WhatsApp — {esc(soon_t)}</span></span>')
 
     top = (f'<div class="mehead">'
-           f'<img class="meav" src="/pwa/icon-192.png?v={appicon.VERSION}" '
-           f'alt="ТАП!" width="58" height="58">'
+           f'<span class="meav">{NAV_ICONS["me"]}</span>'
            f'<span class="metx"><b>{esc(top_t)}</b>'
            f'<i>{esc(top_p)}</i></span></div>'
            f'<div class="ments">{ent}</div>')

@@ -47,6 +47,123 @@ SECTION_LABELS = {
 }
 
 
+# ── Кыргызча → орусча сөздүк ──────────────────────────────────
+# Каталогдогу маанилер «кыргызча / орусча» түрүндө жазылган, бирок
+# базага кыргызчасы гана сакталат (bridge._first). Ошондуктан орусча
+# режимде аларды кайра которуш керек. Сөздүктү каталогдун өзүнөн
+# чогултабыз: жаңы категория кошулса, котормосу өзүнөн-өзү пайда болот.
+RU_MAP = {}
+
+
+def _pair_ru(label, value):
+    """
+    {"label": "1 апта (7 күн) / 1 неделя (7 дней) — 100 сом",
+     "value": "1 апта"} → RU_MAP["1 апта"] = "1 неделя"
+
+    Базага `value` сакталат, ал эми котормо `label`дин оң жагында
+    турат. Ошондуктан экөөн байланыштырабыз: баасы, кашаадагы
+    түшүндүрмө жана эмодзи алынып салынат.
+    """
+    if not isinstance(label, str) or not isinstance(value, str):
+        return
+    if " / " not in label or value.startswith("__"):
+        return
+    ru = label.partition(" / ")[2].strip()
+    ru = ru.split(" — ")[0].strip()          # «— 100 сом» кесилет
+    if "(" not in value and "(" in ru:       # кашаа маанисинде жок болсо
+        ru = ru.split(" (")[0].strip()
+    if ru and ru != value:
+        RU_MAP.setdefault(value.strip(), ru)
+
+
+def _collect_ru(obj, depth=0):
+    """Каталогдон «A / B» түрүндөгү саптарды таап, сөздүккө жазат."""
+    if depth > 6:
+        return
+    if isinstance(obj, dict) and "label" in obj and "value" in obj:
+        _pair_ru(obj.get("label"), obj.get("value"))
+    if isinstance(obj, str):
+        if " / " in obj:
+            ky, _, ru = obj.partition(" / ")
+            ky, ru = ky.strip(), ru.strip()
+            if ky and ru and ky != ru:
+                RU_MAP.setdefault(ky, ru)
+        return
+    if isinstance(obj, dict):
+        for v in obj.values():
+            _collect_ru(v, depth + 1)
+        return
+    if isinstance(obj, (list, tuple, set)):
+        for v in obj:
+            _collect_ru(v, depth + 1)
+
+
+try:
+    import tap_catalog as _tc
+    for _nm in dir(_tc):
+        if _nm.startswith("_"):
+            continue
+        _v = getattr(_tc, _nm)
+        if isinstance(_v, (list, tuple, dict)):
+            _collect_ru(_v)
+except Exception as _e:      # каталог жүктөлбөсө, сайт иштей берсин
+    print("RU_MAP курулбады:", _e)
+
+# Агымдын өзүндөгү варианттар («Чекене / Розница» ж.б.) функциялардын
+# ичинде жазылган, ошондуктан модулдан окуй албайбыз. Файлдын текстин
+# сканерлейбиз: бул бир жолу, ишке киргенде гана болот.
+try:
+    import os as _os
+    import re as _re
+    _p = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                       "tap_flow.py")
+    _src = open(_p, encoding="utf-8").read()
+    for _m in _re.findall(r'"([^"\n]{2,90} / [^"\n]{2,90})"', _src):
+        _collect_ru(_m)
+except Exception as _e:
+    print("Агымдан котормо алынбады:", _e)
+
+# Сүрөттөмөдөгү талаалардын аттары — кол менен жазылган, ошондуктан
+# котормосу да ушул жерде турат.
+RU_MAP.update({
+    "Түрү": "Вид",                    "Сатуу": "Продажа",
+    "Жеткирүү": "Доставка",           "Тукуму": "Порода",
+    "Жашы/саны": "Возраст/кол-во",    "Абалы": "Состояние",
+    "Маркасы": "Марка",               "Жылы": "Год",
+    "Кыймылдаткыч": "Двигатель",      "Соода орду": "Торговое место",
+    "Сапаты": "Качество",             "Карго": "Карго",
+    "Дүкөн": "Магазин",               "Акция": "Акция",
+    "Кабаты": "Этаж",                 "Иш убактысы": "Часы работы",
+    "Багыты": "Направление",          "Дареги": "Адрес",
+    "Мүнөздөмөсү": "Характеристики",  "Депозит": "Депозит",
+    "Милдеттери": "Обязанности",      "Талаптар": "Требования",
+    "Шарттары": "Условия",            "Чалуу убактысы": "Время звонка",
+    "Мөөнөтү": "Срок",                "Аты": "Имя",
+    "Машина": "Машина",               "Күнү": "Дата",
+    "Саат": "Время",                  "Бош орун": "Свободных мест",
+    "Жүргүнчү": "Пассажиры",          "Жүк": "Багаж",
+    "Эң аз буйрутма": "Мин. заказ",
+})
+
+
+def ru_value(text, lang="ky"):
+    """
+    Базадан келген кыргызча маанини орусчага которот.
+
+    Табылбаса, ошол бойдон кайтарат — жарым котормо жарым-жартылай
+    көрүнгөнчө, кыргызчасы турганы жакшы.
+    """
+    if lang != "ru" or not text:
+        return text
+    t = str(text).strip()
+    if t in RU_MAP:
+        return RU_MAP[t]
+    # «A | B | C» түрүндөгү курама аталыш — ар бир бөлүгүн өзүнчө
+    if "|" in t:
+        return " | ".join(ru_value(p.strip(), "ru") for p in t.split("|"))
+    return t
+
+
 def cat_label(cat_id):
     """Категориянын кодун эки тилдүү атка айландырат."""
     if not cat_id:
