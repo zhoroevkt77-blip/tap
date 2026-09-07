@@ -240,6 +240,8 @@ MSG = {
                    "Кыскараак тартып жиберип көрүңүз.",
                    "🎬 Видео слишком большое (%d МБ). Максимум %d МБ.\n"
                    "Попробуйте снять покороче."),
+    "vid_no":     ("🎬 Бул бөлүмдө видео кабыл алынбайт — сүрөт гана.",
+                   "🎬 В этом разделе видео не принимается — только фото."),
     "vid_one":    ("🎬 Бир гана видео кошууга болот. Мурункусу алмаштырылды.",
                    "🎬 Можно добавить только одно видео. Прежнее заменено."),
     "vid_hint":   ("🎬 Кааласаңыз 1 видео да кошсоңуз болот (%d МБга чейин).",
@@ -407,6 +409,14 @@ def flow_kb(view, picked=None, lang="ky", back=False):
     return {"inline_keyboard": rows}
 
 
+def step_photo_max(u):
+    try:
+        v = render(u["step"], u["data"]).get("photo_max")
+    except Exception:
+        v = None
+    return min(int(v), PHOTO_MAX) if v else PHOTO_MAX
+
+
 def photo_status(chat, u):
     """
     Канча сүрөт жүктөлгөнүн бир билдирүүдө көрсөтөт жана аны
@@ -414,8 +424,9 @@ def photo_status(chat, u):
     """
     lang = ulang(u)
     n = len(u["data"].get("photoFileIds") or [])
-    if n >= PHOTO_MAX:
-        txt = m("photo_max", lang, PHOTO_MAX)
+    pmax = step_photo_max(u)
+    if n >= pmax:
+        txt = m("photo_max", lang, pmax)
     elif n >= PHOTO_MIN:
         txt = m("photo_ok", lang, n)
     else:
@@ -439,7 +450,7 @@ def photo_status(chat, u):
 def add_photo(chat, u, fid):
     """Келген сүрөттү тизмеге кошот."""
     ids = u["data"].setdefault("photoFileIds", [])
-    if fid not in ids and len(ids) < PHOTO_MAX:
+    if fid not in ids and len(ids) < step_photo_max(u):
         ids.append(fid)
     photo_status(chat, u)
 
@@ -460,7 +471,8 @@ def ask(chat, u, short=False):
         text += "\n<i>%s</i>" % m("multi_hint", lang)
     if view["photo"]:
         text += "\n<i>%s</i>" % m("photo_hint", lang)
-        text += "\n<i>%s</i>" % m("vid_hint", lang, VIDEO_MAX_MB)
+        if view.get("video"):
+            text += "\n<i>%s</i>" % m("vid_hint", lang, VIDEO_MAX_MB)
     elif view["input"] and view["placeholder"]:
         text += "\n<i>%s</i>" % esc(loc(view["placeholder"], lang))
     send(chat, text, flow_kb(view, u.get("picked"), lang, back=bool(u.get("hist"))))
@@ -782,10 +794,17 @@ def handle_message(msg, st):
 
     # Видео күтүлүп жатканда (сүрөт кадамында кабыл алабыз)
     vid = msg.get("video") or msg.get("animation")
+    if not vid:
+        _d = msg.get("document") or {}
+        if str(_d.get("mime_type") or "").startswith("video/"):
+            vid = _d
     if vid:
         lang = ulang(u)
         if not view["photo"]:
             send(chat, m("no_photo", lang), None)
+            return
+        if not view.get("video"):
+            send(chat, m("vid_no", lang))
             return
         size = int(vid.get("file_size") or 0)
         if size > VIDEO_MAX_MB * 1024 * 1024:

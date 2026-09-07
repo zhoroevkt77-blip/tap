@@ -157,7 +157,7 @@ def _cat_label(code):
 
 
 def _view(text, options=None, input=False, placeholder="", multi=False,
-          photo=False, final=False, localized=False):
+          photo=False, final=False, localized=False, video=False, photo_max=None):
     return {
         "text": text,
         "options": options or [],
@@ -165,6 +165,8 @@ def _view(text, options=None, input=False, placeholder="", multi=False,
         "placeholder": placeholder,
         "multi": multi,
         "photo": photo,
+        "video": video,
+        "photo_max": photo_max,
         "final": final,
         # localized=True — текст мурунтан бир тилде даяр, кайра
         # которуунун кереги жок (Жардам, Нускама, Сайт).
@@ -288,6 +290,12 @@ CHAIN_TRADE_TAIL_TEXT = (
     "🚚 Жеткирүү (доставка) шарттары кандай? / Условия доставки?",
     "Мис: Чүй жана Ош аймактарына жеткирүү бар / Например: Есть доставка по Чуй и Ош",
 )
+
+PHOTO_TYPES = ("wholesale", "rental", "service", "cargo", "delivery")
+VIDEO_TYPES = ("wholesale", "rental", "service")
+ONE_PHOTO_TYPES = ("cargo", "delivery")
+PHOTO_STEP_TEXT = ("📸 Сүрөт жүктөңүз, же «Даяр» басыңыз / \n"
+                   "Загрузите фото или нажмите «Готово»:")
 
 COMMENT_PROMPTS = {
     "trade":    "📝 Сатып жаткан товарларыңыз жөнүндө кыскача жазыңыз! / Напишите кратко о продаваемых товарах!",
@@ -661,7 +669,7 @@ def render(step, data=None):
     if step == "trade_photo":
         return _view("📸 Сүрөт жүктөңүз, же «Даяр» басыңыз / \nЗагрузите фото или нажмите «Готово»:",
                      _opts([("✅ Даяр / Готово", "__photo_done__")]),
-                     photo=True)
+                     photo=True, video=True)
 
     # ── Жалпы куйрук ────────────────────────────────────────
     if step == "post_name":
@@ -724,6 +732,12 @@ def render(step, data=None):
         base = COMMENT_PROMPTS.get(at, "📝 Комментарий жазыңыз / Напишите комментарий")
         return _view(base + "\n(болбосо — сызыкча коюңуз / если нет — поставьте прочерк):",
                      input=True, placeholder="Мис: Тез жана сапаттуу / Например: Быстро и качественно")
+
+    if step == "post_photo":
+        return _view(PHOTO_STEP_TEXT,
+                     _opts([("✅ Даяр / Готово", "__photo_done__")]),
+                     photo=True, video=(at in VIDEO_TYPES),
+                     photo_max=(1 if at in ONE_PHOTO_TYPES else None))
 
     if step == "post_preview":
         return _view("Жарыяңыз даяр! Жарыялайлыбы? / Ваше объявление готово! Публикуем?",
@@ -1279,7 +1293,11 @@ def advance(step, value, data=None):
         return go("post_comment", duration=value)
 
     if step == "post_comment":
-        return go("post_preview", postComment=value)
+        d["postComment"] = value
+        return ("post_photo" if at in PHOTO_TYPES else "post_preview"), d
+
+    if step == "post_photo":
+        return go("post_preview", photos=value)
 
     if step == "post_preview":
         return (("post_done", d) if value == "confirm" else ("main_menu", {}))
