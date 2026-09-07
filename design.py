@@ -117,7 +117,10 @@ def nav(active="home", lang="ky"):
     ]
     out = ""
     for key, href, ic, label in items:
-        cls = ' class="on"' if key == active else ""
+        c = ["on"] if key == active else []
+        if key == "add":
+            c.append("fab")
+        cls = ' class="%s"' % " ".join(c) if c else ""
         out += f'<a href="{href}"{cls}>{ic}<span>{label}</span></a>'
     return f'<nav class="nav">{out}</nav>'
 
@@ -570,6 +573,12 @@ main.wrap{animation:pageIn .26s ease-out both}
 .nav a:nth-child(4) svg{color:#A38BE8}
 .nav a:nth-child(5) svg{color:#E0C267}
 .nav a.on{color:#fff;font-weight:700}
+.nav a.fab{color:#EAF3FF;font-weight:600}
+.nav a.fab svg{width:54px;height:54px;padding:14px;border-radius:50%;
+ position:relative;top:-20px;margin-bottom:-32px;
+ color:#fff!important;background:linear-gradient(180deg,#5BC98A,#3AA167);
+ box-shadow:0 6px 18px rgba(58,161,103,.45),0 0 0 4px #17365C}
+.nav a.fab:active svg{transform:scale(.94)}
 
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 :focus-visible{outline:2.5px solid var(--leaf);outline-offset:2px;border-radius:6px}
