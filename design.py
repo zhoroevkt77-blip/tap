@@ -195,7 +195,7 @@ main.wrap{animation:pageIn .26s ease-out both}
 .cat.pic{border:0;background:none;padding:0;overflow:visible;position:relative;
  width:auto;height:auto;border-radius:0;box-shadow:none;
  display:flex;flex-direction:column;align-items:center;gap:6px}
-.cat.pic .picw{display:block;width:100%;flex:none;aspect-ratio:17/20;
+.cat.pic .picw{display:block;width:100%;flex:none;aspect-ratio:1/1;
  border-radius:14px;overflow:hidden;position:relative;background:#EDF2F9;
  transition:box-shadow .18s,transform .18s}
 /* Сүрөттүн катышы кабыктыкы менен бирдей (340x430), ошондуктан
@@ -204,12 +204,13 @@ main.wrap{animation:pageIn .26s ease-out both}
  border-radius:0}
 /* Аталыш тактанын өз ичинде, ылдый жагында турат — сүрөт менен
    жазуу бир бүтүн карточка болуп көрүнөт. */
-.cat.pic .pill{position:absolute;left:6px;right:6px;bottom:6px;z-index:2;
- display:flex;align-items:center;justify-content:center;
- overflow-wrap:anywhere;hyphens:auto;min-height:40px;padding:5px 6px;
- border-radius:12px;background:rgba(255,255,255,.92);border:0;
- text-align:center;font-size:11.5px;font-weight:700;line-height:1.2;
- color:#14243F;box-shadow:0 2px 7px -5px rgba(18,32,58,.6)}
+/* Аталыш сүрөттүн астында, өзүнчө баскычта — сүрөттү жаппайт */
+.cat.pic .pill{display:flex;align-items:center;justify-content:center;
+ overflow-wrap:anywhere;hyphens:auto;width:100%;flex:none;min-height:36px;
+ padding:5px 6px;border-radius:999px;background:#fff;
+ border:1px solid var(--mist);text-align:center;
+ font-size:11.5px;font-weight:700;line-height:1.2;color:var(--ink);
+ box-shadow:0 3px 8px -6px rgba(18,32,58,.5)}
 .cat.pic.on .picw{box-shadow:0 0 0 2.5px var(--moss)}
 /* Аймак тандалганда бөлүмдүн бурчундагы жарыялардын саны */
 .secn{position:absolute;top:5px;left:5px;z-index:2;min-width:19px;height:19px;
@@ -217,7 +218,7 @@ main.wrap{animation:pageIn .26s ease-out both}
  font-size:10.5px;font-weight:700;line-height:19px;text-align:center;
  font-variant-numeric:tabular-nums;box-shadow:0 2px 6px -2px rgba(14,34,64,.55)}
 .cat{position:relative}
-.cat.pic.on .pill{background:var(--moss);color:#fff}
+.cat.pic.on .pill{background:var(--moss);border-color:var(--moss);color:#fff}
 
 /* ── Бөлүмдөрдүн жандуулугу ────────────────────────────────
    Басканда такта ичине басылгандай кичирейет — манжага дароо
