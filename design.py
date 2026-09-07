@@ -190,7 +190,7 @@ main.wrap{animation:pageIn .26s ease-out both}
  overflow:hidden;padding:7px 6px 8px;font-size:11.5px;line-height:1.22;
  font-weight:600;color:var(--ink);text-align:center;min-height:38px}
 /* Бөлүмдөр: эки катар торчо, ар биринде көлөмдүү белги, астында аты */
-.cats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 8px;
+.cats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 8px;
  overflow:visible;padding:14px 12px 10px;align-items:start}
 .cat.pic{border:0;background:none;padding:0;overflow:visible;position:relative;
  width:auto;height:auto;border-radius:0;box-shadow:none;
@@ -202,6 +202,7 @@ main.wrap{animation:pageIn .26s ease-out both}
 .cat.pic .pic{width:100%;height:100%;object-fit:contain;display:block;
  border-radius:0}
 .cat.pic .pill{display:flex;align-items:center;justify-content:center;
+ overflow-wrap:anywhere;hyphens:auto;
  width:100%;flex:none;min-height:36px;padding:5px 6px;border-radius:999px;
  background:#fff;border:1px solid var(--mist);text-align:center;
  font-size:11px;font-weight:600;line-height:1.2;color:var(--ink);
