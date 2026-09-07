@@ -4,3 +4,5 @@ tap.db
 bot_state.json
 media/
 token.txt
+p.py
+patch_*.py
