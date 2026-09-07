@@ -472,7 +472,7 @@ def card(r, lang="ky"):
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
 {_reg_lines(r, lang)}
 <h2 class="t">{esc(L(bridge.show_title(r), lang))}</h2>
-<div class="m"><span>{esc(ago(r['created_at'], lang))}</span>
+<div class="m"><span>{esc(ago(r['created_at'], lang))}</span>{'<span class="vmark">🎬</span>' if core.video_of(r) else ''}
 <span class="vw">{_EYE}{r['views']}</span></div>
 </div></a>"""
 
@@ -954,6 +954,15 @@ def detail(r, lang="ky"):
         dimg = (_GAL_CSS + '<div class="pgal" id="pgal">' + strip
                 + '</div><span class="pgc" id="pgc">1 / '
                 + str(len(shots)) + '</span>')
+    # Видео (бир гана). Автоматтык ойнобойт — колдонуучунун трафигин
+    # аяйбыз: басканда гана жүктөлүп, ойной баштайт.
+    vid = core.video_of(r)
+    if vid and os.path.isfile(os.path.join(MEDIA, vid)):
+        vlbl = "Видео" if lang == "ru" else "Видео"
+        dimg += (f'{_VID_CSS}<div class="dvid"><span class="dvl">🎬 {vlbl}'
+                 f'</span><video controls preload="metadata" playsinline '
+                 f'src="/media/{esc(vid)}"></video></div>')
+
     dfacts, dtext = _split_desc(r.get("description"))
     dlbl = "Описание" if lang == "ru" else "Сүрөттөмө"
     desc = (f'<div class="dcard"><div class="ft"><i>{dlbl}</i>'
@@ -1169,6 +1178,15 @@ def add_page(lang="ky", task="post"):
 
 # Жардам жана Кабинет барактарынын стили. Кадимки сап — f-string
 # эмес, ошондуктан CSS'тин { } белгилери коопсуз.
+_VID_CSS = """<style>
+.dvid{margin:10px 0 4px;border-radius:16px;overflow:hidden;
+ background:#0E1F38;position:relative}
+.dvid video{display:block;width:100%;max-height:70vh;background:#0E1F38}
+.dvl{position:absolute;top:9px;left:11px;z-index:2;pointer-events:none;
+ padding:3px 9px;border-radius:999px;background:rgba(14,31,56,.72);
+ color:#fff;font-size:11.5px;font-weight:700}
+</style>"""
+
 _ACC_CSS = """<style>
 .accs{margin:6px 0 22px}
 .acc{background:var(--card);border:1px solid var(--mist);border-radius:14px;
@@ -1673,8 +1691,16 @@ class H(BaseHTTPRequestHandler):
             fp = os.path.join(MEDIA, name)
             if name and os.path.isfile(fp):
                 data = open(fp, "rb").read()
+                # Видео менен сүрөт бир папкада жатат, ошондуктан
+                # түрүн кеңейтмеси боюнча аныктайбыз
+                low = name.lower()
+                ctype = ("video/mp4" if low.endswith(".mp4")
+                         else "video/quicktime" if low.endswith(".mov")
+                         else "image/png" if low.endswith(".png")
+                         else "image/jpeg")
                 self.send_response(200)
-                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Type", ctype)
+                self.send_header("Accept-Ranges", "bytes")
                 self.send_header("Content-Length", str(len(data)))
                 self.send_header("Cache-Control", "max-age=86400")
                 self.end_headers()

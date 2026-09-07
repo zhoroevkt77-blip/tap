@@ -233,7 +233,7 @@ CREATE TABLE IF NOT EXISTS listings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     category TEXT NOT NULL, subcat TEXT, region TEXT,
     title TEXT NOT NULL, description TEXT, price TEXT, contact TEXT,
-    photo TEXT, photos TEXT, tg_id TEXT, tg_name TEXT, stext TEXT,
+    photo TEXT, photos TEXT, video TEXT, tg_id TEXT, tg_name TEXT, stext TEXT,
     views INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
@@ -246,7 +246,7 @@ CREATE TABLE IF NOT EXISTS listings (
     id SERIAL PRIMARY KEY,
     category TEXT NOT NULL, subcat TEXT, region TEXT,
     title TEXT NOT NULL, description TEXT, price TEXT, contact TEXT,
-    photo TEXT, photos TEXT, tg_id TEXT, tg_name TEXT, stext TEXT,
+    photo TEXT, photos TEXT, video TEXT, tg_id TEXT, tg_name TEXT, stext TEXT,
     views INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
@@ -256,7 +256,7 @@ CREATE TABLE IF NOT EXISTS listings (
 
 
 NEW_COLUMNS = ["ad_type", "cat_id", "sub_id",
-               "oblast", "district", "locality", "village", "photos",
+               "oblast", "district", "locality", "village", "photos", "video",
                # жарыянын мөөнөтү бүтө турган күн (ISO), жана
                # иргөө үчүн бааны сан түрүндө сактайбыз
                "expires_at", "price_num"]
@@ -406,6 +406,20 @@ def set_photos(lid, names):
         return
     query("UPDATE listings SET photo=?, photos=? WHERE id=?",
           (names[0], json.dumps(names, ensure_ascii=False), lid))
+
+
+def set_video(lid, name):
+    """Жарыяга видео байлайт (бир гана видео)."""
+    query("UPDATE listings SET video=? WHERE id=?", (name, lid))
+
+
+def video_of(row):
+    """Жарыянын видеосунун файл аты. Жок болсо — бош сап."""
+    try:
+        v = row.get("video") if hasattr(row, "get") else None
+    except Exception:
+        v = None
+    return str(v).strip() if v else ""
 
 
 def photo_list(row):

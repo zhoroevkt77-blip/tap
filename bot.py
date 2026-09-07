@@ -108,6 +108,23 @@ def send_photo(chat, path, caption, kb=None):
         return send(chat, caption, kb)
 
 
+def download_file(file_id, dest, what="Файл"):
+    """Telegram'дан файлды жүктөп, дискке жазат."""
+    r = api("getFile", file_id=file_id)
+    if not r.get("ok"):
+        return False
+    url = f"https://api.telegram.org/file/bot{TOKEN}/{r['result']['file_path']}"
+    try:
+        with urllib.request.urlopen(url, timeout=180, context=_ctx) as resp:
+            data = resp.read()
+        os.makedirs(MEDIA, exist_ok=True)
+        open(dest, "wb").write(data)
+        return True
+    except Exception as e:
+        print(f"  {what} жүктөлбөдү:", e, flush=True)
+        return False
+
+
 def download_photo(file_id, dest):
     r = api("getFile", file_id=file_id)
     if not r.get("ok"):
@@ -216,6 +233,17 @@ MSG = {
                    "📸 %d фото — это максимум. Нажмите «Готово»."),
     "photo_few":  ("Жок дегенде %d сүрөт керек.", "Нужно минимум %d фото."),
     "photo_done": ("✅ Даяр",                 "✅ Готово"),
+    # ── Видео ──
+    "vid_ok":     ("🎬 Видео кабыл алынды. Бүтсөңүз «Даяр» басыңыз.",
+                   "🎬 Видео принято. Когда закончите — нажмите «Готово»."),
+    "vid_big":    ("🎬 Видео өтө чоң (%d МБ). Эң көбү %d МБ болушу керек.\n"
+                   "Кыскараак тартып жиберип көрүңүз.",
+                   "🎬 Видео слишком большое (%d МБ). Максимум %d МБ.\n"
+                   "Попробуйте снять покороче."),
+    "vid_one":    ("🎬 Бир гана видео кошууга болот. Мурункусу алмаштырылды.",
+                   "🎬 Можно добавить только одно видео. Прежнее заменено."),
+    "vid_hint":   ("🎬 Кааласаңыз 1 видео да кошсоңуз болот (%d МБга чейин).",
+                   "🎬 При желании можно добавить 1 видео (до %d МБ)."),
     "back_btn":   ("⬅️ Артка", "⬅️ Назад"),
     # ── Аталышты колдонуучу өзү жазат ──
     "ask_title":  ("✍️ <b>Жарыяңызга аталыш жазыңыз</b>\n\n"
@@ -432,6 +460,7 @@ def ask(chat, u, short=False):
         text += "\n<i>%s</i>" % m("multi_hint", lang)
     if view["photo"]:
         text += "\n<i>%s</i>" % m("photo_hint", lang)
+        text += "\n<i>%s</i>" % m("vid_hint", lang, VIDEO_MAX_MB)
     elif view["input"] and view["placeholder"]:
         text += "\n<i>%s</i>" % esc(loc(view["placeholder"], lang))
     send(chat, text, flow_kb(view, u.get("picked"), lang, back=bool(u.get("hist"))))
@@ -538,6 +567,11 @@ def notify_admins(lid, row, uid, name):
 # Бир колдонуучу суткасына канча жарыя коё алат
 DAILY_LIMIT = int(os.environ.get("DAILY_LIMIT", "10"))
 
+# Бир жарыяга канча видео жана эң чоң көлөмү (МБ).
+# 20 МБ — Telegram'дын өз чеги: боттор андан чоң файлды жүктөй албайт.
+VIDEO_MAX_MB = int(os.environ.get("VIDEO_MAX_MB", "20"))
+
+
 # Боттун @аты — чакыруу шилтемесин куруу үчүн. main() ичинде
 # getMe'ден толтурулат, ошондуктан кол менен жазуунун кереги жок.
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "TapmeniBot")
@@ -602,6 +636,12 @@ def save_ad(chat, uid, name, u):
             saved.append(fn)
     if saved:
         core.set_photos(lid, saved)
+
+    vfid = d.get("videoFileId")
+    if vfid:
+        vfn = f"{lid}.mp4"
+        if download_file(vfid, os.path.join(MEDIA, vfn), "Видео"):
+            core.set_video(lid, vfn)
 
     link = (f"\n\n🌐 {SITE_URL}/e/{lid}"
             if SITE_URL and "localhost" not in SITE_URL else "")
@@ -738,6 +778,24 @@ def handle_message(msg, st):
             save_state(st)
         else:
             send(chat, m("no_photo", ulang(u)), None)
+        return
+
+    # Видео күтүлүп жатканда (сүрөт кадамында кабыл алабыз)
+    vid = msg.get("video") or msg.get("animation")
+    if vid:
+        lang = ulang(u)
+        if not view["photo"]:
+            send(chat, m("no_photo", lang), None)
+            return
+        size = int(vid.get("file_size") or 0)
+        if size > VIDEO_MAX_MB * 1024 * 1024:
+            send(chat, m("vid_big", lang,
+                         round(size / 1024 / 1024), VIDEO_MAX_MB))
+            return
+        had = bool(u["data"].get("videoFileId"))
+        u["data"]["videoFileId"] = vid["file_id"]
+        send(chat, m("vid_one", lang) if had else m("vid_ok", lang))
+        save_state(st)
         return
 
     if msg.get("contact"):
