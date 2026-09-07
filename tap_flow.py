@@ -325,6 +325,26 @@ MARKET_OBLAST_MAP = {
 }
 
 
+# __TAP_PATCH_V1__
+def norm_phone(raw):
+    """Ар кандай жазылышты +996XXXXXXXXX түрүнө келтирет.
+
+    0775415688 / 775415688 / 996775415688 / +996 775 41 56 88
+    / 0775-41-56-88  ->  +996775415688
+    Жараксыз болсо None кайтарат.
+    """
+    d = "".join(ch for ch in str(raw or "") if ch.isdigit())
+    if d.startswith("00996"):
+        d = d[5:]
+    elif d.startswith("996") and len(d) > 9:
+        d = d[3:]
+    if len(d) == 10 and d.startswith("0"):
+        d = d[1:]
+    if len(d) == 9 and not d.startswith("0"):
+        return "+996" + d
+    return None
+
+
 def _chain_pending(chain, data):
     """Чынжырда жооп берилбеген биринчи суроону кайтарат."""
     for field, text, ph in chain:
@@ -620,9 +640,6 @@ def render(step, data=None):
                 return _view(p[1], input=True, placeholder=p[2])
 
         if at == "trade" and cat not in ("vehicles", "animals", "realestate", "agro_machinery"):
-            if d.get("tradeWholesale") is None:
-                return _view("🤝 Чекене, дүң же экөөнү тең сатасызбы? / Продаёте в розницу, оптом или и то и другое?",
-                             TRADE_WHOLESALE_OPTS)
             if d.get("tradeDelivery") is None:
                 return _view(CHAIN_TRADE_TAIL_TEXT[0], input=True, placeholder=CHAIN_TRADE_TAIL_TEXT[1])
 
@@ -691,9 +708,13 @@ def render(step, data=None):
                      input=True, placeholder="Мис: 09:00–18:00")
 
     if step == "post_whatsapp":
-        return _view("📱 WhatsApp номериңизди жазыңыз / Введите номер WhatsApp:\n"
-                     "(+996 автоматтык түрдө коюлат / +996 добавляется автоматически)",
-                     input=True, placeholder="700 000 000")
+        err = ("❗️ Номер туура эмес — 9 сан керек. / Неверный номер — нужно 9 цифр.\n\n"
+               if d.get("phoneErr") else "")
+        return _view(err + "📱 Байланыш номериңизди жазыңыз (чалуу жана WhatsApp үчүн) / "
+                     "Введите номер для связи (звонки и WhatsApp):\n"
+                     "(0700 000 000 же 700 000 000 — экөө тең болот / "
+                     "можно 0700 000 000 или 700 000 000)",
+                     input=True, placeholder="0700 000 000")
 
     if step == "post_duration":
         return _view("⏳ Жарыя канча күн жарыяланат? / На сколько дней разместить рекламу?",
@@ -1170,12 +1191,10 @@ def advance(step, value, data=None):
                 return "trade_title", d
 
         if at == "trade" and cat not in ("vehicles", "animals", "realestate", "agro_machinery"):
-            if d.get("tradeWholesale") is None:
-                return go("trade_title", tradeWholesale=value)
             if d.get("tradeDelivery") is None:
                 d["tradeDelivery"] = value
-                d["title"] = "%s | %s | Жеткирүү: %s" % (
-                    d.get("subcategory") or _cat_label(d.get("category")), d.get("tradeWholesale"), value)
+                d["title"] = "%s | Жеткирүү: %s" % (
+                    d.get("subcategory") or _cat_label(d.get("category")), value)
                 return "trade_price", d
 
         return go("trade_price", title=value)
@@ -1249,7 +1268,12 @@ def advance(step, value, data=None):
         return go("post_whatsapp", callTime=value)
 
     if step == "post_whatsapp":
-        return go("post_duration", phone=value)
+        ph = norm_phone(value)
+        if not ph:
+            d["phoneErr"] = True
+            return "post_whatsapp", d
+        d.pop("phoneErr", None)
+        return go("post_duration", phone=ph)
 
     if step == "post_duration":
         return go("post_comment", duration=value)
