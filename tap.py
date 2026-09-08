@@ -1225,7 +1225,7 @@ _ACC_CSS = """<style>
 .acc[open] summary{color:var(--moss)}
 .acc summary:active{background:var(--mist)}
 .accb{padding:0 16px 16px;font-size:15.5px;line-height:1.65;
- color:var(--ink);white-space:pre-wrap}
+ color:#0E1B2E;font-weight:500;white-space:pre-wrap}
 </style>"""
 
 _ME_CSS = """<style>
