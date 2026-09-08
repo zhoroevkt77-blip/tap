@@ -574,8 +574,8 @@ main.wrap{animation:pageIn .26s ease-out both}
 .nav a:nth-child(5) svg{color:#E0C267}
 .nav a.on{color:#fff;font-weight:700}
 .nav a.fab{color:#EAF3FF;font-weight:600}
-.nav a.fab svg{width:54px;height:54px;padding:14px;border-radius:50%;
- position:relative;top:-20px;margin-bottom:-32px;
+.nav a.fab svg{width:50px;height:50px;padding:13px;border-radius:50%;
+ position:relative;top:-24px;margin-bottom:-22px;
  color:#fff!important;background:linear-gradient(180deg,#5BC98A,#3AA167);
  box-shadow:0 6px 18px rgba(58,161,103,.45),0 0 0 4px #17365C}
 .nav a.fab:active svg{transform:scale(.94)}
