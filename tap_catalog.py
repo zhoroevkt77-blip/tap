@@ -8459,6 +8459,10 @@ MARKETS_TYPES = [
     }
 ]
 
+# Соода борборлору жана ири дүкөндөр өзүнчө бөлүм болуп чыкты.
+MALLS_TYPES = [t for t in MARKETS_TYPES if t["id"] in ("mall", "store")]
+MARKETS_TYPES = [t for t in MARKETS_TYPES if t["id"] not in ("mall", "store")]
+
 MARKETS_GROUPS = [
     {
         "id": "bishkek",

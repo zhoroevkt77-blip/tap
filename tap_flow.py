@@ -38,7 +38,7 @@ from tap_catalog import (
     HEATING_FUEL_SUBS, TRADE_PRICE_PRESETS, TRADE_CONDITION,
     DEMOGRAPHICS, SEASONS, REALESTATE_TYPES, REALESTATE_SUBS,
     VEHICLE_BODY_TYPES, VEHICLE_ENGINE_TYPES, VEHICLE_CATEGORIES, VEHICLE_SUBS,
-    MARKETS_TYPES, MARKETS_GROUPS, MARKETS_SUBS_BY_TYPE,
+    MARKETS_TYPES, MALLS_TYPES, MARKETS_GROUPS, MARKETS_SUBS_BY_TYPE,
     RENTAL_CATEGORIES, SERVICE_CATEGORIES, JOB_CATEGORIES, DELIVERY_CATEGORIES,
     DURATION_PLANS, SERVICE_PRICE_PRESETS, JOB_SALARY_PRESETS, CALL_TIME_PRESETS,
     GROUP_TABLES, SERVICE_GROUP_TABLES,
@@ -576,7 +576,8 @@ def render(step, data=None):
             ("🚛 Жүк ташуу / Грузоперевозки", "cargo"),
             ("🙋 Жумуш издөө / Поиск работы", "jobseek"),
             ("💼 Жумуш берүү / Работа", "job"),
-            ("🏬 Базарлар, соода борборлор жана ири соода дүкөндөр / Рынки, ТЦ и крупные магазины", "markets"),
+            ("🏪 Базарлар / Рынки", "markets"),
+            ("🏬 Соода борборлору, ири соода дүкөндөрү / Торговые центры и крупные магазины", "malls"),
             ("🚕 Такси Аймактар / Такси РЕГИОН", "taxi"),
         ]))
 
@@ -642,7 +643,7 @@ def render(step, data=None):
     if step == "markets_type":
         return _view("Кайсы түрдөн? / Какой тип объекта?",
                      [{"label": "%s %s" % (t["emoji"], t["label"]), "value": t["id"]}
-                      for t in MARKETS_TYPES])
+                      for t in (MALLS_TYPES if at == "malls" else MARKETS_TYPES)])
 
     if step == "livestock_oblast_select":
         return _view("Кайсы шаар/облустан? / Из какого города/области?", _regions())
@@ -682,7 +683,7 @@ def render(step, data=None):
             cats = [c for c in _ALL_TRADE if c["id"] in ("vehicles", "auto_parts")]
         elif at == "markets" and mt == "livestock_market":
             cats = [c for c in TRADE_CATEGORIES if c["id"] == "animals"]
-        elif at == "markets":
+        elif at in ("markets", "malls"):
             cats = TRADE_CATEGORIES
         else:
             cats = TRADE_CATEGORIES
@@ -812,12 +813,12 @@ def render(step, data=None):
             if p:
                 return _view(p[1], input=True, placeholder=p[2])
 
-        if at == "markets" and mt == "mall":
+        if at in ("markets", "malls") and mt == "mall":
             p = _chain_pending(CHAIN_MALL, d)
             if p:
                 return _view(p[1], input=True, placeholder=p[2])
 
-        if at == "markets" and mt == "store":
+        if at in ("markets", "malls") and mt == "store":
             p = _chain_pending(CHAIN_STORE, d)
             if p:
                 return _view(p[1], input=True, placeholder=p[2])
@@ -1089,7 +1090,7 @@ def _after_subcategory(d):
     """Подкатегория тандалгандан кийин кайда барабыз."""
     if d.get("action") == "post":
         return ("trade_title"
-                if d.get("adType") in ("trade", "markets", "property")
+                if d.get("adType") in ("trade", "markets", "malls", "property")
                 else "post_name")
     return "search_results"
 
@@ -1132,7 +1133,7 @@ def _after_subcategory(d):
     """Подкатегория тандалгандан кийин кайда барабыз."""
     if d.get("action") == "post":
         return ("trade_title"
-                if d.get("adType") in ("trade", "markets", "property")
+                if d.get("adType") in ("trade", "markets", "malls", "property")
                 else "post_name")
     return "search_results"
 
@@ -1177,8 +1178,8 @@ def advance(step, value, data=None):
     if step == "type_select":
         if value == "taxi":
             return go("taxi_role", adType="taxi")
-        if value == "markets":
-            return go("markets_type", adType="markets")
+        if value in ("markets", "malls"):
+            return go("markets_type", adType=value)
         return go("oblast_select", adType=value)
 
     # ── Аймак ───────────────────────────────────────────────
@@ -1385,7 +1386,7 @@ def advance(step, value, data=None):
                     return "trade_photo", d
                 return "trade_title", d
 
-        if at == "markets" and mt == "mall":
+        if at in ("markets", "malls") and mt == "mall":
             p = _chain_pending(CHAIN_MALL, d)
             if p:
                 d[p[0]] = value
@@ -1395,7 +1396,7 @@ def advance(step, value, data=None):
                     return "trade_price", d
                 return "trade_title", d
 
-        if at == "markets" and mt == "store":
+        if at in ("markets", "malls") and mt == "store":
             p = _chain_pending(CHAIN_STORE, d)
             if p:
                 d[p[0]] = value

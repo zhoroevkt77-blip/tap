@@ -18,6 +18,7 @@ from core import (CATS, SUBS, MEDIA, category_title, category_icon, sub_title,
 from tap_catalog import (TRADE_CATEGORIES, PROPERTY_CATEGORIES,
                          SERVICE_CATEGORIES, RENTAL_CATEGORIES,
                          DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES,
+                         MALLS_TYPES,
                          WHOLESALE_CATEGORIES, CARGO_CATEGORIES, JOBSEEK_CATEGORIES,
                          OBLASTS, get_districts, get_localities, ru_name)
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
@@ -43,6 +44,8 @@ SECTIONS = [
     ("jobseek",   SCENES.get("jobseek", SCENES["job"]),    "Жумуш издөө"),
     ("job",       SCENES["job"],       "Жумуш берүү"),
     ("markets",   SCENES["markets"],   "Базарлар"),
+    ("malls",     SCENES.get("malls", SCENES["markets"]),
+     "Соода борборлору"),
     ("taxi",      SCENES["taxi"],      "Такси"),
 ]
 
@@ -52,6 +55,8 @@ _NEW_SECTION_NAMES = {
     "property":  ("Мүлк сатуу", "Продажа имущества"),
     "cargo":     ("Жүк ташуу", "Грузоперевозки"),
     "jobseek":   ("Жумуш издөө", "Поиск работы"),
+    "malls":     ("Соода борборлору, ири соода дүкөндөрү",
+                  "Торговые центры и крупные магазины"),
 }
 
 SECTION_CODES = [c for c, _, _ in SECTIONS]
@@ -65,6 +70,7 @@ _CAT_LISTS = {
     "delivery": DELIVERY_CATEGORIES,
     "job":      JOB_CATEGORIES,
     "markets":  MARKETS_TYPES,
+    "malls":    MALLS_TYPES,
     "wholesale": WHOLESALE_CATEGORIES,
     "cargo":     CARGO_CATEGORIES,
     "jobseek":   JOBSEEK_CATEGORIES,

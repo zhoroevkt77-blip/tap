@@ -43,6 +43,7 @@ SECTION_LABELS = {
     "delivery": "Жеткирүү / Доставка",
     "job":      "Жумуш берүү / Работа",
     "markets":  "Базарлар / Рынки",
+    "malls":    "Соода борборлору / Торговые центры",
     "taxi":     "Такси / Такси",
 }
 
@@ -297,7 +298,7 @@ def to_legacy(ad_type, cat_id):
         return _DELIVERY_DEFAULT
     if ad_type == "job":
         return _JOB_MAP.get(cat_id, ("business", "other"))
-    if ad_type == "markets":
+    if ad_type in ("markets", "malls"):
         return ("shop", "other")
     if ad_type == "taxi":
         return ("transport", "car")
