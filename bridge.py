@@ -454,7 +454,9 @@ def to_listing(data):
     return {
         "cat_name":    cat_nm,
         "sec_name":    sec_nm,
-        "duration":    _first(str(data.get("duration") or "")),
+        # Такси сапары 1 күн турат — мөөнөт өзүнчө суралбайт
+        "duration":    ("1 күн" if is_taxi
+                        else _first(str(data.get("duration") or ""))),
         "category":    legacy_cat,
         "subcat":      legacy_sub,
         "region":      region or region_line(data),
