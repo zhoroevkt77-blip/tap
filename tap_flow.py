@@ -192,9 +192,21 @@ CHAIN_ANIMALS = [
      "Мис: Семиз, жемге жакшы байланган / Например: Упитанный"),
 ]
 
+# Кыргызстанда эң көп кездешкен маркалар. Тизмеде жогу — колдонуучу
+# өзү жазып кете алат (баскычтар турганда да текст кабыл алынат).
+CAR_BRANDS = _opts([(b, b) for b in (
+    "Toyota", "Honda", "Mercedes-Benz", "Lexus", "BMW",
+    "Audi", "Volkswagen", "Nissan", "Hyundai", "Kia",
+    "Chevrolet", "Mitsubishi", "Subaru", "Mazda", "Opel",
+    "Ford", "Lada (ВАЗ)", "Daewoo", "Suzuki", "Renault",
+)])
+
 CHAIN_VEHICLES = [
-    ("vehicleBrand", "🚘 Маркасы жана үлгүсү (модели)? / Марка и модель?",
-     "Мис: Honda CR-V / Например: Honda CR-V"),
+    ("vehicleBrand", "🚘 Маркасын тандаңыз, же өзүңүз жазыңыз / "
+     "Выберите марку или впишите свою",
+     "Мис: Chery / Например: Chery", CAR_BRANDS),
+    ("vehicleModel", "🚗 Үлгүсү (модели)? / Модель?",
+     "Мис: CR-V / Например: CR-V"),
     ("vehicleYear", "📅 Чыккан жылы? / Год выпуска?",
      "Мис: 2015-жылкы / Например: 2015 года"),
     ("vehicleTransRoul", "🕹 Кыймылдаткычтын көлөмү, коробкасы жана руулу? / Объём двигателя, коробка и руль?",
@@ -354,10 +366,14 @@ def norm_phone(raw):
 
 
 def _chain_pending(chain, data):
-    """Чынжырда жооп берилбеген биринчи суроону кайтарат."""
-    for field, text, ph in chain:
-        if data.get(field) is None:
-            return field, text, ph
+    """Чынжырда жооп берилбеген биринчи суроону кайтарат.
+
+    Суроо 3 элементтүү (талаа, текст, мисал) же 4 элементтүү
+    (кошумча — баскычтардын тизмеси) болушу мүмкүн.
+    """
+    for item in chain:
+        if data.get(item[0]) is None:
+            return item
     return None
 
 
@@ -640,7 +656,9 @@ def render(step, data=None):
         if cat == "vehicles":
             p = _chain_pending(CHAIN_VEHICLES, d)
             if p:
-                return _view(p[1], input=True, placeholder=p[2])
+                # Баскычтары бар кадамда да текст жазса болот
+                opts = p[3] if len(p) > 3 else None
+                return _view(p[1], opts, input=True, placeholder=p[2])
 
         if at == "markets" and mt == "bazaar":
             p = _chain_pending(CHAIN_BAZAAR, d)
@@ -1180,8 +1198,9 @@ def advance(step, value, data=None):
             if p:
                 d[p[0]] = value
                 if p[0] == "vehicleCondition":
-                    d["title"] = "%s, %s-ж. | %s | %s" % (
-                        d.get("vehicleBrand"), d.get("vehicleYear"),
+                    d["title"] = "%s %s, %s-ж. | %s | %s" % (
+                        d.get("vehicleBrand"), d.get("vehicleModel"),
+                        d.get("vehicleYear"),
                         d.get("vehicleTransRoul"), value)
                     return "trade_price", d
                 return "trade_title", d
