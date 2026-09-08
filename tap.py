@@ -589,7 +589,8 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
     opts = [(code, link(sort=code), nm, None) for code, nm in names]
     inner = _sel("Сортировка" if ru else "Тартиби", opts, sort or "new")
     out += _group("Как показать" if ru else "Кантип көрсөтүү", inner)
-    return out
+    # Тандалган бөлүмдүн түсү фильтр полосаларына өтсүн
+    return f'<div class="fsec s-{at}">{out}</div>' if at else out
 
 
 def _sections_strip(link, at, lang, ob=None):

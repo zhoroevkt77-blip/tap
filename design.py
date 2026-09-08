@@ -369,6 +369,31 @@ main.wrap{animation:pageIn .26s ease-out both}
 .sel:focus{outline:none;border-color:var(--moss)}
 .sel.set{border-color:var(--moss);background-color:#F7FAFF}
 
+/* Фильтр полосалары тандалган бөлүмдүн өңүндө */
+.fsec.s-trade .sel{background-color:#FCE7D2}
+.fsec.s-trade .sel.set{background-color:#FCE7D2}
+.fsec.s-wholesale .sel{background-color:#E6DEFB}
+.fsec.s-wholesale .sel.set{background-color:#E6DEFB}
+.fsec.s-property .sel{background-color:#D9EDFB}
+.fsec.s-property .sel.set{background-color:#D9EDFB}
+.fsec.s-service .sel{background-color:#E4DDFA}
+.fsec.s-service .sel.set{background-color:#E4DDFA}
+.fsec.s-rental .sel{background-color:#D8F0DA}
+.fsec.s-rental .sel.set{background-color:#D8F0DA}
+.fsec.s-delivery .sel{background-color:#D7EBFA}
+.fsec.s-delivery .sel.set{background-color:#D7EBFA}
+.fsec.s-cargo .sel{background-color:#E1E2FA}
+.fsec.s-cargo .sel.set{background-color:#E1E2FA}
+.fsec.s-jobseek .sel{background-color:#D8F0DE}
+.fsec.s-jobseek .sel.set{background-color:#D8F0DE}
+.fsec.s-job .sel{background-color:#FBDDE2}
+.fsec.s-job .sel.set{background-color:#FBDDE2}
+.fsec.s-markets .sel{background-color:#FCEBC8}
+.fsec.s-markets .sel.set{background-color:#FCEBC8}
+.fsec.s-taxi .sel{background-color:#D8EEFB}
+.fsec.s-taxi .sel.set{background-color:#D8EEFB}
+
+
 /* ---- Аймак панели ---- */
 .regbox{background:#fff;border-top:1px solid var(--mist);
  border-bottom:1px solid var(--mist);margin:0 0 4px}
