@@ -222,6 +222,19 @@ main.wrap{animation:pageIn .26s ease-out both}
  font-variant-numeric:tabular-nums;box-shadow:0 2px 6px -2px rgba(14,34,64,.55)}
 .cat{position:relative}
 .cat.pic.on .pill{background:var(--moss);border-color:var(--moss);color:#fff}
+/* Ар бир бөлүмдүн жазуусу үстүндөгү сүрөттүн өңүндө болсун */
+.cat.s-all .pill{background:#DCEBFB;border-color:#C5DDF4}
+.cat.s-trade .pill{background:#FCE7D2;border-color:#F3D5B8}
+.cat.s-wholesale .pill{background:#E6DEFB;border-color:#D5C9F5}
+.cat.s-property .pill{background:#D9EDFB;border-color:#C2DFF4}
+.cat.s-service .pill{background:#E4DDFA;border-color:#D2C8F3}
+.cat.s-rental .pill{background:#D8F0DA;border-color:#BFE4C3}
+.cat.s-delivery .pill{background:#D7EBFA;border-color:#BFDCF3}
+.cat.s-cargo .pill{background:#E1E2FA;border-color:#CCCEF2}
+.cat.s-jobseek .pill{background:#D8F0DE;border-color:#BFE4C9}
+.cat.s-job .pill{background:#FBDDE2;border-color:#F3C6CE}
+.cat.s-markets .pill{background:#FCEBC8;border-color:#F3DCAB}
+.cat.s-taxi .pill{background:#D8EEFB;border-color:#BFE0F4}
 
 /* ── Бөлүмдөрдүн жандуулугу ────────────────────────────────
    Басканда такта ичине басылгандай кичирейет — манжага дароо
