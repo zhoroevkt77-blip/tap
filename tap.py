@@ -1388,6 +1388,8 @@ def me_page(lang="ky"):
         ("add",    ("Разместить объявление" if ru else "Жарыя берүү"), "/add"),
         ("list",   ("Мои объявления" if ru else "Менин жарыяларым"),   "/my"),
         ("fav",    ("Избранное" if ru else "Тандалгандар"),       "/fav"),
+        ("wallet", ("Мой баланс" if ru else "Менин балансым"),
+         f"https://t.me/{BOT}?start=balance"),
         ("help",   ("Помощь" if ru else "Жардам"),                "/msg"),
     ]
     items = ""

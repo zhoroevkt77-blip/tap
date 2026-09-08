@@ -64,6 +64,8 @@ NAV_ICONS = {
     "fav":  _N + '<path d="M12 20.3s-7.4-4.6-7.4-9.4a4.2 4.2 0 0 1 7.4-2.7 4.2 4.2 0 0 1 7.4 2.7'
                  'c0 4.8-7.4 9.4-7.4 9.4Z"/></svg>',
     "add":  _N + '<circle cx="12" cy="12" r="8.6"/><path d="M12 8.4v7.2M8.4 12h7.2"/></svg>',
+    "wallet": _N + '<rect x="3" y="6" width="18" height="13" rx="2.4"/>'
+                   '<path d="M3 10h18"/><circle cx="17" cy="14.5" r="1.2"/></svg>',
     "msg":  _N + '<rect x="3" y="5.2" width="18" height="13.6" rx="2.4"/>'
                  '<path d="m3.6 6.6 7.3 5.3a2 2 0 0 0 2.2 0l7.3-5.3"/></svg>',
     "me":   _N + '<circle cx="12" cy="8.4" r="3.8"/>'

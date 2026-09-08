@@ -958,6 +958,11 @@ def handle_message(msg, st):
                 send(chat, m("ref_hello", ulang(u)))
             payload = ""
 
+        # «/start balance» — сайттагы «Менин балансым» баскычы
+        if payload == "balance" and (u.get("data") or {}).get("uiLanguage"):
+            show_balance(chat, uid, u)
+            return
+
         had_lang = bool((u.get("data") or {}).get("uiLanguage"))
         reset(u, full=not had_lang)
         u["pending"] = payload if payload in ("post", "search", "my") else None
