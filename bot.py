@@ -13,6 +13,8 @@ TAP! — Telegram бот.
 import threading
 import copy, json, os, ssl, time, urllib.parse, urllib.request, mimetypes
 
+from datetime import datetime, timedelta, timezone
+
 import core
 from core import MEDIA, SITE_URL, price_label
 import badwords
@@ -278,6 +280,25 @@ MSG = {
     "edit_ok":    ("✅ Жарыя №%d оңдолду.", "✅ Объявление №%d изменено."),
     "edit_fail":  ("Оңдоо мүмкүн болбоду. Жарыя сиздики эмес окшойт.",
                    "Не удалось изменить. Похоже, объявление не ваше."),
+    # ── Баланс ──
+    "bal_head":   ("💰 <b>Менин балансым</b>", "💰 <b>Мой баланс</b>"),
+    "bal_body":   ("📊 Бүгүн коюлду: <b>%d / %d</b>\n"
+                   "   Калды: <b>%d</b> жарыя\n\n"
+                   "🎁 Бонус жарыя: <b>%d</b>\n"
+                   "👥 Чакырган досторуңуз: <b>%d</b>\n\n"
+                   "📋 Активдүү жарыяларыңыз: <b>%d</b>\n"
+                   "⏳ 3 күндө бүтөт: <b>%d</b>\n\n"
+                   "Суткалык чек ар күнү жаңырат. Дос чакырсаңыз, "
+                   "бонус жарыя аласыз: /ref",
+                   "📊 Сегодня размещено: <b>%d / %d</b>\n"
+                   "   Осталось: <b>%d</b> объявлений\n\n"
+                   "🎁 Бонусных объявлений: <b>%d</b>\n"
+                   "👥 Приглашено друзей: <b>%d</b>\n\n"
+                   "📋 Активных объявлений: <b>%d</b>\n"
+                   "⏳ Истекает через 3 дня: <b>%d</b>\n\n"
+                   "Суточный лимит обновляется каждый день. Пригласите "
+                   "друга и получите бонусные объявления: /ref"),
+
     # ── Дос чакыруу ──
     "ref_btn":    ("🎁 Дос чакыруу", "🎁 Пригласить друга"),
     "ref_head":   ("🎁 <b>Дос чакырыңыз — көбүрөөк жарыя коюңуз!</b>",
@@ -612,6 +633,42 @@ VIDEO_MAX_MB = int(os.environ.get("VIDEO_MAX_MB", "20"))
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "TapmeniBot")
 
 
+def show_balance(chat, uid, u):
+    """«💰 Менин балансым» экраны: чек, бонус жана жарыялардын саны."""
+    lang = ulang(u)
+    try:
+        me = core.get_user(uid)
+    except Exception:
+        me = {}
+    bonus = int(me.get("bonus_posts") or 0)
+    friends = int(me.get("ref_count") or 0)
+
+    try:
+        used = core.posted_today(uid)
+    except Exception:
+        used = 0
+    left = max(0, DAILY_LIMIT - used)
+
+    # Активдүү жана жакында бүтө турган жарыялар
+    active = soon = 0
+    try:
+        edge = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%Y-%m-%d")
+        for r in core.my_listings(uid, u.get("myphone")):
+            if not int(r.get("is_active") or 0):
+                continue
+            active += 1
+            exp = str(r.get("expires_at") or "")[:10]
+            if exp and exp <= edge:
+                soon += 1
+    except Exception as e:
+        print("  Баланс катасы:", e, flush=True)
+
+    send(chat, m("bal_head", lang) + "\n\n"
+         + m("bal_body", lang, used, DAILY_LIMIT, left,
+             bonus, friends, active, soon),
+         home_kb(lang))
+
+
 def ref_link(uid):
     """Колдонуучунун жеке чакыруу шилтемеси."""
     return f"https://t.me/{BOT_USERNAME}?start=ref{uid}"
@@ -783,6 +840,10 @@ def _apply_pending(u):
 
 def step_forward(chat, uid, name, u, value):
     """Бир жоопту кабыл алып, кийинки кадамга өтөт."""
+    # Баланс — флоуда эмес, базадан эсептелет
+    if value == "tap_balance":
+        show_balance(chat, uid, u)
+        return
     # «Артка» үчүн: учурдагы абалды эстеп калабыз.
     hist = u.setdefault("hist", [])
     hist.append({"step": u["step"],
@@ -903,6 +964,10 @@ def handle_message(msg, st):
         if u["pending"] and had_lang:
             _apply_pending(u)
         ask(chat, u)
+        return
+
+    if text in ("/balance", "/bal", "💰 Менин балансым", "💰 Мой баланс"):
+        show_balance(chat, uid, u)
         return
 
     if text in ("/ref", "/dos", "🎁 Дос чакыруу", "🎁 Пригласить друга"):
