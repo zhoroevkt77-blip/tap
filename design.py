@@ -371,11 +371,11 @@ main.wrap{animation:pageIn .26s ease-out both}
 .regin{padding-bottom:6px}
 .rglb{padding:9px 14px 0;font-size:11px;font-weight:700;letter-spacing:.4px;
  text-transform:uppercase;color:var(--faint)}
-.regbar,.subbar{display:flex;gap:7px;overflow-x:auto;padding:7px 14px 2px;
+.regbar,.subbar{display:flex;gap:9px;overflow-x:auto;padding:10px 14px 4px;
  scrollbar-width:none;max-width:1040px;margin:0 auto}
 .regbar::-webkit-scrollbar,.subbar::-webkit-scrollbar{display:none}
-.rg{flex:none;background:var(--card);border:1px solid var(--mist);border-radius:16px;
- padding:7px 14px;font-size:12.5px;font-weight:500;color:var(--soft);white-space:nowrap}
+.rg{flex:none;background:var(--card);border:1px solid var(--mist);border-radius:20px;
+ padding:11px 20px;font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap}
 .rg.on{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
 .sb2{flex:none;background:#EEF3FB;border:1px solid #D6E2F3;border-radius:16px;
  padding:7px 14px;font-size:12.5px;font-weight:500;color:#14304F;white-space:nowrap}
@@ -386,8 +386,8 @@ main.wrap{animation:pageIn .26s ease-out both}
 .rg:active{transform:scale(.94)}
 .sb2{transition:transform .16s, background .16s, border-color .16s}
 .sb2:active{transform:scale(.94)}
-.rg em{font-style:normal;opacity:.62;font-size:11px;margin-left:2px;
- font-variant-numeric:tabular-nums}
+.rg em{font-style:normal;opacity:.7;font-size:13px;margin-left:4px;
+ font-weight:700;font-variant-numeric:tabular-nums}
 
 /* ---- Жыйынтык ---- */
 .rl{display:flex;align-items:baseline;gap:7px;padding:16px 0 11px}
