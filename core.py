@@ -296,12 +296,25 @@ CREATE TABLE IF NOT EXISTS users (
 """
 
 
+def _add_missing_user_columns():
+    """users таблицасына жаңы тилкелерди кошот."""
+    try:
+        if IS_PG:
+            query("ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                  "ref_claimed INTEGER DEFAULT 0")
+        else:
+            query("ALTER TABLE users ADD COLUMN ref_claimed INTEGER DEFAULT 0")
+    except Exception:
+        pass   # тилке мурунтан бар
+
+
 def init_db():
     """Таблицаны түзөт. Кайра-кайра чакырса коопсуз."""
     os.makedirs(MEDIA, exist_ok=True)
     query(SCHEMA_PG if IS_PG else SCHEMA_SQLITE)
     query(SCHEMA_USERS_PG if IS_PG else SCHEMA_USERS_SQLITE)
     _add_missing_columns()
+    _add_missing_user_columns()
     query("CREATE INDEX IF NOT EXISTS idx_active ON listings(is_active)")
     query("CREATE INDEX IF NOT EXISTS idx_cat ON listings(category)")
     try:
@@ -597,6 +610,8 @@ def revive(lid, tg_id, days=30, phone=None):
 # Биринчи дос үчүн канча жарыя, кийинкилери үчүн канча
 REF_FIRST_BONUS = int(os.environ.get("REF_FIRST_BONUS", "3"))
 REF_NEXT_BONUS = int(os.environ.get("REF_NEXT_BONUS", "1"))
+# Чакырылган досуна өзүнө кошулуучу бонус
+REF_JOIN_BONUS = int(os.environ.get("REF_JOIN_BONUS", "2"))
 
 
 def get_user(tg_id):
@@ -613,6 +628,52 @@ def get_user(tg_id):
     return query("SELECT * FROM users WHERE tg_id=?",
                  (tg_id,), fetch="one") or {
         "tg_id": tg_id, "ref_count": 0, "referred_by": None, "bonus_posts": 0}
+
+
+def link_referral(tg_id, inviter_id):
+    """
+    Жаңы келген колдонуучуну чакыруучуга байлайт.
+
+    Бонус азыр берилбейт — ал досу биринчи жарыясын койгондо
+    берилет (claim_referral).
+    """
+    tg_id, inviter_id = str(tg_id), str(inviter_id)
+    if tg_id == inviter_id:
+        return False
+    me = get_user(tg_id)
+    if me.get("referred_by"):
+        return False           # мурда башка киши чакырган
+    old = query("SELECT id FROM listings WHERE tg_id=?", (tg_id,),
+                fetch="one")
+    if old:
+        return False           # мурдатан жарыя коюп жүргөн адам
+    get_user(inviter_id)       # чакыруучу базада болсун
+    query("UPDATE users SET referred_by=? WHERE tg_id=?",
+          (inviter_id, tg_id))
+    return True
+
+
+def claim_referral(tg_id):
+    """
+    Чакырылган дос биринчи жарыясын койгондо бонусту берет.
+
+    Экөө тең алат: чакыруучу да, жаңы колдонуучу да.
+    Кайтарат: (ok, чакыруучунун id, анын жалпы досу,
+               ага кошулган, жаңы колдонуучуга кошулган).
+    """
+    tg_id = str(tg_id)
+    me = get_user(tg_id)
+    inv_id = me.get("referred_by")
+    if not inv_id or int(me.get("ref_claimed") or 0):
+        return False, None, 0, 0, 0
+    inv = get_user(inv_id)
+    n = int(inv.get("ref_count") or 0) + 1
+    add = REF_FIRST_BONUS if n == 1 else REF_NEXT_BONUS
+    query("UPDATE users SET ref_count=?, bonus_posts=? WHERE tg_id=?",
+          (n, int(inv.get("bonus_posts") or 0) + add, str(inv_id)))
+    query("UPDATE users SET ref_claimed=1, bonus_posts=? WHERE tg_id=?",
+          (int(me.get("bonus_posts") or 0) + REF_JOIN_BONUS, tg_id))
+    return True, inv_id, n, add, REF_JOIN_BONUS
 
 
 def register_referral(tg_id, inviter_id):
