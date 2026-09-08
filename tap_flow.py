@@ -195,11 +195,20 @@ CHAIN_ANIMALS = [
 # Кыргызстанда эң көп кездешкен маркалар. Тизмеде жогу — колдонуучу
 # өзү жазып кете алат (баскычтар турганда да текст кабыл алынат).
 CAR_BRANDS = _opts([(b, b) for b in (
-    "Toyota", "Honda", "Mercedes-Benz", "Lexus", "BMW",
-    "Audi", "Volkswagen", "Nissan", "Hyundai", "Kia",
-    "Chevrolet", "Mitsubishi", "Subaru", "Mazda", "Opel",
-    "Ford", "Lada (ВАЗ)", "Daewoo", "Suzuki", "Renault",
-)])
+    # Ирети — Кыргызстанда катталган саны боюнча
+    "Daewoo", "Mercedes-Benz", "Hyundai", "Kia", "Toyota",
+    "Honda", "Lada (ВАЗ)", "Nissan", "Lexus", "BMW",
+    "Audi", "Volkswagen", "Mitsubishi", "Chevrolet", "Opel",
+    "Subaru", "Mazda", "Ford",
+)] + [("🇨🇳 Кытай маркалары / Китайские марки", "__china__")])
+
+# Кытай маркалары өзүнчө экранда — биринчи тизме кыска калсын үчүн.
+CHINA_BRANDS = _opts([(b, b) for b in (
+    "BYD", "Chery", "Changan", "Haval", "Geely",
+    "Jetour", "Zeekr", "Li Auto", "GAC", "Exeed",
+    "Tank", "Deepal", "Leapmotor", "NIO", "Xpeng",
+    "Voyah", "Omoda", "Dongfeng",
+)] + [("⬅️ Артка / Назад", "__back__")])
 
 CHAIN_VEHICLES = [
     ("vehicleBrand", "🚘 Маркасын тандаңыз, же өзүңүз жазыңыз / "
@@ -658,6 +667,8 @@ def render(step, data=None):
             if p:
                 # Баскычтары бар кадамда да текст жазса болот
                 opts = p[3] if len(p) > 3 else None
+                if p[0] == "vehicleBrand" and d.get("_china"):
+                    opts = CHINA_BRANDS
                 return _view(p[1], opts, input=True, placeholder=p[2])
 
         if at == "markets" and mt == "bazaar":
@@ -1196,6 +1207,14 @@ def advance(step, value, data=None):
         if cat == "vehicles":
             p = _chain_pending(CHAIN_VEHICLES, d)
             if p:
+                if p[0] == "vehicleBrand" and value in ("__china__", "__back__"):
+                    # Кытай тизмесин ачуу/жабуу — марка азырынча сакталбайт
+                    if value == "__china__":
+                        d["_china"] = 1
+                    else:
+                        d.pop("_china", None)
+                    return "trade_title", d
+                d.pop("_china", None)
                 d[p[0]] = value
                 if p[0] == "vehicleCondition":
                     d["title"] = "%s %s, %s-ж. | %s | %s" % (
