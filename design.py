@@ -236,6 +236,7 @@ main.wrap{animation:pageIn .26s ease-out both}
 .cat.s-jobseek .pill{background:#D8F0DE;border-color:#BFE4C9}
 .cat.s-job .pill{background:#FBDDE2;border-color:#F3C6CE}
 .cat.s-markets .pill{background:#FCEBC8;border-color:#F3DCAB}
+.cat.s-malls .pill{background:#FBDDE2;border-color:#F3C6CE}
 .cat.s-taxi .pill{background:#D8EEFB;border-color:#BFE0F4}
 
 /* ── Бөлүмдөрдүн жандуулугу ────────────────────────────────
