@@ -392,6 +392,8 @@ main.wrap{animation:pageIn .26s ease-out both}
 .fsec.s-job .sel{background-color:#FBDDE2}
 .fsec.s-job .sel.set{background-color:#FBDDE2}
 .fsec.s-markets .sel{background-color:#FCEBC8}
+.fsec.s-malls .sel{background-color:#FBDDE2}
+.fsec.s-malls .sel.set{background-color:#FBDDE2}
 .fsec.s-markets .sel.set{background-color:#FCEBC8}
 .fsec.s-taxi .sel{background-color:#D8EEFB}
 .fsec.s-taxi .sel.set{background-color:#D8EEFB}
