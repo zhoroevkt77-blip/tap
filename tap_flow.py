@@ -26,6 +26,8 @@ API (болгону эки функция):
 Бир нече тандоо (multi) учурунда `value` — үтүр менен бөлүнгөн сап.
 """
 
+import re
+
 from taxi_geo import (REGIONS as TX_REGIONS, REGION_LIST as TX_REGION_LIST,
                       DISTRICTS as TX_DISTRICTS,
                       DISTRICT_OBLASTS as TX_OBLASTS,
@@ -99,12 +101,60 @@ def _opts(pairs):
     return [{"label": l, "value": v} for l, v in pairs]
 
 
+# Баскычтагы аталыш ушул узундуктан ашпасын. Каталогдо толук аты
+# сакталып кала берет — кыскартуу көрсөтүүдө гана болот.
+LABEL_MAX = 32
+
+_PAREN_RE = re.compile(r"\s*\([^)]*\)")
+_TAIL_WORDS = ("жана", "менен", "же", "и", "или", "для", "по")
+
+
+def _short_one(s, ru=False):
+    """Бир тилдеги аталышты баскычка сыйгыдай кыскартат."""
+    s = str(s).strip()
+    if len(s) <= LABEL_MAX:
+        return s
+    etc = "и др." if ru else "ж.б."
+    # Кашаанын ичи узун болгондо гана алынат — «(вторичка)» сыяктуу
+    # маанилүү тактоолор кыска аталышта сакталып калсын.
+    s2 = _PAREN_RE.sub("", s).strip()
+    if len(s2) <= LABEL_MAX:
+        return s2
+    s = s2
+    if "," in s:                       # тизме — биринчилерин калтырабыз
+        parts = [p.strip() for p in s.split(",") if p.strip()]
+        out = parts[0]
+        for p in parts[1:]:
+            if len(out) + 2 + len(p) + len(etc) + 1 > LABEL_MAX:
+                break
+            out += ", " + p
+        return out + " " + etc
+    words = s.split()                  # тизме эмес — сөз чегинде кесебиз
+    out = ""
+    for w in words:
+        if len(out) + 1 + len(w) > LABEL_MAX - 1:
+            break
+        out = (out + " " + w).strip()
+    while out.split() and out.split()[-1].lower() in _TAIL_WORDS:
+        out = " ".join(out.split()[:-1])
+    return (out or s[:LABEL_MAX - 1]) + "…"
+
+
+def _short_label(s):
+    """«Кыргызча / Орусча» аталыштын эки жагын тең кыскартат."""
+    parts = str(s).split(" / ")
+    if len(parts) == 2:
+        return "%s / %s" % (_short_one(parts[0]), _short_one(parts[1], True))
+    return _short_one(s)
+
+
 def _from_list(items):
     """Жөнөкөй сап тизмесин опцияга айлантуу. Бош болсо — "Башка"."""
     items = list(items or [])
     if not items:
         items = [OTHER]
-    return [{"label": s, "value": s} for s in items]
+    # Баскычта кыска аты, базага толук аты жазылат
+    return [{"label": _short_label(s), "value": s} for s in items]
 
 
 def _has_choice(items):
