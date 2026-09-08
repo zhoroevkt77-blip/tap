@@ -241,6 +241,8 @@ MSG = {
                    "Кыскараак тартып жиберип көрүңүз.",
                    "🎬 Видео слишком большое (%d МБ). Максимум %d МБ.\n"
                    "Попробуйте снять покороче."),
+    "media_wait": ("🖼 Сүрөт/видео жүктөлүүдө — бир аздан кийин көрүнөт.",
+                   "🖼 Фото/видео загружаются — появятся через несколько секунд."),
     "bad_hard":   ("🚫 Жарыя жарыяланган жок — тыюу салынган мазмун табылды (%s).\n"
                    "Эрежелерди «Жардам» бөлүмүнөн окуңуз.",
                    "🚫 Объявление не опубликовано — найден запрещённый контент (%s).\n"
@@ -659,6 +661,21 @@ def save_ad(chat, uid, name, u):
 
     ids = d.get("photoFileIds") or (
         [d["photoFileId"]] if d.get("photoFileId") else [])
+    vfid = d.get("videoFileId")
+
+    link = (f"\n\n🌐 {SITE_URL}/e/{lid}"
+            if SITE_URL and "localhost" not in SITE_URL else "")
+
+    # Жооп адегенде жиберилет. Сүрөт менен видеону Telegram'дан
+    # жүктөп алуу ондогон секунд алат — колдонуучу күтүп отурбасын.
+    send(chat, m("posted", lang, lid) + "\n\n"
+               f"📦 {esc(row['title'])}\n"
+               f"💰 {esc(price_label(row.get('price')))}\n"
+               f"📍 {esc(row.get('region') or '—')}{link}"
+               + ("\n\n" + m("media_wait", lang) if (ids or vfid) else ""),
+         home_kb(lang))
+    reset(u)
+
     saved = []
     for i, fid in enumerate(ids[:PHOTO_MAX], 1):
         fn = f"{lid}.jpg" if i == 1 else f"{lid}_{i}.jpg"
@@ -667,22 +684,14 @@ def save_ad(chat, uid, name, u):
     if saved:
         core.set_photos(lid, saved)
 
-    vfid = d.get("videoFileId")
     if vfid:
         vfn = f"{lid}.mp4"
         if download_file(vfid, os.path.join(MEDIA, vfn), "Видео"):
             core.set_video(lid, vfn)
 
-    link = (f"\n\n🌐 {SITE_URL}/e/{lid}"
-            if SITE_URL and "localhost" not in SITE_URL else "")
     warn = ("⚠️ <b>Шектүү сөз:</b> %s\n\n" % esc(", ".join(hits[:5]))
             if level == "soft" else "")
     notify_admins(lid, row, uid, name, warn)
-    send(chat, m("posted", lang, lid) + "\n\n"
-               f"📦 {esc(row['title'])}\n"
-               f"💰 {esc(price_label(row.get('price')))}\n"
-               f"📍 {esc(row.get('region') or '—')}{link}", home_kb(lang))
-    reset(u)
 
 
 def ask_title(chat, u):
