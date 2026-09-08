@@ -1224,8 +1224,8 @@ _ACC_CSS = """<style>
 .acc[open] summary::after{transform:rotate(-135deg);margin-top:-2px}
 .acc[open] summary{color:var(--moss)}
 .acc summary:active{background:var(--mist)}
-.accb{padding:0 16px 15px;font-size:14.5px;line-height:1.6;
- color:var(--soft);white-space:pre-wrap}
+.accb{padding:0 16px 16px;font-size:15.5px;line-height:1.65;
+ color:var(--ink);white-space:pre-wrap}
 </style>"""
 
 _ME_CSS = """<style>
