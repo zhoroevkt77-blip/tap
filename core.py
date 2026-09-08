@@ -308,6 +308,45 @@ def _add_missing_user_columns():
         pass   # тилке мурунтан бар
 
 
+def _migrate_malls():
+    """Соода борборлору жана ири дүкөндөр өзүнчө бөлүмгө көчтү.
+
+    Эски жарыялар «Базарлар» бөлүмүндө калбасын. Дал келген сап
+    жок болсо, эч нерсе өзгөрбөйт — кайра иштетүү коопсуз.
+    """
+    try:
+        from tap_catalog import MARKETS_SUBS_BY_TYPE
+    except Exception:
+        return
+    names = []
+    for t in ("mall", "store"):
+        for group in (MARKETS_SUBS_BY_TYPE.get(t) or {}).values():
+            names += [str(x)[:200] for x in group if x]
+    if not names:
+        return
+    label = "Соода борборлору / Торговые центры"
+    moved = 0
+    for i in range(0, len(names), 200):
+        chunk = names[i:i + 200]
+        marks = ",".join(["?"] * len(chunk))
+        try:
+            rows = query("SELECT COUNT(*) AS n FROM listings "
+                         "WHERE ad_type=? AND sub_id IN (%s)" % marks,
+                         tuple(["markets"] + chunk), fetch="one")
+            n = int((rows or {}).get("n") or 0)
+            if not n:
+                continue
+            query("UPDATE listings SET ad_type=?, sec_name=? "
+                  "WHERE ad_type=? AND sub_id IN (%s)" % marks,
+                  tuple(["malls", label, "markets"] + chunk))
+            moved += n
+        except Exception as e:
+            print("  Көчүрүү катасы:", e, flush=True)
+            return
+    if moved:
+        print("  Соода борборлоруна көчтү: %d жарыя" % moved, flush=True)
+
+
 def init_db():
     """Таблицаны түзөт. Кайра-кайра чакырса коопсуз."""
     os.makedirs(MEDIA, exist_ok=True)
@@ -315,6 +354,7 @@ def init_db():
     query(SCHEMA_USERS_PG if IS_PG else SCHEMA_USERS_SQLITE)
     _add_missing_columns()
     _add_missing_user_columns()
+    _migrate_malls()
     query("CREATE INDEX IF NOT EXISTS idx_active ON listings(is_active)")
     query("CREATE INDEX IF NOT EXISTS idx_cat ON listings(category)")
     try:
