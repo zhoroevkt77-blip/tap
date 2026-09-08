@@ -1152,8 +1152,15 @@ def add_page(lang="ky", task="post"):
     ru = (lang == "ru")
     wa_num = "".join(c for c in os.environ.get("WA_NUMBER", "") if c.isdigit())
     mine = (task == "my")
+    bal = (task == "balance")
 
-    if mine:
+    if bal:
+        head = "Мой баланс" if ru else "Менин балансым"
+        lead = ("Баланс хранится в боте — выберите, где вам удобнее."
+                if ru else
+                "Баланс ботто турат — кайсынысы ыңгайлуу болсо, "
+                "ошону тандаңыз.")
+    elif mine:
         head = "Мои объявления" if ru else "Менин жарыяларым"
         lead = ("Ваши объявления хранятся в боте — выберите, где вам "
                 "удобнее." if ru else
@@ -1167,7 +1174,12 @@ def add_page(lang="ky", task="post"):
     tg_t = "Перейти в Telegram-бот" if ru else "Telegram ботко өтүү"
     wa_t = "Перейти в WhatsApp-бот" if ru else "WhatsApp ботко өтүү"
     soon = "WhatsApp — скоро" if ru else "WhatsApp — жакында"
-    if mine:
+    if bal:
+        note = ("Суточный лимит, бонусные объявления и приглашённые друзья — "
+                "всё в одном месте." if ru else
+                "Суткалык чек, бонус жарыялар жана чакырган досторуңуз — "
+                "баары бир жерде.")
+    elif mine:
         note = ("Оба бота работают с одной базой: объявления, размещённые "
                 "через любой из них, будут в списке." if ru else
                 "Эки бот бир базада иштейт: кайсынысы аркылуу койсоңуз да, "
@@ -1178,7 +1190,8 @@ def add_page(lang="ky", task="post"):
                 "Эки бот бир базада иштейт: жарыя ушул сайтта да чыгат.")
 
     # WhatsApp'та баскыч жок — кабар талаасына даяр текст коёбуз
-    wa_text = "Менин жарыяларым" if mine else "Салам"
+    wa_text = ("Менин балансым" if bal else
+               "Менин жарыяларым" if mine else "Салам")
     if wa_num:
         wa = (f'<a class="btn wabtn" href="https://wa.me/{wa_num}'
               f'?text={urllib.parse.quote(wa_text)}"'
@@ -1195,7 +1208,7 @@ def add_page(lang="ky", task="post"):
 {wa}
 <p class="flead">{esc(note)}</p></main>""" + _ADD_CSS
     return page(header("", None, None, lang) + body,
-                head + " — ТАП!", "add" if not mine else "me", lang)
+                head + " — ТАП!", "me" if (mine or bal) else "add", lang)
 
 
 # Жардам жана Кабинет барактарынын стили. Кадимки сап — f-string
@@ -1388,8 +1401,7 @@ def me_page(lang="ky"):
         ("add",    ("Разместить объявление" if ru else "Жарыя берүү"), "/add"),
         ("list",   ("Мои объявления" if ru else "Менин жарыяларым"),   "/my"),
         ("fav",    ("Избранное" if ru else "Тандалгандар"),       "/fav"),
-        ("wallet", ("Мой баланс" if ru else "Менин балансым"),
-         f"https://t.me/{BOT}?start=balance"),
+        ("wallet", ("Мой баланс" if ru else "Менин балансым"),  "/bal"),
         ("help",   ("Помощь" if ru else "Жардам"),                "/msg"),
     ]
     items = ""
@@ -1581,6 +1593,9 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/add":
             self._send(add_page(lang))
             return
+
+        if u.path == "/bal":
+            return self._send(add_page(lang, "balance"))
 
         if u.path == "/my":
             self._send(add_page(lang, "my"))
