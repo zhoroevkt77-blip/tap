@@ -835,6 +835,45 @@ def pretty_phone(num):
 
 # Галереянын стили. Кадимки сап — f-string эмес, ошондуктан
 # CSS'тин { } белгилери коопсуз.
+_SHARE_ICON = ('<svg viewBox="0 0 24 24"><circle cx="18" cy="5.2" r="2.6"/>'
+               '<circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="18.8" r="2.6"/>'
+               '<path d="M8.3 10.8 15.7 6.5M8.3 13.2l7.4 4.3"/></svg>')
+
+_SHARE_BTN_CSS = """<style>
+.shbtn{position:absolute;top:12px;right:12px;z-index:4;width:44px;height:44px;
+ border:0;border-radius:50%;background:rgba(255,255,255,.94);padding:0;
+ box-shadow:0 2px 10px rgba(10,25,50,.25);display:flex;cursor:pointer;
+ align-items:center;justify-content:center}
+.shbtn svg{width:22px;height:22px;stroke:#3F4E68;fill:none;stroke-width:1.9;
+ stroke-linecap:round;stroke-linejoin:round}
+.shbtn:active{transform:scale(.92)}
+.shok{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:60;
+ background:#17365C;color:#fff;padding:10px 18px;border-radius:20px;
+ font-size:14px;box-shadow:0 6px 18px rgba(10,25,50,.3)}
+</style><script>
+function tapShare(b){
+  var u=b.dataset.u, t=b.dataset.t||"";
+  if(navigator.share){
+    navigator.share({title:t, text:t, url:u}).catch(function(){});
+    return;
+  }
+  function done(){
+    var n=document.createElement("div");
+    n.className="shok";
+    n.textContent=b.dataset.ok||"OK";
+    document.body.appendChild(n);
+    setTimeout(function(){ n.remove(); }, 1800);
+  }
+  if(navigator.clipboard){ navigator.clipboard.writeText(u).then(done, done); }
+  else{
+    var i=document.createElement("input");
+    i.value=u; document.body.appendChild(i); i.select();
+    try{ document.execCommand("copy"); }catch(e){}
+    i.remove(); done();
+  }
+}
+</script>"""
+
 _GAL_CSS = """<style>
 .dph{position:relative}
 .pgal{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
@@ -998,6 +1037,16 @@ def detail(r, lang="ky"):
 
     # Бөлүшүү: WhatsApp жана Telegram аркылуу шилтемени жиберүү
     share_url = f"{core.SITE_URL}/e/{r['id']}" if core.SITE_URL else ""
+    shbtn = ""
+    if share_url:
+        _ok = "Ссылка скопирована" if lang == "ru" else "Шилтеме көчүрүлдү"
+        _al = "Поделиться" if lang == "ru" else "Бөлүшүү"
+        shbtn = (_SHARE_BTN_CSS
+                 + '<button class="shbtn" type="button" onclick="tapShare(this)"'
+                 + ' data-u="%s" data-t="%s" data-ok="%s" aria-label="%s">'
+                 % (esc(share_url), esc(bridge.show_title(r)),
+                    esc(_ok), esc(_al))
+                 + _SHARE_ICON + '</button>')
     share = ""
     if share_url:
         txt = urllib.parse.quote(f"{bridge.show_title(r)} — {share_url}")
@@ -1064,7 +1113,7 @@ def detail(r, lang="ky"):
 
     body = f"""<main class="wrap">
 <a class="back" href="{back}">{_ARROW}{esc(name)}</a>
-<div class="dph">{dimg}</div>{dvid}
+<div class="dph">{dimg}{shbtn}</div>{dvid}
 <div class="dcard">
 <div class="eb">{ic}{esc(sname or name)} · №{r['id']}</div>
 <div class="dp{' dpd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
