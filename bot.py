@@ -410,6 +410,28 @@ def loc(text, lang):
 
 # ==================== Баскычтар ====================
 
+# Баскычтын жазуусу ушундан кыска болсо, кошунасы менен жупташат.
+PAIR_MAX = 20
+
+
+def _pair_rows(rows):
+    """Кыска баскычтарды экиден бир катарга жайгаштырат."""
+    out = []
+    i = 0
+    while i < len(rows):
+        a = rows[i]
+        b = rows[i + 1] if i + 1 < len(rows) else None
+        if (len(a) == 1 and b and len(b) == 1
+                and len(a[0]["text"]) <= PAIR_MAX
+                and len(b[0]["text"]) <= PAIR_MAX):
+            out.append([a[0], b[0]])
+            i += 2
+        else:
+            out.append(a)
+            i += 1
+    return out
+
+
 def home_kb(lang="ky"):
     return {"keyboard": [[{"text": m("home_btn", lang)}]], "resize_keyboard": True}
 
@@ -438,6 +460,7 @@ def flow_kb(view, picked=None, lang="ky", back=False):
             has_home = True
         mark = "☑️ " if (view["multi"] and o["value"] in picked) else ""
         rows.append([{"text": (mark + label)[:64], "callback_data": "o:%d" % i}])
+    rows = _pair_rows(rows)
     if view["multi"]:
         rows.append([{"text": m("done_btn", lang), "callback_data": "done"}])
     # Флоу өзү «Башкы меню» сунуштап турса, кайталабайбыз.
