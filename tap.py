@@ -789,7 +789,7 @@ _ARROW = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
           '<path d="M14.5 5.5 8 12l6.5 6.5"/></svg>')
 
 
-def contact_block(raw, lang="ky"):
+def contact_block(raw, lang="ky", title="", url=""):
     """
     Байланыш баскычтары: чалуу, WhatsApp, Telegram.
 
@@ -811,10 +811,20 @@ def contact_block(raw, lang="ky"):
 
     intl = "996" + digits
     shown = "+996 %s %s %s" % (digits[:3], digits[3:6], digits[6:])
+
+    # Даяр биринчи кабар — сатып алуучу эмне жазаарын ойлонбосун
+    wa_msg = ""
+    if title:
+        greet = ("Здравствуйте! Ваше объявление «%s» на ТАП! ещё актуально?"
+                 if lang == "ru" else
+                 "Салам! ТАП!теги «%s» жарыяңыз актуалдуубу?") % title
+        if url:
+            greet += "\n" + url
+        wa_msg = "?text=" + urllib.parse.quote(greet)
     return f"""<div class="cnum">{esc(shown)}</div>
 <div class="cbar">
 <a class="cb1 call" href="tel:+{intl}">{_PHONE}<span>{T("c_call", lang)}</span></a>
-<a class="cb1 wa" href="https://wa.me/{intl}" target="_blank" rel="noopener">
+<a class="cb1 wa" href="https://wa.me/{intl}{wa_msg}" target="_blank" rel="noopener">
 {_WA}<span>WhatsApp</span></a>
 <a class="cb1 tg" href="https://t.me/+{intl}" target="_blank" rel="noopener">
 {_TG}<span>Telegram</span></a>
@@ -847,6 +857,9 @@ _SHARE_BTN_CSS = """<style>
 .shbtn svg{width:22px;height:22px;stroke:#3F4E68;fill:none;stroke-width:1.9;
  stroke-linecap:round;stroke-linejoin:round}
 .shbtn:active{transform:scale(.92)}
+.dfav{top:12px;right:64px;width:44px;height:44px;z-index:4;
+ box-shadow:0 2px 10px rgba(10,25,50,.25)}
+.dfav svg{width:22px;height:22px}
 .shok{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:60;
  background:#17365C;color:#fff;padding:10px 18px;border-radius:20px;
  font-size:14px;box-shadow:0 6px 18px rgba(10,25,50,.3)}
@@ -1033,7 +1046,9 @@ def detail(r, lang="ky"):
     dlbl = "Описание" if lang == "ru" else "Сүрөттөмө"
     desc = (f'<div class="dcard"><div class="ft"><i>{dlbl}</i>'
             f'<b class="dtx">{esc(dtext)}</b></div></div>' if dtext else "")
-    tel = contact_block(r.get("contact"), lang)
+    tel = contact_block(
+        r.get("contact"), lang, bridge.show_title(r),
+        f"{core.SITE_URL}/e/{r['id']}" if core.SITE_URL else "")
 
     # Бөлүшүү: WhatsApp жана Telegram аркылуу шилтемени жиберүү
     share_url = f"{core.SITE_URL}/e/{r['id']}" if core.SITE_URL else ""
@@ -1047,6 +1062,9 @@ def detail(r, lang="ky"):
                  % (esc(share_url), esc(bridge.show_title(r)),
                     esc(_ok), esc(_al))
                  + _SHARE_ICON + '</button>')
+        _fv = "В избранное" if lang == "ru" else "Тандалганга кошуу"
+        shbtn += ('<button class="fav dfav" data-id="%s" aria-label="%s">'
+                  % (r["id"], esc(_fv)) + NAV_ICONS["fav"] + '</button>')
     share = ""
     if share_url:
         txt = urllib.parse.quote(f"{bridge.show_title(r)} — {share_url}")
