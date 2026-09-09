@@ -813,7 +813,7 @@ def contact_block(raw, lang="ky", title="", url=""):
     shown = "+996 %s %s %s" % (digits[:3], digits[3:6], digits[6:])
 
     # Даяр биринчи кабар — сатып алуучу эмне жазаарын ойлонбосун
-    wa_msg = ""
+    wa_msg = tg_msg = tg_ok = ""
     if title:
         greet = ("Здравствуйте! Ваше объявление «%s» на ТАП! ещё актуально?"
                  if lang == "ru" else
@@ -821,12 +821,18 @@ def contact_block(raw, lang="ky", title="", url=""):
         if url:
             greet += "\n" + url
         wa_msg = "?text=" + urllib.parse.quote(greet)
+        tg_msg = esc(greet)
+        tg_ok = esc("Текст скопирован — вставьте в чат" if lang == "ru"
+                    else "Текст көчүрүлдү — чатка коюңуз")
+    else:
+        tg_msg = tg_ok = ""
     return f"""<div class="cnum">{esc(shown)}</div>
 <div class="cbar">
 <a class="cb1 call" href="tel:+{intl}">{_PHONE}<span>{T("c_call", lang)}</span></a>
 <a class="cb1 wa" href="https://wa.me/{intl}{wa_msg}" target="_blank" rel="noopener">
 {_WA}<span>WhatsApp</span></a>
-<a class="cb1 tg" href="https://t.me/+{intl}" target="_blank" rel="noopener">
+<a class="cb1 tg" href="https://t.me/+{intl}" target="_blank" rel="noopener"
+ onclick="tapCopy(this)" data-m="{tg_msg}" data-ok="{tg_ok}">
 {_TG}<span>Telegram</span></a>
 </div>"""
 
@@ -864,6 +870,24 @@ _SHARE_BTN_CSS = """<style>
  background:#17365C;color:#fff;padding:10px 18px;border-radius:20px;
  font-size:14px;box-shadow:0 6px 18px rgba(10,25,50,.3)}
 </style><script>
+function tapCopy(a){
+  var m=a.dataset.m;
+  if(!m) return;
+  try{
+    if(navigator.clipboard){ navigator.clipboard.writeText(m); }
+    else{
+      var i=document.createElement("textarea");
+      i.value=m; document.body.appendChild(i); i.select();
+      document.execCommand("copy"); i.remove();
+    }
+  }catch(e){}
+  var n=document.createElement("div");
+  n.className="shok";
+  n.textContent=a.dataset.ok||"";
+  document.body.appendChild(n);
+  setTimeout(function(){ n.remove(); }, 2200);
+}
+
 function tapShare(b){
   var u=b.dataset.u, t=b.dataset.t||"";
   if(navigator.share){
