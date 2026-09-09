@@ -19,6 +19,7 @@ import core
 from core import MEDIA, SITE_URL, price_label
 import badwords
 import bridge
+import rules
 from strings import L as _pick
 from tap_flow import render, advance, START_STEP
 
@@ -353,8 +354,8 @@ MSG = {
 }
 
 # Бир жарыяга канча сүрөт. strings.py'дагы сандар менен бирдей.
-PHOTO_MIN = 0
-PHOTO_MAX = 10
+PHOTO_MIN = rules.PHOTO_MIN
+PHOTO_MAX = rules.PHOTO_MAX
 
 
 def ulang(u):
@@ -644,11 +645,11 @@ def notify_admins(lid, row, uid, name, warn=""):
 
 
 # Бир колдонуучу суткасына канча жарыя коё алат
-DAILY_LIMIT = int(os.environ.get("DAILY_LIMIT", "10"))
+DAILY_LIMIT = rules.DAILY_LIMIT
 
 # Бир жарыяга канча видео жана эң чоң көлөмү (МБ).
 # 20 МБ — Telegram'дын өз чеги: боттор андан чоң файлды жүктөй албайт.
-VIDEO_MAX_MB = int(os.environ.get("VIDEO_MAX_MB", "20"))
+VIDEO_MAX_MB = rules.VIDEO_MAX_MB
 
 
 # Боттун @аты — чакыруу шилтемесин куруу үчүн. main() ичинде
@@ -659,36 +660,10 @@ BOT_USERNAME = os.environ.get("BOT_USERNAME", "TapmeniBot")
 def show_balance(chat, uid, u):
     """«💰 Менин балансым» экраны: чек, бонус жана жарыялардын саны."""
     lang = ulang(u)
-    try:
-        me = core.get_user(uid)
-    except Exception:
-        me = {}
-    bonus = int(me.get("bonus_posts") or 0)
-    friends = int(me.get("ref_count") or 0)
-
-    try:
-        used = core.posted_today(uid)
-    except Exception:
-        used = 0
-    left = max(0, DAILY_LIMIT - used)
-
-    # Активдүү жана жакында бүтө турган жарыялар
-    active = soon = 0
-    try:
-        edge = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%Y-%m-%d")
-        for r in core.my_listings(uid, u.get("myphone")):
-            if not int(r.get("is_active") or 0):
-                continue
-            active += 1
-            exp = str(r.get("expires_at") or "")[:10]
-            if exp and exp <= edge:
-                soon += 1
-    except Exception as e:
-        print("  Баланс катасы:", e, flush=True)
-
+    b = rules.balance(uid, u.get("myphone"))
     send(chat, m("bal_head", lang) + "\n\n"
-         + m("bal_body", lang, used, DAILY_LIMIT, left,
-             bonus, friends, active, soon),
+         + m("bal_body", lang, b["used"], b["limit"], b["left"],
+             b["bonus"], b["friends"], b["active"], b["soon"]),
          home_kb(lang))
 
 
@@ -728,17 +703,16 @@ def save_ad(chat, uid, name, u):
 
     # Спамга каршы: суткасына чектелген сандан ашык жарыя коюлбайт.
     # Бирок дос чакырып бонус тапкан адам ошону жумшап улантат.
-    if str(uid) not in ADMIN_IDS and core.posted_today(uid) >= DAILY_LIMIT:
-        if core.use_bonus_post(uid):
-            left = int((core.get_user(uid) or {}).get("bonus_posts") or 0)
-            send(chat, m("bonus_used", lang, left))
-        else:
-            send(chat, m("limit_ref", lang, DAILY_LIMIT, m("ref_btn", lang)),
-                 {"inline_keyboard": [[{"text": m("ref_btn", lang),
-                                        "callback_data": "invite"}]]})
-            return
+    ok, bonus_used, bonus_left = rules.spend_post(uid)
+    if bonus_used:
+        send(chat, m("bonus_used", lang, bonus_left))
+    if not ok:
+        send(chat, m("limit_ref", lang, DAILY_LIMIT, m("ref_btn", lang)),
+             {"inline_keyboard": [[{"text": m("ref_btn", lang),
+                                    "callback_data": "invite"}]]})
+        return
 
-    level, hits = badwords.scan(
+    level, hits = rules.check_text(
         d.get("title"), d.get("postComment"),
         d.get("subcategory"), d.get("description"))
     if level in ("hard", "swear"):
