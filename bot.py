@@ -725,6 +725,11 @@ def save_ad(chat, uid, name, u):
     if not row["title"]:
         row["title"] = m("untitled", lang)
     lid = core.add_listing(row, uid, name)
+    # Номерди эстеп калабыз — WhatsApp кошулганда керек болот
+    try:
+        core.remember_phone(uid, row.get("contact"))
+    except Exception:
+        pass
 
     ids = d.get("photoFileIds") or (
         [d["photoFileId"]] if d.get("photoFileId") else [])

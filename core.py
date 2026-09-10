@@ -298,14 +298,19 @@ CREATE TABLE IF NOT EXISTS users (
 
 def _add_missing_user_columns():
     """users таблицасына жаңы тилкелерди кошот."""
-    try:
-        if IS_PG:
-            query("ALTER TABLE users ADD COLUMN IF NOT EXISTS "
-                  "ref_claimed INTEGER DEFAULT 0")
-        else:
-            query("ALTER TABLE users ADD COLUMN ref_claimed INTEGER DEFAULT 0")
-    except Exception:
-        pass   # тилке мурунтан бар
+    cols = (("ref_claimed", "INTEGER DEFAULT 0"),
+            # Байланыш номери — акыркы 9 сан. WhatsApp кошулганда
+            # ушул аркылуу бир эле адамдын эки аккаунту бириктирилет.
+            ("phone", "TEXT"))
+    for name, typ in cols:
+        try:
+            if IS_PG:
+                query("ALTER TABLE users ADD COLUMN IF NOT EXISTS %s %s"
+                      % (name, typ))
+            else:
+                query("ALTER TABLE users ADD COLUMN %s %s" % (name, typ))
+        except Exception:
+            pass   # тилке мурунтан бар
 
 
 def _migrate_malls():
@@ -692,6 +697,24 @@ def link_referral(tg_id, inviter_id):
     query("UPDATE users SET referred_by=? WHERE tg_id=?",
           (inviter_id, tg_id))
     return True
+
+
+def remember_phone(tg_id, phone):
+    """Колдонуучунун байланыш номерин эстеп калат (акыркы 9 сан).
+
+    Азырынча колдонулбайт — WhatsApp кошулганда Telegram менен
+    WhatsApp аккаунттарын бириктирүү үчүн керек болот.
+    """
+    d = _digits(phone)[-9:]
+    if len(d) != 9:
+        return False
+    try:
+        get_user(tg_id)
+        query("UPDATE users SET phone=? WHERE tg_id=?", (d, str(tg_id)))
+        return True
+    except Exception as e:
+        print("  Номерди сактоо катасы:", e, flush=True)
+        return False
 
 
 def claim_referral(tg_id):
