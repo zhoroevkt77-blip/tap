@@ -517,6 +517,58 @@ def _group(title, inner):
     return f'<div class="fbox"><div class="fhd">{esc(title)}</div>{inner}</div>'
 
 
+_TILES_CSS = """<style>
+.ctiles{display:flex;gap:10px;overflow-x:auto;padding:10px 14px 14px;
+ scrollbar-width:none;max-width:1040px;margin:0 auto}
+.ctiles::-webkit-scrollbar{display:none}
+.ct{flex:none;width:104px;text-decoration:none;color:inherit}
+.ct .cti{position:relative;width:104px;height:104px;border-radius:14px;
+ overflow:hidden;background:#E9EFF9;border:1px solid var(--mist)}
+.ct .cti img{width:100%;height:100%;object-fit:cover;display:block}
+.ct .ctn{position:absolute;left:6px;bottom:6px;background:rgba(21,39,65,.82);
+ color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px}
+.ct .ctl{margin-top:6px;font-size:12.5px;font-weight:600;line-height:1.25;
+ text-align:center}
+.ct.on .cti{border-color:var(--moss);box-shadow:0 0 0 2px var(--moss)}
+.ct .cte{display:flex;align-items:center;justify-content:center;
+ width:100%;height:100%;color:#8FA3C0;
+ background:linear-gradient(160deg,#F6F9FD,#E4ECF8)}
+.ct .cte svg{width:34px;height:34px}
+</style>"""
+
+
+def cat_tiles(at, cid, ob, lang):
+    """Бөлүмдүн категориялары — сүрөттүү такта.
+
+    Сүрөт кол менен коюлбайт: ар бир категориядагы эң жаңы жарыянын
+    биринчи сүрөтү алынат. Жарыясы же сүрөтү жок болсо, жалпы белги.
+    """
+    try:
+        counts = core.catid_counts(at, oblast=ob)
+    except Exception:
+        return ""
+    if len(counts) < 2:
+        return ""
+
+    out = ""
+    for c, n in sorted(counts.items(), key=lambda x: -x[1])[:14]:
+        pic = ""
+        try:
+            top = core.find(limit=1, ad_type=at, cat_id=c, oblast=ob)
+            if top and top[0].get("photo"):
+                pic = f'<img src="/media/{esc(top[0]["photo"])}" alt="" loading="lazy">'
+        except Exception:
+            pass
+        if not pic:
+            pic = f'<span class="cte">{NAV_ICONS["grid"]}</span>'
+        on = " on" if cid == c else ""
+        href = f"/?at={at}&cid={esc(c)}{_obq(ob)}"
+        out += (f'<a class="ct{on}" href="{href}">'
+                f'<div class="cti">{pic}<span class="ctn">{n}</span></div>'
+                f'<div class="ctl">{esc(cat_label(at, c, lang))}</div></a>')
+    return _TILES_CSS + f'<nav class="ctiles">{out}</nav>'
+
+
 def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
     """Бөлүм жана аймак чыпкалары — тандоо тизмелери менен."""
     ru = (lang == "ru")
@@ -733,7 +785,8 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
 
     rows = core.find(q, limit=60, ad_type=at, cat_id=cid, sub_id=sid,
                      oblast=ob, district=di, village=vi, sort=sort)
-    body = _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort)
+    body = ((cat_tiles(at, cid, ob, lang) if at and not q else "")
+            + _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort))
 
     if rows:
         if q:
