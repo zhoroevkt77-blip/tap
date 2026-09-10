@@ -298,7 +298,9 @@ NEW_COLUMNS = ["ad_type", "cat_id", "sub_id",
                "oblast", "district", "locality", "village", "photos", "video",
                # жарыянын мөөнөтү бүтө турган күн (ISO), жана
                # иргөө үчүн бааны сан түрүндө сактайбыз
-               "expires_at", "price_num"]
+               "expires_at", "price_num",
+               # мөөнөт бүтөрдөн мурун эскертүү жиберилдиби
+               "warned"]
 
 
 def _add_missing_columns():
@@ -675,6 +677,37 @@ def deactivate(lid, tg_id, phone=None):
     return True
 
 
+def days_left(expires_at):
+    """Мөөнөт бүтүүгө канча күн калды. Белгисиз болсо None."""
+    s = str(expires_at or "")[:10]
+    if len(s) != 10:
+        return None
+    try:
+        end = datetime.strptime(s, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+    return (end - datetime.now(timezone.utc)).days
+
+
+def expiring_soon(hours=30, limit=200):
+    """
+    Мөөнөтү жакында бүтө турган жарыялар (эскертүү жиберилбегендери).
+
+    Кайра-кайра эскертпөө үчүн ар бирине белги коюлат.
+    """
+    edge = (datetime.now(timezone.utc)
+            + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    rows = query(
+        "SELECT id, tg_id, title, expires_at FROM listings WHERE is_active=1"
+        " AND expires_at IS NOT NULL AND expires_at<>'' AND expires_at<?"
+        " AND expires_at>? AND (warned IS NULL OR warned='')"
+        " ORDER BY id LIMIT ?",
+        (edge, now_str(), limit), fetch="all") or []
+    for r in rows:
+        query("UPDATE listings SET warned='1' WHERE id=?", (r["id"],))
+    return rows
+
+
 def expire_old(limit=200):
     """
     Мөөнөтү бүткөн жарыяларды жашырат жана ээлеринин тизмесин кайтарат
@@ -693,6 +726,7 @@ def revive(lid, tg_id, days=15, phone=None):
     """Жарыяны кайра жандырат жана мөөнөтүн узартат."""
     if not owns(lid, tg_id, phone):
         return False
+    query("UPDATE listings SET warned='' WHERE id=?", (lid,))
     query("UPDATE listings SET is_active=1, expires_at=? WHERE id=?",
           (expiry_from(None, days=days), lid))
     return True

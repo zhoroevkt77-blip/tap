@@ -1248,6 +1248,20 @@ def expire_worker():
     кабар жөнөтөт. Бөлөк жипте, ботко тоскоол болбойт.
     """
     while True:
+        # Мөөнөт бүтөрдөн бир күн мурун эскертебиз
+        try:
+            for r in core.expiring_soon():
+                kb = {"inline_keyboard": [[
+                    {"text": "🔄 Узартуу / Продлить",
+                     "callback_data": f"revive:{r['id']}"}]]}
+                send(r["tg_id"],
+                     "⏳ <b>Жарыяңыздын мөөнөтү жакында бүтөт</b>\n\n"
+                     f"№{r['id']} — {esc(r['title'])}\n\n"
+                     "Керек болсо, бир баскыч менен узартсаңыз болот.",
+                     kb)
+        except Exception as e:
+            print("  Эскертүү катасы:", e, flush=True)
+
         try:
             for r in core.expire_old():
                 kb = {"inline_keyboard": [[
