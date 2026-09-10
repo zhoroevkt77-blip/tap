@@ -244,6 +244,12 @@ MSG = {
                    "Кыскараак тартып жиберип көрүңүз.",
                    "🎬 Видео слишком большое (%d МБ). Максимум %d МБ.\n"
                    "Попробуйте снять покороче."),
+    "site_note":  ("🌐 Жарыяңыз сайтта да чыкты. Шилтемени жөнөтсөңүз, "
+                   "досторуңуз эч нерсе орнотпой эле көрө алат.",
+                   "🌐 Объявление появилось и на сайте. Отправьте ссылку — "
+                   "друзья откроют её без установки приложений."),
+    "site_open":  ("🌐 Жарыяны сайттан көрүү", "🌐 Открыть на сайте"),
+    "site_share": ("📤 Досторго бөлүшүү",      "📤 Поделиться с друзьями"),
     "media_wait": ("🖼 Сүрөт/видео жүктөлүүдө — бир аздан кийин көрүнөт.",
                    "🖼 Фото/видео загружаются — появятся через несколько секунд."),
     "bad_hard":   ("🚫 Жарыя жарыяланган жок — тыюу салынган мазмун табылды (%s).\n"
@@ -738,12 +744,24 @@ def save_ad(chat, uid, name, u):
 
     # Жооп адегенде жиберилет. Сүрөт менен видеону Telegram'дан
     # жүктөп алуу ондогон секунд алат — колдонуучу күтүп отурбасын.
+    # Сайттын шилтемеси — текст эмес, баскыч болуп чыгат
+    site_kb = None
+    if link:
+        url = f"{SITE_URL}/e/{lid}"
+        share = ("https://t.me/share/url?url=" + urllib.parse.quote(url)
+                 + "&text=" + urllib.parse.quote(row["title"]))
+        site_kb = {"inline_keyboard": [
+            [{"text": m("site_open", lang), "url": url}],
+            [{"text": m("site_share", lang), "url": share}],
+        ]}
+
     send(chat, m("posted", lang, lid) + "\n\n"
                f"📦 {esc(row['title'])}\n"
                f"💰 {esc(price_label(row.get('price')))}\n"
-               f"📍 {esc(row.get('region') or '—')}{link}"
+               f"📍 {esc(row.get('region') or '—')}"
+               + ("\n\n" + m("site_note", lang) if link else "")
                + ("\n\n" + m("media_wait", lang) if (ids or vfid) else ""),
-         home_kb(lang))
+         site_kb or home_kb(lang))
     reset(u)
 
     # Чакыруу бонусу: жаңы колдонуучунун биринчи жарыясы
