@@ -528,7 +528,8 @@ _TILES_CSS = """<style>
 .ct .ctn{position:absolute;left:6px;bottom:6px;background:rgba(21,39,65,.82);
  color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px}
 .ct .ctl{margin-top:6px;font-size:12.5px;font-weight:600;line-height:1.25;
- text-align:center}
+ text-align:center;display:-webkit-box;-webkit-line-clamp:2;
+ -webkit-box-orient:vertical;overflow:hidden;min-height:2.5em}
 .ct.on .cti{border-color:var(--moss);box-shadow:0 0 0 2px var(--moss)}
 .ct .cte{display:flex;align-items:center;justify-content:center;
  width:100%;height:100%;color:#8FA3C0;
