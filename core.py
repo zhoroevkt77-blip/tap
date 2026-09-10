@@ -555,7 +555,10 @@ def _filters(q=None, cat=None, region=None, sub=None,
     if oblast:
         sql += " AND oblast=?"; p.append(oblast)
     if district:
-        sql += " AND district=?"; p.append(district)
+        # Бир жарыяда бир нече район болушу мүмкүн («А району, Б району»).
+        # Ошондуктан үтүр менен курчап салыштырабыз.
+        sql += " AND (', ' || district || ', ') LIKE ?"
+        p.append("%, " + district + ", %")
     if village:
         sql += " AND " + VILLAGE_EXPR + "=?"; p.append(village)
     if pmin is not None:
@@ -988,11 +991,21 @@ def used_oblasts():
 
 
 def used_districts(oblast):
-    """Тандалган облуста жарыясы бар райондор."""
+    """Тандалган облуста жарыясы бар райондор.
+
+    Бир жарыяда бир нече район болсо («А району, Б району»), ар бири
+    өз-өзүнчө эсептелет.
+    """
     rows = query("SELECT district, COUNT(*) AS n FROM listings WHERE is_active=1 "
                  "AND oblast=? AND district IS NOT NULL AND district<>'' "
                  "GROUP BY district ORDER BY n DESC", (oblast,), fetch="all")
-    return [r["district"] for r in rows]
+    seen = {}
+    for r in rows:
+        for name in str(r["district"]).split(","):
+            name = name.strip()
+            if name:
+                seen[name] = seen.get(name, 0) + int(r["n"] or 0)
+    return [k for k, _ in sorted(seen.items(), key=lambda x: -x[1])]
 
 
 def used_regions():

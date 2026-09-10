@@ -287,6 +287,9 @@ CHAIN_VEHICLES = [
      "Мис: Мотор/коробка идеалдуу, документтери таза, климат-контроль, камера / Например: Мотор и коробка идеальные, документы чистые, климат, камера"),
 ]
 
+# Кошуна райондорду бирден ашык тандай ала турган бөлүмдөр
+MULTI_DISTRICT_TYPES = ("service", "delivery", "cargo")
+
 REALESTATE_BARGAIN = _opts([
     ("💬 Соодасы бар / Торг есть", "Соодасы бар"),
     ("🔒 Катуу баа / Цена твёрдая", "Катуу баа"),
@@ -599,7 +602,9 @@ def render(step, data=None):
 
     if step == "district_select":
         ob = d.get("oblast", "")
-        multi = _is_city(ob)
+        # Уста, жеткирүү жана жүк ташуу кошуна райондорду тейлейт —
+        # аларга бир нече район тандоого уруксат.
+        multi = _is_city(ob) or at in MULTI_DISTRICT_TYPES
         text = ("Бир же бир нече районду тандаңыз / Выберите один или несколько районов:"
                 if multi else "%s — район же шаарды тандаңыз / Выберите район или город:" % ob)
         return _view(text,
@@ -1199,10 +1204,10 @@ def advance(step, value, data=None):
 
     if step == "district_select":
         d["district"] = value
+        if "," in value:            # бир нече район тандалды
+            d["locality"] = None
+            return _after_region(d), d
         if _is_city(d.get("oblast")):
-            if "," in value:
-                d["locality"] = None
-                return _after_region(d), d
             return "city_district_scope_select", d
         return "oblast_district_scope_select", d
 
