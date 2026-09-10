@@ -1910,7 +1910,6 @@ class H(BaseHTTPRequestHandler):
             name = os.path.basename(urllib.parse.unquote(u.path[7:]))
             fp = os.path.join(MEDIA, name)
             if name and os.path.isfile(fp):
-                data = open(fp, "rb").read()
                 # Видео менен сүрөт бир папкада жатат, ошондуктан
                 # түрүн кеңейтмеси боюнча аныктайбыз
                 low = name.lower()
@@ -1918,10 +1917,41 @@ class H(BaseHTTPRequestHandler):
                          else "video/quicktime" if low.endswith(".mov")
                          else "image/png" if low.endswith(".png")
                          else "image/jpeg")
-                self.send_response(200)
+                size = os.path.getsize(fp)
+
+                # Браузер видеону бөлүп сурайт (Range). Ансыз 20 МБ
+                # файл толук жүктөлмөйүнчө ойнобойт.
+                start, end, partial = 0, size - 1, False
+                rng = self.headers.get("Range") or ""
+                if rng.startswith("bytes="):
+                    try:
+                        a, _, b = rng[6:].partition("-")
+                        if a:
+                            start = int(a)
+                            if b:
+                                end = int(b)
+                        elif b:
+                            start = max(0, size - int(b))
+                        if 0 <= start <= end < size:
+                            partial = True
+                    except Exception:
+                        partial = False
+                if not partial:
+                    start, end = 0, size - 1
+                else:
+                    end = min(end, start + 1024 * 1024 - 1)   # 1 МБлык бөлүк
+
+                with open(fp, "rb") as f:
+                    f.seek(start)
+                    data = f.read(end - start + 1)
+
+                self.send_response(206 if partial else 200)
                 self.send_header("Content-Type", ctype)
                 self.send_header("Accept-Ranges", "bytes")
                 self.send_header("Content-Length", str(len(data)))
+                if partial:
+                    self.send_header("Content-Range",
+                                     "bytes %d-%d/%d" % (start, end, size))
                 self.send_header("Cache-Control", "max-age=86400")
                 self.end_headers()
                 self.wfile.write(data)
