@@ -151,6 +151,10 @@ FAV_JS = ("""<script>
      });
    });
  };
+ window.tapGo=function(e,b){
+   e.preventDefault(); e.stopPropagation();
+   window.open(b.dataset.u,"_blank","noopener");
+ };
  window.tapBindFavs();
 })();
 </script>""")
@@ -467,6 +471,40 @@ def _reg_lines(r, lang="ky"):
     return out
 
 
+_CWA = ('<svg viewBox="0 0 24 24" fill="currentColor">'
+        '<path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.5 '
+        '14c-.2.6-1.2 1.2-1.7 1.2-.4 0-1 .1-3-.8-2.5-1-4.1-3.6-4.2-3.8-.1-.2-1-1.3-1-2.5s.6-1.8.9-2c.2-.3.5-.3.6-.3'
+        'h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.3.5-.3.3c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5'
+        '.3.1.4.1.6-.1l.9-1c.2-.2.4-.2.6-.1l2 .9c.2.1.4.2.4.3.1.2.1.7-.1 1.2Z"/></svg>')
+
+_CTG = ('<svg viewBox="0 0 24 24" fill="currentColor">'
+        '<path d="M21.7 3.3 2.9 10.6c-.9.4-.9 1.1 0 1.4l4.8 1.5 1.8 5.5c.2.6.4.8.9.8'
+        '.4 0 .6-.2.9-.5l2.3-2.2 4.7 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.2-.5-1.8-1.4-1.4Z'
+        'm-3.8 3.5-8.2 7.3-.3 3.4-1.5-4.6 10-6.1Z"/></svg>')
+
+
+def _intl(raw):
+    """Байланыш номерин 996XXXXXXXXX түрүнө келтирет. Болбосо бош."""
+    d = "".join(c for c in str(raw or "") if c.isdigit())
+    if d.startswith("996"):
+        d = d[3:]
+    if len(d) == 10 and d.startswith("0"):
+        d = d[1:]
+    return ("996" + d) if len(d) == 9 else ""
+
+
+def _cta(r):
+    """Карточкадагы WhatsApp жана Telegram баскычтары."""
+    intl = _intl(r.get("contact"))
+    if not intl:
+        return ""
+    return ('<button class="cta wa" onclick="tapGo(event,this)"'
+            ' data-u="https://wa.me/%s" aria-label="WhatsApp">%s</button>'
+            '<button class="cta tg" onclick="tapGo(event,this)"'
+            ' data-u="https://t.me/+%s" aria-label="Telegram">%s</button>'
+            % (intl, _CWA, intl, _CTG))
+
+
 def card(r, lang="ky"):
     has = bool(r.get("photo"))
     img = (f'<img src="/media/{esc(r["photo"])}" alt="" loading="lazy">'
@@ -478,7 +516,7 @@ def card(r, lang="ky"):
 {_reg_lines(r, lang)}
 <h2 class="t">{esc(L(bridge.show_title(r), lang))}</h2>
 <div class="m"><span>{esc(ago(r['created_at'], lang))}</span>{'<span class="vmark">🎬</span>' if core.video_of(r) else ''}
-<span class="vw">{_EYE}{r['views']}</span></div>
+<span class="vw">{_EYE}{r['views']}</span>{_cta(r)}</div>
 </div></a>"""
 
 

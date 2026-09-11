@@ -462,6 +462,15 @@ main.wrap{animation:pageIn .26s ease-out both}
 .fav.on{color:var(--heart)}
 .fav svg{fill:none}
 .fav.on svg{fill:var(--heart);transform:scale(1.12)}
+/* Карточкадагы байланыш баскычтары — көздүн жанында */
+.cta{width:26px;height:26px;border:0;border-radius:50%;padding:0;
+ display:inline-flex;align-items:center;justify-content:center;
+ cursor:pointer;margin-left:6px;vertical-align:middle;transition:.15s}
+.cta svg{width:15px;height:15px}
+.cta.wa{background:#E4F6EA;color:#1FA855}
+.cta.tg{background:#E2F1FC;color:#2C9CDB}
+.cta:active{transform:scale(.9)}
+.m{align-items:center}
 .fav:active{transform:scale(.88)}
 .cb{padding:11px 12px 13px;display:flex;flex-direction:column;flex:1}
 .p{font-family:"Manrope",system-ui,sans-serif;font-size:18px;font-weight:800;
