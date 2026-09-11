@@ -129,7 +129,7 @@ def nav(active="home", lang="ky"):
 
 CSS = """
 :root{
- --ink:#152741; --soft:#5A6982; --faint:#8B97AC;
+ --ink:#152741; --soft:#33425A; --faint:#4E5B72;
  --moss:#17365C; --leaf:#17365C; --wheat:#C9A03A;
  --paper:#F1F4F9; --card:#F7FBFF; --mist:#E1E7F1;
  --gold:#C9A03A; --gold2:#E3C368; --cream:#FBF5E6;
@@ -160,12 +160,12 @@ main.wrap{animation:pageIn .26s ease-out both}
  border:1px solid rgba(255,255,255,.14);padding:6px 12px;border-radius:15px;
  display:flex;align-items:center;gap:5px;max-width:44%;min-width:0;
  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pin b{font-weight:400;opacity:.85;font-size:12px}
+.pin b{font-weight:400;opacity:1;font-size:12px}
 /* Тил алмаштыруу — оң четте, кичине, бирок басууга ыңгайлуу */
 .lgs{margin-left:auto;display:flex;background:rgba(255,255,255,.14);
  border:1px solid rgba(255,255,255,.16);border-radius:13px;padding:2px;flex:none}
 .lg{padding:4px 9px;font-size:11.5px;font-weight:600;border-radius:11px;
- color:rgba(255,255,255,.78);letter-spacing:.3px;line-height:1.3}
+ color:rgba(255,255,255,.96);letter-spacing:.3px;line-height:1.3}
 .lg.on{background:#fff;color:var(--moss)}
 .lang{margin-left:auto;flex:none;font-size:12px;font-weight:700;letter-spacing:.4px;
  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.2);
@@ -423,13 +423,13 @@ main.wrap{animation:pageIn .26s ease-out both}
 .sb2{flex:none;background:#EEF3FB;border:1px solid #D6E2F3;border-radius:16px;
  padding:7px 14px;font-size:12.5px;font-weight:500;color:#14304F;white-space:nowrap}
 .sb2.on{background:var(--leaf);color:#fff;border-color:var(--leaf);font-weight:600}
-.sb2 em{font-style:normal;opacity:.62;font-size:11px;margin-left:2px}
+.sb2 em{font-style:normal;opacity:.9;font-size:11px;margin-left:2px}
 /* Аймак баскычындагы сан — курсив эмес, кадимки тамга */
 .rg{transition:transform .16s, background .16s, border-color .16s}
 .rg:active{transform:scale(.94)}
 .sb2{transition:transform .16s, background .16s, border-color .16s}
 .sb2:active{transform:scale(.94)}
-.rg em{font-style:normal;opacity:.7;font-size:13px;margin-left:4px;
+.rg em{font-style:normal;opacity:.9;font-size:13px;margin-left:4px;
  font-weight:700;font-variant-numeric:tabular-nums}
 
 /* ---- Жыйынтык ---- */
@@ -475,9 +475,9 @@ main.wrap{animation:pageIn .26s ease-out both}
  letter-spacing:-.4px;margin-bottom:5px;font-variant-numeric:tabular-nums}
 .pd{font-family:"Golos Text",system-ui,sans-serif;font-size:15.5px;font-weight:700;
  color:var(--leaf);letter-spacing:0}
-.rg{font-size:12px;font-weight:600;color:var(--moss);opacity:.82;line-height:1.35;
+.rg{font-size:12px;font-weight:600;color:var(--moss);opacity:1;line-height:1.35;
  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rg2{opacity:.62;font-weight:500}
+.rg2{opacity:.9;/*CLEAR1*/font-weight:500}
 .rg+.t,.rg2+.t{margin-top:6px}
 .t{font-size:13.5px;line-height:1.38;margin:0 0 10px;font-weight:400;color:var(--soft);
  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
