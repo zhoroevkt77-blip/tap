@@ -541,6 +541,16 @@ def _sago(ts, lang="ky"):
     return t
 
 
+def _subline(r, lang="ky"):
+    """Карточка: аталыштын астындагы подкатегория. #SUBL"""
+    s = sub_title(r.get("category"), r.get("subcat")) or ""
+    s = L(s, lang) if s else ""
+    t = str(L(bridge.show_title(r), lang) or "")
+    if not s or s.strip().lower() == t.strip().lower():
+        return ""
+    return f'<div class="sbt">{esc(s)}</div>'
+
+
 def card(r, lang="ky"):
     has = bool(r.get("photo"))
     img = (f'<img src="/media/{esc(r["photo"])}" alt="" loading="lazy">'
@@ -549,8 +559,9 @@ def card(r, lang="ky"):
     return f"""<a class="c{'' if has else ' nophoto'}" href="/e/{r['id']}">
 <div class="ph">{img}<button class="fav" data-id="{r['id']}" aria-label="Тандалганга кошуу">{NAV_ICONS['fav']}</button></div>
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
-{_reg_lines(r, lang)}
 <h2 class="t">{esc(L(bridge.show_title(r), lang))}</h2>
+{_subline(r, lang)}
+{_reg_lines(r, lang)}
 <div class="m"><span>{esc(_sago(r['created_at'], lang))}</span>{'<span class="vmark">🎬</span>' if core.video_of(r) else ''}
 <span class="vw">{_EYE}{r['views']}</span>{_cta(r)}</div>
 </div></a>"""
