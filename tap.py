@@ -562,6 +562,27 @@ def _subline(r, lang="ky"):
     return f'<div class="sbt">{esc(" · ".join(parts))}</div>'
 
 
+_PIN = ('<svg viewBox="0 0 24 24" width="13" height="13" fill="none" '
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+        'stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0'
+        'c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>')
+
+
+def _reg_line1(r, lang="ky"):
+    """Карточка: аймак бир сапта. #HC1"""
+    parts = []
+    for k in ("oblast", "district", "locality", "village"):
+        x = str(r.get(k) or "").strip()
+        x = _short_place(_place_name(x, lang)) if x else ""
+        if x and x not in parts:
+            parts.append(x)
+    if not parts and r.get("region"):
+        parts = [_short_place(_place_name(str(r.get("region")), lang))]
+    if not parts:
+        return ""
+    return f'<div class="rgl">{_PIN}<span>{esc(" · ".join(parts))}</span></div>'
+
+
 def card(r, lang="ky"):
     has = bool(r.get("photo"))
     img = (f'<img src="/media/{esc(r["photo"])}" alt="" loading="lazy">'
@@ -572,7 +593,7 @@ def card(r, lang="ky"):
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
 <h2 class="t">{esc(L(bridge.show_title(r), lang))}</h2>
 {_subline(r, lang)}
-{_reg_lines(r, lang)}
+{_reg_line1(r, lang)}
 <div class="m"><span>{esc(_sago(r['created_at'], lang))}</span>{'<span class="vmark">🎬</span>' if core.video_of(r) else ''}
 <span class="vw">{_EYE}{r['views']}</span>{_cta(r)}</div>
 </div></a>"""
