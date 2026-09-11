@@ -157,9 +157,9 @@ main.wrap{animation:pageIn .26s ease-out both}
 .logo{display:flex;align-items:center;font-family:"Manrope",system-ui,sans-serif;
  font-weight:800;font-size:23px;letter-spacing:-.8px;flex:none}
 .pin{font-size:13px;font-weight:500;background:rgba(255,255,255,.15);
- border:1px solid rgba(255,255,255,.14);padding:6px 12px;border-radius:15px;
+ border:1.5px solid #9AA8BF;padding:6px 12px;border-radius:15px;
  display:flex;align-items:center;gap:5px;max-width:44%;min-width:0;
- overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap/*PINB*/}
 .pin b{font-weight:600;opacity:1;font-size:12px}
 /* Тил алмаштыруу — оң четте, кичине, бирок басууга ыңгайлуу */
 .lgs{margin-left:auto;display:flex;background:rgba(255,255,255,.14);
