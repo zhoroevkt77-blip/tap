@@ -497,16 +497,38 @@ def _intl(raw):
     return ("996" + d) if len(d) == 9 else ""
 
 
+def _src(r):
+    """Жарыянын булагы: tg / wa / "" (белгисиз)."""
+    u = str(r.get("tg_id") or "").strip().lower()
+    if not u:
+        return ""
+    if "@" in u or u.startswith("wa"):
+        return "wa"
+    d = u.lstrip("-")
+    if d.isdigit():
+        if len(d) == 12 and d.startswith("996"):
+            return "wa"
+        return "tg"
+    return ""
+
+
 def _cta(r):
-    """Карточкадагы WhatsApp жана Telegram баскычтары."""
+    """Карточкадагы баскыч: жарыя кайдан коюлса ошол. #SRC_CTA"""
     intl = _intl(r.get("contact"))
     if not intl:
         return ""
-    return ('<button class="cta wa" onclick="tapGo(event,this)"'
-            ' data-u="https://wa.me/%s" aria-label="WhatsApp">%s</button>'
-            '<button class="cta tg" onclick="tapGo(event,this)"'
-            ' data-u="https://t.me/+%s" aria-label="Telegram">%s</button>'
-            % (intl, _CWA, intl, _CTG))
+    wa = ('<button class="cta wa" onclick="tapGo(event,this)"'
+          ' data-u="https://wa.me/%s" aria-label="WhatsApp">%s</button>'
+          % (intl, _CWA))
+    tg = ('<button class="cta tg" onclick="tapGo(event,this)"'
+          ' data-u="https://t.me/+%s" aria-label="Telegram">%s</button>'
+          % (intl, _CTG))
+    src = _src(r)
+    if src == "tg":
+        return tg
+    if src == "wa":
+        return wa
+    return wa + tg
 
 
 def card(r, lang="ky"):
