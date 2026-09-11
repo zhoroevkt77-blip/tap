@@ -956,6 +956,14 @@ def handle_message(msg, st):
 
     # Сайттагы ылдыйкы баскычтар ботко «/start post» же «/start my» деп
     # келет — ошолорду түз керектүү кадамга алып барабыз.
+    if text == "/admin":  #ADM1
+        if str(chat) in ADMIN_IDS:
+            import admin
+            tk = admin.make_token(str(chat))
+            send(chat, ("🔐 Админ панель (10 мүнөт иштейт):\n%s/admin/login?t=%s"
+                        % (SITE_URL, tk)) if tk else "ADMIN_SECRET жок.")
+        return
+    
     if text in ("/lang", "/til", "/язык"):
         reset(u, full=True)
         ask(chat, u)

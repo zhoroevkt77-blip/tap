@@ -1902,6 +1902,11 @@ class H(BaseHTTPRequestHandler):
 
         lang = _lang(self)
 
+        if u.path == "/admin" or u.path.startswith("/admin/"):  #ADM1
+            import admin
+            admin.handle(self, u)
+            return
+        
         if u.path.startswith("/lang/"):
             new = u.path[6:]
             if new not in ("ky", "ru"):
