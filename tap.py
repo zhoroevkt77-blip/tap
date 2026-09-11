@@ -1531,7 +1531,7 @@ _ME_CSS = """<style>
 .mrow2.off{opacity:.45}
 .mrow2.accent{color:var(--moss);font-weight:700}
 .mrow2.accent svg{color:var(--moss)}
-.meabout{margin:6px 4px 0;font-size:13px;line-height:1.5;color:var(--soft)}
+.meabout{margin:6px 4px 0;font-size:13px;line-height:1.5;color:#2E3B52}
 </style>"""
 
 _HELP_CSS = """<style>
