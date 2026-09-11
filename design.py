@@ -615,7 +615,7 @@ main.wrap{animation:pageIn .26s ease-out both}
  border-top:1px solid #0E2340;
  display:flex;padding:8px 0 max(8px,env(safe-area-inset-bottom));z-index:30}
 .nav a{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
- font-size:10.5px;font-weight:500;color:#B8C7DD}
+ font-size:10.5px;font-weight:500;color:#EEF3FA}
 .nav a svg{width:22px;height:22px}
 .nav a:nth-child(1) svg{color:#7FB2F0}
 .nav a:nth-child(2) svg{color:#F07A72}
