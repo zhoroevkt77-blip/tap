@@ -531,6 +531,15 @@ def _cta(r):
     return wa + tg
 
 
+def _sago(ts, lang="ky"):
+    """Карточка үчүн кыска убакыт: «мурун/назад» жок. #SAGO"""
+    t = ago(ts, lang)
+    for w in (" мурун", " назад"):
+        if t.endswith(w):
+            return t[:-len(w)]
+    return t
+
+
 def card(r, lang="ky"):
     has = bool(r.get("photo"))
     img = (f'<img src="/media/{esc(r["photo"])}" alt="" loading="lazy">'
@@ -541,7 +550,7 @@ def card(r, lang="ky"):
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
 {_reg_lines(r, lang)}
 <h2 class="t">{esc(L(bridge.show_title(r), lang))}</h2>
-<div class="m"><span>{esc(ago(r['created_at'], lang))}</span>{'<span class="vmark">🎬</span>' if core.video_of(r) else ''}
+<div class="m"><span>{esc(_sago(r['created_at'], lang))}</span>{'<span class="vmark">🎬</span>' if core.video_of(r) else ''}
 <span class="vw">{_EYE}{r['views']}</span>{_cta(r)}</div>
 </div></a>"""
 
