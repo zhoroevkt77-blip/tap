@@ -517,7 +517,7 @@ main.wrap{animation:pageIn .26s ease-out both}
 .dph img{width:100%;height:auto;max-height:min(52vh,430px);
  object-fit:contain;display:block}
 .dcard{background:var(--card);border:1px solid var(--mist);border-radius:var(--r);
- padding:16px;margin-bottom:11px}
+ padding:16px;margin-bottom:11px}.dcard{border:1.5px solid #9AA8BF}/*DCB*/
 .eb{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;
  color:#14304F;background:#EEF3FB;border-radius:13px;padding:5px 11px;margin-bottom:11px}
 .eb svg{width:15px;height:15px}
