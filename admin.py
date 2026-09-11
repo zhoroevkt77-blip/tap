@@ -1,5 +1,6 @@
-"""ТАП! админ панели: кирүү, статистика, жарыялар."""
+"""ТАП! админ панели: кирүү, статистика, жарыялар, модерация."""
 import os
+import re
 import time
 import hmac
 import hashlib
@@ -19,7 +20,33 @@ SEC_KY = {
     "shop": "Курулуш жана азык-түлүк",
     "realty": "Кыймылсыз мүлк",
 }
+FLG = "flagged IS NOT NULL AND flagged<>''"
 E = html.escape
+_READY = [False]
+
+
+def _cols():
+    if _READY[0]:
+        return
+    try:
+        if getattr(core, "IS_PG", False):
+            core.query("ALTER TABLE listings ADD COLUMN IF NOT EXISTS flagged TEXT")
+        else:
+            try:
+                core.query("ALTER TABLE listings ADD COLUMN flagged TEXT")
+            except Exception:
+                pass
+        _READY[0] = True
+    except Exception as e:
+        print("admin cols:", e, flush=True)
+
+
+def flag(lid, why=""):
+    """Бот чакырат: шектүү сөз табылган жарыяны белгилейт."""
+    _cols()
+    why = re.sub(r"<[^>]+>", "", str(why or "")).replace("⚠️", "")
+    why = re.sub(r"\s+", " ", why).strip()[:200] or "1"
+    core.query("UPDATE listings SET flagged=? WHERE id=?", (why, lid))
 
 
 def _ids():
@@ -159,6 +186,8 @@ CSS = (
     ".ad{background:#fff;border:1.5px solid #9AA8BF;border-radius:14px;padding:12px;margin-bottom:10px}"
     ".ah{font-size:15px;font-weight:600;margin-bottom:4px}"
     ".am{font-size:13px;color:#33425A;margin-top:3px}"
+    ".fw{font-size:13px;color:#854F0B;background:#FAEEDA;border-radius:8px;"
+    "padding:6px 8px;margin-top:6px}"
     ".b{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;margin-left:4px}"
     ".b.ac{background:#E6F4EC;color:#1F5E3C}.b.ex{background:#F1F4F9;color:#5A6982}"
     ".b.w{background:#FAEEDA;color:#854F0B}"
@@ -166,6 +195,7 @@ CSS = (
     ".ab a{flex:1;text-align:center;padding:8px 6px;border-radius:10px;font-size:14px;"
     "text-decoration:none;border:1.5px solid #9AA8BF;color:#17365C}"
     ".ab a.del{border-color:#E24B4A;color:#A32D2D}"
+    ".ab a.okb{border-color:#1F7A4D;color:#1F5E3C}"
     ".pg{display:flex;justify-content:space-between;margin:12px 0}"
     ".pg a{color:#17365C;font-weight:600;text-decoration:none}"
 )
@@ -174,9 +204,10 @@ CSS = (
 def _page(title, body, tab="", msg=""):
     tabs = ""
     for href, key, name in (("/admin", "st", "Статистика"),
-                            ("/admin/ads", "ads", "Жарыялар")):
+                            ("/admin/ads", "ads", "Жарыялар"),
+                            ("/admin/mod", "mod", "Модерация")):
         tabs += "<a href='%s'%s>%s</a>" % (href, " class='on'" if tab == key else "", name)
-    tabs += "<span>Модерация</span><span>Колдонуучулар</span>"
+    tabs += "<span>Колдонуучулар</span>"
     flash = "<p class='ok'>" + E(msg) + "</p>" if msg else ""
     return ("<!doctype html><html lang='ky'><head><meta charset='utf-8'>"
             "<meta name='viewport' content='width=device-width,initial-scale=1'>"
@@ -195,7 +226,7 @@ def _stats():
         ("Активдүү", _n("SELECT COUNT(*) AS n FROM listings WHERE expires_at>?", (now,))),
         ("Бүгүн коюлду", _n("SELECT COUNT(*) AS n FROM listings WHERE created_at LIKE ?", (day,))),
         ("Мөөнөтү бүткөн", _n("SELECT COUNT(*) AS n FROM listings WHERE expires_at<=?", (now,))),
-        ("⚠️ Шектүү", _n("SELECT COUNT(*) AS n FROM listings WHERE warned='1'")),
+        ("⚠️ Шектүү", _n("SELECT COUNT(*) AS n FROM listings WHERE " + FLG)),
         ("Жалпы көрүү", _n("SELECT COALESCE(SUM(views),0) AS n FROM listings")),
         ("Колдонуучулар", _n("SELECT COUNT(*) AS n FROM users")),
         ("Бүгүн кошулду", _n("SELECT COUNT(*) AS n FROM users WHERE created_at LIKE ?", (day,))),
@@ -235,7 +266,8 @@ def _extend(lid, days=7):
     now = _parse(core.now_str()) or datetime.now()
     cur = _parse(_g(r, "expires_at", 0)) or now
     new = max(cur, now) + timedelta(days=days)
-    core.query("UPDATE listings SET expires_at=? WHERE id=?", (_fmt(new), lid))
+    core.query("UPDATE listings SET expires_at=?, is_active=1, warned='' WHERE id=?",
+               (_fmt(new), lid))
     return True
 
 
@@ -253,10 +285,50 @@ def _do(h, uid, q):
         msg = "№%d өчүрүлдү" % lid
     elif a == "ext":
         msg = ("№%d: +7 күн узартылды" % lid) if _extend(lid) else "Жарыя табылган жок"
+    elif a == "ok":
+        core.query("UPDATE listings SET flagged='' WHERE id=?", (lid,))
+        msg = "№%d калтырылды" % lid
     else:
         msg = "Белгисиз аракет"
     sep = "&" if "?" in back else "?"
     h._go(back + sep + "m=" + quote(msg), None)
+
+
+def _card(r, k, back, now, mod=False):
+    import bridge
+    lid = r.get("id")
+    title = bridge.show_title(r) or "-"
+    cat = str(bridge.cat_label(r.get("cat_id")) or _sec_name(r.get("category")))
+    cat = cat.split(" / ")[0]
+    exp = str(r.get("expires_at") or "")
+    live = exp > now and str(r.get("is_active")) != "0"
+    st = ("<span class='b ac'>Активдүү</span>" if live
+          else "<span class='b ex'>Бүткөн</span>")
+    fl = str(r.get("flagged") or "")
+    wn = "<span class='b w'>⚠️</span>" if fl else ""
+    why = ""
+    if fl and mod:
+        why = "<div class='fw'>⚠️ " + E(fl if fl != "1" else "Шектүү сөз") + "</div>"
+
+    def act(a):
+        return E("/admin/do?" + urlencode({"a": a, "id": lid, "k": k, "back": back}))
+    btn = "<a href='/e/" + str(lid) + "' target='_blank'>Карап көрүү</a>"
+    if mod:
+        btn += "<a class='okb' href='" + act("ok") + "'>✅ Калтыр</a>"
+    else:
+        btn += "<a href='" + act("ext") + "'>+7 күн</a>"
+    btn += ("<a class='del' href='" + act("del") + "' onclick=\"return confirm('№" +
+            str(lid) + " өчүрүлсүнбү?')\">Өчүрүү</a>")
+    return (
+        "<div class='ad'><div class='ah'>№" + str(lid) + " · " + E(str(title)) +
+        st + wn + "</div>"
+        "<div class='am'>" + E(str(r.get("price") or "-")) + " · " + E(cat) +
+        " · 👁 " + str(r.get("views") or 0) + "</div>"
+        "<div class='am'>Коюлду: " + E(str(r.get("created_at") or "")[:16]) +
+        " · Бүтөт: " + E(exp[:10]) + "</div>"
+        "<div class='am'>👤 " + E(str(r.get("tg_name") or "-")) + " · 📞 " +
+        E(str(r.get("contact") or "-")) + "</div>" + why +
+        "<div class='ab'>" + btn + "</div></div>")
 
 
 def _ads(uid, q):
@@ -273,7 +345,7 @@ def _ads(uid, q):
         where.append("expires_at<=?")
         par.append(now)
     elif f == "warn":
-        where.append("warned='1'")
+        where.append(FLG)
     if s:
         if s.isdigit():
             where.append("(id=? OR contact LIKE ?)")
@@ -304,42 +376,24 @@ def _ads(uid, q):
         body += "<a href='%s'%s>%s</a>" % (E(link(f=key, p=1)),
                                            " class='on'" if f == key else "", name)
     body += "</div><p class='cnt'>Табылды: " + str(total) + "</p>"
-    import bridge
-    for r in rows:
-        lid = r.get("id")
-        title = bridge.show_title(r) or "-"
-        cat = str(bridge.cat_label(r.get("cat_id")) or _sec_name(r.get("category")))
-        cat = cat.split(" / ")[0]
-        exp = str(r.get("expires_at") or "")
-        st = ("<span class='b ac'>Активдүү</span>" if exp > now
-              else "<span class='b ex'>Бүткөн</span>")
-        wn = "<span class='b w'>⚠️</span>" if str(r.get("warned") or "") == "1" else ""
-
-        def act(a):
-            return E("/admin/do?" + urlencode({"a": a, "id": lid, "k": k, "back": back}))
-        body += (
-            "<div class='ad'><div class='ah'>№" + str(lid) + " · " + E(str(title)) +
-            st + wn + "</div>"
-            "<div class='am'>" + E(str(r.get("price") or "-")) + " · " + E(cat) +
-            " · 👁 " + str(r.get("views") or 0) + "</div>"
-            "<div class='am'>Коюлду: " + E(str(r.get("created_at") or "")[:16]) +
-            " · Бүтөт: " + E(exp[:10]) + "</div>"
-            "<div class='am'>👤 " + E(str(r.get("tg_name") or "-")) + " · 📞 " +
-            E(str(r.get("contact") or "-")) + "</div>"
-            "<div class='ab'><a href='/e/" + str(lid) + "' target='_blank'>Карап көрүү</a>"
-            "<a href='" + act("ext") + "'>+7 күн</a>"
-            "<a class='del' href='" + act("del") + "' onclick=\"return confirm('№" +
-            str(lid) + " өчүрүлсүнбү?')\">Өчүрүү</a></div></div>")
+    body += "".join(_card(r, k, back, now) for r in rows)
     if not rows:
         body += "<p class='cnt'>Жарыя жок.</p>"
-    nav = ""
-    if pg > 1:
-        nav += "<a href='" + E(link(p=pg - 1)) + "'>← Мурунку</a>"
-    else:
-        nav += "<span></span>"
+    nav = "<a href='" + E(link(p=pg - 1)) + "'>← Мурунку</a>" if pg > 1 else "<span></span>"
     if isinstance(total, int) and pg * PER < total:
         nav += "<a href='" + E(link(p=pg + 1)) + "'>Кийинки →</a>"
     return body + "<div class='pg'>" + nav + "</div>"
+
+
+def _mod(uid):
+    now = core.now_str()
+    rows = core.query("SELECT * FROM listings WHERE " + FLG +
+                      " ORDER BY id DESC LIMIT 100", fetch="all") or []
+    k = _csrf(uid)
+    body = "<p class='cnt'>Шектүү сөз менен коюлган жарыялар: " + str(len(rows)) + "</p>"
+    if not rows:
+        body += "<p class='ok'>Азырынча шектүү жарыя жок.</p>"
+    return body + "".join(_card(r, k, "/admin/mod", now, True) for r in rows)
 
 
 def _route(h, u):
@@ -364,11 +418,14 @@ def _route(h, u):
         h._send(_page("Админ", "<p class='er'>Кирүү үчүн ботко /admin "
                       "деп жазыңыз.</p>"), 403)
         return
+    _cols()
     msg = _q(q, "m")
     if p == "/admin/do":
         _do(h, uid, q)
     elif p == "/admin/ads":
         h._send(_page("Жарыялар", _ads(uid, q), "ads", msg))
+    elif p == "/admin/mod":
+        h._send(_page("Модерация", _mod(uid), "mod", msg))
     else:
         h._send(_page("Статистика", _stats(), "st", msg))
 

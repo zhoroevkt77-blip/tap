@@ -622,6 +622,12 @@ def run_search(chat, u):
 
 
 def notify_admins(lid, row, uid, name, warn=""):
+    if warn:  #FLG1
+        try:
+            import admin
+            admin.flag(lid, warn)
+        except Exception as _e:
+            print("flag катасы:", _e, flush=True)
     """
     Жаңы жарыя коюлганда админдерге кабар жөнөтөт.
 
