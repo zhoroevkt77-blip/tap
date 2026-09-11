@@ -455,7 +455,7 @@ main.wrap{animation:pageIn .26s ease-out both}
 .c.nophoto .ph{aspect-ratio:auto;height:124px}
 .fav{position:absolute;top:9px;right:9px;width:33px;height:33px;border-radius:50%;
  background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;
- color:var(--faint);box-shadow:0 1px 4px rgba(18,32,58,.1);border:0;padding:0;
+ color:#2E3B52;box-shadow:0 1px 4px rgba(18,32,58,.1);border:0;padding:0;
  cursor:pointer;transition:.15s}
 .fav svg{width:17px;height:17px;transition:.15s}
 .fav{color:var(--heart)}
@@ -479,10 +479,10 @@ main.wrap{animation:pageIn .26s ease-out both}
  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rg2{opacity:.9;/*CLEAR1*/font-weight:500}
 .rg+.t,.rg2+.t{margin-top:6px}
-.t{font-size:13.5px;line-height:1.38;margin:0 0 10px;font-weight:400;color:var(--soft);
+.t{font-size:13.5px;line-height:1.38;margin:0 0 10px;font-weight:400;color:#2E3B52;
  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .m{margin-top:auto;display:flex;gap:8px;align-items:center;font-size:11.5px;
- color:var(--faint);white-space:nowrap}
+ color:#2E3B52;white-space:nowrap}
 .m span:first-child{color:var(--moss);font-weight:600}
 .m span:first-child{overflow:hidden;text-overflow:ellipsis}
 .m .vmark{margin-left:5px;font-size:12px}
