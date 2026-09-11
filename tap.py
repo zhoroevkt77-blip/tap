@@ -459,16 +459,17 @@ def _reg_lines(r, lang="ky"):
         x = str(x or "").strip()
         return _short_place(_place_name(x, lang)) if x else ""
 
-    top = " · ".join([x for x in (sh(r.get("oblast")), sh(r.get("district"))) if x])
-    low = " · ".join([x for x in (sh(r.get("locality")), sh(r.get("village"))) if x])
-    if not top and not low:
-        top = sh(r.get("region"))
+    parts = []
+    for k in ("oblast", "district", "locality", "village"):
+        x = sh(r.get(k))
+        if x and (not parts or parts[-1] != x):
+            parts.append(x)
+    if not parts and r.get("region"):
+        parts = [sh(r.get("region"))]
     out = ""
-    if top:
-        out += f'<div class="rg">{esc(top)}</div>'
-    if low:
-        out += f'<div class="rg rg2">{esc(low)}</div>'
-    return out
+    for i, x in enumerate(parts):
+        out += f'<div class="rg{" rg2" if i else ""}">{esc(x)}</div>'
+    return out  #RG4
 
 
 _CWA = ('<svg viewBox="0 0 32 32">'
