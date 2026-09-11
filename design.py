@@ -418,7 +418,7 @@ main.wrap{animation:pageIn .26s ease-out both}
  scrollbar-width:none;max-width:1040px;margin:0 auto}
 .regbar::-webkit-scrollbar,.subbar::-webkit-scrollbar{display:none}
 .rg{flex:none;background:var(--card);border:1px solid var(--mist);border-radius:20px;
- padding:11px 20px;font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap}
+ padding:11px 20px;font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap}.cb .rg{border:1.5px solid #9AA8BF}/*PINB2*/
 .rg.on{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
 .sb2{flex:none;background:#EEF3FB;border:1px solid #D6E2F3;border-radius:16px;
  padding:7px 14px;font-size:12.5px;font-weight:500;color:#14304F;white-space:nowrap}
