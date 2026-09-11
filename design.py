@@ -28,7 +28,7 @@ FONTS = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
     '<link href="https://fonts.googleapis.com/css2?'
-    'family=Golos+Text:wght@400;500;600;700&'
+    'family=Inter:wght@400;500;600;700;800&'
     'family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">'
 )
 
@@ -139,7 +139,7 @@ CSS = """
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--paper);color:var(--ink);
- font-family:"Golos Text",-apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+ font-family:"Inter",-apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
  font-size:15px;line-height:1.45;font-weight:400;padding-bottom:74px;
  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 a{color:inherit;text-decoration:none}
