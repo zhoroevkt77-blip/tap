@@ -160,7 +160,7 @@ main.wrap{animation:pageIn .26s ease-out both}
  border:1px solid rgba(255,255,255,.14);padding:6px 12px;border-radius:15px;
  display:flex;align-items:center;gap:5px;max-width:44%;min-width:0;
  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pin b{font-weight:400;opacity:1;font-size:12px}
+.pin b{font-weight:600;opacity:1;font-size:12px}
 /* Тил алмаштыруу — оң четте, кичине, бирок басууга ыңгайлуу */
 .lgs{margin-left:auto;display:flex;background:rgba(255,255,255,.14);
  border:1px solid rgba(255,255,255,.16);border-radius:13px;padding:2px;flex:none}
@@ -479,7 +479,7 @@ main.wrap{animation:pageIn .26s ease-out both}
  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rg2{opacity:.9;/*CLEAR1*/font-weight:500}
 .rg+.t,.rg2+.t{margin-top:6px}
-.t{font-size:13.5px;line-height:1.38;margin:0 0 10px;font-weight:400;color:#2E3B52;
+.t{font-size:13.5px;line-height:1.38;margin:0 0 10px;font-weight:500;color:var(--ink);
  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .m{margin-top:auto;display:flex;gap:8px;align-items:center;font-size:11.5px;
  color:#2E3B52;white-space:nowrap}
