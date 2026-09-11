@@ -507,7 +507,7 @@ def _src(r):
         return "wa"
     d = u.lstrip("-")
     if d.isdigit():
-        if len(d) == 12 and d.startswith("996"):
+        if len(d) >= 11:
             return "wa"
         return "tg"
     return ""
@@ -583,18 +583,49 @@ def _reg_line1(r, lang="ky"):
     return f'<div class="rgl">{_PIN}<span>{esc(" · ".join(parts))}</span></div>'
 
 
+_SHI = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+        'stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="2.6"/>'
+        '<circle cx="18" cy="6" r="2.6"/><circle cx="18" cy="18" r="2.6"/>'
+        '<path d="M8.3 10.8l7.4-3.6M8.3 13.2l7.4 3.6"/></svg>')
+_CAM = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+        'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.4"/></svg>')
+
+
+def _shbtn(r, lang="ky"):
+    """Карточка: бөлүшүү баскычы. #SHPC"""
+    t = str(L(bridge.show_title(r), lang) or "").replace('"', "")
+    ok = "Шилтеме көчүрүлдү" if lang != "ru" else "Ссылка скопирована"
+    return ('<button class="csh" type="button" aria-label="Share" '
+            f'data-t="{esc(t)}" data-ok="{ok}" '
+            'onclick="event.preventDefault();event.stopPropagation();'
+            f"this.dataset.u=location.origin+'/e/{r['id']}';tapShare(this)\">"
+            f'{_SHI}</button>')
+
+
+def _pcount(r):
+    """Карточка: сүрөттөрдүн саны."""
+    if not r.get("photo"):
+        return ""
+    try:
+        n = len(core.photo_list(r) or []) or 1
+    except Exception:
+        n = 1
+    return f'<span class="pcnt">{_CAM}{n}</span>'
+
+
 def card(r, lang="ky"):
     has = bool(r.get("photo"))
     img = (f'<img src="/media/{esc(r["photo"])}" alt="" loading="lazy">'
            if has else
            ph_block(r, lang))
     return f"""<a class="c{'' if has else ' nophoto'}" href="/e/{r['id']}">
-<div class="ph">{img}<button class="fav" data-id="{r['id']}" aria-label="Тандалганга кошуу">{NAV_ICONS['fav']}</button></div>
+<div class="ph">{img}{_shbtn(r, lang)}<button class="fav" data-id="{r['id']}" aria-label="Тандалганга кошуу">{NAV_ICONS['fav']}</button></div>
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
 <h2 class="t">{esc(L(bridge.show_title(r), lang))}</h2>
 {_subline(r, lang)}
 {_reg_line1(r, lang)}
-<div class="m"><span>{esc(_sago(r['created_at'], lang))}</span>{'<span class="vmark">🎬</span>' if core.video_of(r) else ''}
+<div class="m"><span>{esc(_sago(r['created_at'], lang))}</span>{_pcount(r)}{'<span class="vmark">🎬</span>' if core.video_of(r) else ''}
 <span class="vw">{_EYE}{r['views']}</span>{_cta(r)}</div>
 </div></a>"""
 
