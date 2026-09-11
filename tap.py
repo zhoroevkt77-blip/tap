@@ -524,12 +524,7 @@ def _cta(r):
     tg = ('<button class="cta tg" onclick="tapGo(event,this)"'
           ' data-u="https://t.me/+%s" aria-label="Telegram">%s</button>'
           % (intl, _CTG))
-    src = _src(r)
-    if src == "tg":
-        return tg
-    if src == "wa":
-        return wa
-    return wa + tg
+    return wa + tg  #CTA2
 
 
 def _sago(ts, lang="ky"):
