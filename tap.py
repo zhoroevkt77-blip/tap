@@ -593,14 +593,21 @@ _CAM = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
 
 
 def _shbtn(r, lang="ky"):
-    """Карточка: бөлүшүү баскычы. #SHPC"""
-    t = str(L(bridge.show_title(r), lang) or "").replace('"', "")
+    """Карточка: бөлүшүү баскычы, өз алдынча JS. #SHPC2"""
+    t = str(L(bridge.show_title(r), lang) or "")
     ok = "Шилтеме көчүрүлдү" if lang != "ru" else "Ссылка скопирована"
+    js = ("event.preventDefault();event.stopPropagation();"
+          "var u=location.origin+'/e/" + str(r["id"]) + "',"
+          "t=this.dataset.t,ok=this.dataset.ok;"
+          "if(navigator.share){navigator.share({title:t,text:t,url:u})"
+          ".catch(function(){});return false}"
+          "var a=document.createElement('textarea');a.value=u;"
+          "document.body.appendChild(a);a.select();"
+          "try{document.execCommand('copy')}catch(e){}"
+          "a.remove();alert(ok);return false")
     return ('<button class="csh" type="button" aria-label="Share" '
-            f'data-t="{esc(t)}" data-ok="{ok}" '
-            'onclick="event.preventDefault();event.stopPropagation();'
-            f"this.dataset.u=location.origin+'/e/{r['id']}';tapShare(this)\">"
-            f'{_SHI}</button>')
+            'data-t="' + esc(t) + '" data-ok="' + ok + '" '
+            'onclick="' + js + '">' + _SHI + '</button>')
 
 
 def _pcount(r):
