@@ -1,4 +1,4 @@
-"""ТАП! админ панели: кирүү, статистика, жарыялар, модерация."""
+"""ТАП! админ панели: кирүү, статистика, жарыялар, модерация, колдонуучулар."""
 import os
 import re
 import time
@@ -21,8 +21,10 @@ SEC_KY = {
     "realty": "Кыймылсыз мүлк",
 }
 FLG = "flagged IS NOT NULL AND flagged<>''"
+ACT = "COALESCE(is_active,1)=1 AND expires_at>?"
 E = html.escape
 _READY = [False]
+_BANC = {}
 
 
 def _cols():
@@ -36,6 +38,8 @@ def _cols():
                 core.query("ALTER TABLE listings ADD COLUMN flagged TEXT")
             except Exception:
                 pass
+        core.query("CREATE TABLE IF NOT EXISTS bans (tid TEXT PRIMARY KEY, "
+                   "reason TEXT, created_at TEXT)")
         _READY[0] = True
     except Exception as e:
         print("admin cols:", e, flush=True)
@@ -47,6 +51,42 @@ def flag(lid, why=""):
     why = re.sub(r"<[^>]+>", "", str(why or "")).replace("⚠️", "")
     why = re.sub(r"\s+", " ", why).strip()[:200] or "1"
     core.query("UPDATE listings SET flagged=? WHERE id=?", (why, lid))
+
+
+def is_banned(tid):
+    """Бот жана WhatsApp чакырат. Ката болсо False кайтарат."""
+    tid = str(tid or "").strip()
+    if not tid:
+        return False
+    hit = _BANC.get(tid)
+    if hit and hit[1] > time.time():
+        return hit[0]
+    try:
+        _cols()
+        val = bool(core.query("SELECT tid FROM bans WHERE tid=?", (tid,), fetch="one"))
+    except Exception as e:
+        print("ban check:", e, flush=True)
+        val = False
+    _BANC[tid] = (val, time.time() + 30)
+    return val
+
+
+def _ban(tid):
+    core.query("DELETE FROM bans WHERE tid=?", (tid,))
+    core.query("INSERT INTO bans (tid, reason, created_at) VALUES (?,?,?)",
+               (tid, "admin", core.now_str()))
+    core.query("UPDATE listings SET is_active=0 WHERE tg_id=?", (tid,))
+    _BANC.pop(tid, None)
+
+
+def _unban(tid):
+    core.query("DELETE FROM bans WHERE tid=?", (tid,))
+    _BANC.pop(tid, None)
+
+
+def _bonus(tid, n=1):
+    core.query("UPDATE users SET bonus_posts=COALESCE(bonus_posts,0)+? WHERE tg_id=?",
+               (n, tid))
 
 
 def _ids():
@@ -112,6 +152,13 @@ def _g(r, key, i):
         return r[i]
 
 
+def _v(r, k):
+    try:
+        return r[k]
+    except Exception:
+        return None
+
+
 def _n(sql, p=()):
     try:
         r = core.query(sql, p, fetch="one")
@@ -158,10 +205,9 @@ CSS = (
     "header a{color:#E3C368;text-decoration:none;font-size:15px}"
     "nav{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:#fff;"
     "border-bottom:1.5px solid #9AA8BF}"
-    "nav a,nav span{white-space:nowrap;padding:7px 12px;border-radius:99px;font-size:14px}"
-    "nav a{background:#fff;color:#17365C;border:1.5px solid #9AA8BF;text-decoration:none}"
+    "nav a{white-space:nowrap;padding:7px 12px;border-radius:99px;font-size:14px;"
+    "background:#fff;color:#17365C;border:1.5px solid #9AA8BF;text-decoration:none}"
     "nav a.on{background:#17365C;color:#fff;border-color:#17365C}"
-    "nav span{color:#8B97AC;border:1px solid #D5DCE7}"
     "main{padding:14px}h1{font-size:20px;margin:4px 0 12px}h2{font-size:17px;margin:18px 0 8px}"
     ".g{display:grid;grid-template-columns:1fr 1fr;gap:10px}"
     ".k{background:#fff;border:1.5px solid #9AA8BF;border-radius:14px;padding:12px}"
@@ -190,7 +236,7 @@ CSS = (
     "padding:6px 8px;margin-top:6px}"
     ".b{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;margin-left:4px}"
     ".b.ac{background:#E6F4EC;color:#1F5E3C}.b.ex{background:#F1F4F9;color:#5A6982}"
-    ".b.w{background:#FAEEDA;color:#854F0B}"
+    ".b.w{background:#FAEEDA;color:#854F0B}.b.bn{background:#FCEBEB;color:#A32D2D}"
     ".ab{display:flex;gap:8px;margin-top:10px}"
     ".ab a{flex:1;text-align:center;padding:8px 6px;border-radius:10px;font-size:14px;"
     "text-decoration:none;border:1.5px solid #9AA8BF;color:#17365C}"
@@ -205,9 +251,9 @@ def _page(title, body, tab="", msg=""):
     tabs = ""
     for href, key, name in (("/admin", "st", "Статистика"),
                             ("/admin/ads", "ads", "Жарыялар"),
-                            ("/admin/mod", "mod", "Модерация")):
+                            ("/admin/mod", "mod", "Модерация"),
+                            ("/admin/users", "us", "Колдонуучулар")):
         tabs += "<a href='%s'%s>%s</a>" % (href, " class='on'" if tab == key else "", name)
-    tabs += "<span>Колдонуучулар</span>"
     flash = "<p class='ok'>" + E(msg) + "</p>" if msg else ""
     return ("<!doctype html><html lang='ky'><head><meta charset='utf-8'>"
             "<meta name='viewport' content='width=device-width,initial-scale=1'>"
@@ -223,21 +269,22 @@ def _stats():
     day = now[:10] + "%"
     tiles = [
         ("Жалпы жарыя", _n("SELECT COUNT(*) AS n FROM listings")),
-        ("Активдүү", _n("SELECT COUNT(*) AS n FROM listings WHERE expires_at>?", (now,))),
+        ("Активдүү", _n("SELECT COUNT(*) AS n FROM listings WHERE " + ACT, (now,))),
         ("Бүгүн коюлду", _n("SELECT COUNT(*) AS n FROM listings WHERE created_at LIKE ?", (day,))),
-        ("Мөөнөтү бүткөн", _n("SELECT COUNT(*) AS n FROM listings WHERE expires_at<=?", (now,))),
+        ("Мөөнөтү бүткөн", _n("SELECT COUNT(*) AS n FROM listings WHERE NOT (" + ACT + ")", (now,))),
         ("⚠️ Шектүү", _n("SELECT COUNT(*) AS n FROM listings WHERE " + FLG)),
         ("Жалпы көрүү", _n("SELECT COALESCE(SUM(views),0) AS n FROM listings")),
         ("Колдонуучулар", _n("SELECT COUNT(*) AS n FROM users")),
         ("Бүгүн кошулду", _n("SELECT COUNT(*) AS n FROM users WHERE created_at LIKE ?", (day,))),
+        ("⛔ Бандалган", _n("SELECT COUNT(*) AS n FROM bans")),
     ]
     body = "<div class='g'>" + "".join(
         "<div class='k'><small>" + E(a) + "</small><b>" + str(b) + "</b></div>"
         for a, b in tiles) + "</div>"
     try:
         rows = core.query(
-            "SELECT category, COUNT(*) AS n FROM listings WHERE expires_at>? "
-            "GROUP BY category ORDER BY n DESC", (now,), fetch="all") or []
+            "SELECT category, COUNT(*) AS n FROM listings WHERE " + ACT +
+            " GROUP BY category ORDER BY n DESC", (now,), fetch="all") or []
     except Exception:
         rows = []
     if rows:
@@ -272,22 +319,33 @@ def _extend(lid, days=7):
 
 
 def _do(h, uid, q):
-    a, lid = _q(q, "a"), _q(q, "id")
+    a, tid = _q(q, "a"), _q(q, "id")
     back = _q(q, "back") or "/admin/ads"
     if not back.startswith("/admin"):
         back = "/admin/ads"
-    if not lid.isdigit() or not hmac.compare_digest(_q(q, "k"), _csrf(uid)):
+    if not tid.isdigit() or not hmac.compare_digest(_q(q, "k"), _csrf(uid)):
         h._send(_page("Ката", "<p class='er'>Жараксыз суроо.</p>"), 403)
         return
-    lid = int(lid)
     if a == "del":
-        _delete(lid)
-        msg = "№%d өчүрүлдү" % lid
+        _delete(int(tid))
+        msg = "№%s өчүрүлдү" % tid
     elif a == "ext":
-        msg = ("№%d: +7 күн узартылды" % lid) if _extend(lid) else "Жарыя табылган жок"
+        msg = ("№%s: +7 күн узартылды" % tid) if _extend(int(tid)) else "Жарыя табылган жок"
     elif a == "ok":
-        core.query("UPDATE listings SET flagged='' WHERE id=?", (lid,))
-        msg = "№%d калтырылды" % lid
+        core.query("UPDATE listings SET flagged='' WHERE id=?", (int(tid),))
+        msg = "№%s калтырылды" % tid
+    elif a == "ban":
+        if tid in _ids():
+            msg = "Админди бандоого болбойт"
+        else:
+            _ban(tid)
+            msg = "%s бандалды, жарыялары жашырылды" % tid
+    elif a == "unban":
+        _unban(tid)
+        msg = "%s бандан чыгарылды" % tid
+    elif a == "bon":
+        _bonus(tid, 1)
+        msg = "%s: +1 бонус кошулду" % tid
     else:
         msg = "Белгисиз аракет"
     sep = "&" if "?" in back else "?"
@@ -339,17 +397,17 @@ def _ads(uid, q):
     now = core.now_str()
     where, par = [], []
     if f == "act":
-        where.append("expires_at>?")
+        where.append(ACT)
         par.append(now)
     elif f == "exp":
-        where.append("expires_at<=?")
+        where.append("NOT (" + ACT + ")")
         par.append(now)
     elif f == "warn":
         where.append(FLG)
     if s:
         if s.isdigit():
-            where.append("(id=? OR contact LIKE ?)")
-            par += [int(s), "%" + s + "%"]
+            where.append("(id=? OR contact LIKE ? OR tg_id=?)")
+            par += [int(s), "%" + s + "%", s]
         else:
             like = "%" + s.lower() + "%"
             where.append("(LOWER(title) LIKE ? OR stext LIKE ?)")
@@ -396,6 +454,97 @@ def _mod(uid):
     return body + "".join(_card(r, k, "/admin/mod", now, True) for r in rows)
 
 
+def _users(uid, q):
+    s = _q(q, "q").strip()[:40].lower()
+    f = _q(q, "f") or "all"
+    pg = _q(q, "p")
+    pg = int(pg) if pg.isdigit() and int(pg) > 0 else 1
+    bans = set(str(_g(r, "tid", 0)) for r in
+               (core.query("SELECT tid FROM bans", fetch="all") or []))
+    people = {}
+
+    def get(t):
+        return people.setdefault(t, {"tid": t, "nm": "", "n": 0, "last": "",
+                                     "joined": "", "bonus": None, "refs": 0})
+    for r in core.query("SELECT * FROM users", fetch="all") or []:
+        t = str(_v(r, "tg_id") or "")
+        if not t:
+            continue
+        p = get(t)
+        p["joined"] = str(_v(r, "created_at") or "")
+        p["last"] = p["joined"]
+        p["bonus"] = _v(r, "bonus_posts") or 0
+        p["refs"] = _v(r, "ref_count") or 0
+    for r in core.query("SELECT tg_id, MAX(tg_name) AS nm, COUNT(*) AS n, "
+                        "MAX(created_at) AS last FROM listings GROUP BY tg_id",
+                        fetch="all") or []:
+        t = str(_v(r, "tg_id") or "")
+        if not t:
+            continue
+        p = get(t)
+        p["nm"] = str(_v(r, "nm") or "")
+        p["n"] = int(_v(r, "n") or 0)
+        p["last"] = max(p["last"], str(_v(r, "last") or ""))
+    lst = list(people.values())
+    if f == "ban":
+        lst = [p for p in lst if p["tid"] in bans]
+    if s:
+        lst = [p for p in lst if s in p["tid"] or s in p["nm"].lower()]
+    lst.sort(key=lambda p: p["last"], reverse=True)
+    total = len(lst)
+    rows = lst[(pg - 1) * PER: pg * PER]
+
+    def link(**kw):
+        d = {"q": s, "f": f, "p": pg}
+        d.update(kw)
+        return "/admin/users?" + urlencode({k: v for k, v in d.items() if v})
+
+    back = link()
+    k = _csrf(uid)
+    admins = _ids()
+    body = ("<form class='sf' method='get' action='/admin/users'>"
+            "<input name='q' value='" + E(s) + "' placeholder='ID же аты'>"
+            "<input type='hidden' name='f' value='" + E(f) + "'>"
+            "<button>Изде</button></form><div class='fl'>")
+    for key, name in (("all", "Баары"), ("ban", "⛔ Бандалгандар")):
+        body += "<a href='%s'%s>%s</a>" % (E(link(f=key, p=1)),
+                                           " class='on'" if f == key else "", name)
+    body += "</div><p class='cnt'>Табылды: " + str(total) + "</p>"
+    for p in rows:
+        t = p["tid"]
+        banned = t in bans
+
+        def act(a):
+            return E("/admin/do?" + urlencode({"a": a, "id": t, "k": k, "back": back}))
+        kind = "WhatsApp" if len(t) >= 11 else "Telegram"
+        tag = "<span class='b bn'>⛔ Бандалган</span>" if banned else ""
+        if t in admins:
+            tag += "<span class='b ac'>Админ</span>"
+        btn = "<a href='" + E("/admin/ads?" + urlencode({"q": t})) + "'>Жарыялары</a>"
+        if p["bonus"] is not None:
+            btn += "<a class='okb' href='" + act("bon") + "'>+1 бонус</a>"
+        if banned:
+            btn += "<a class='okb' href='" + act("unban") + "'>Бандан чыгаруу</a>"
+        elif t not in admins:
+            btn += ("<a class='del' href='" + act("ban") + "' onclick=\"return confirm('" +
+                    t + " бандалсынбы? Жарыялары жашырылат.')\">Бан</a>")
+        bonus = "-" if p["bonus"] is None else str(p["bonus"])
+        body += (
+            "<div class='ad'><div class='ah'>👤 " + E(p["nm"] or "-") + tag + "</div>"
+            "<div class='am'>" + kind + " · ID " + E(t) + "</div>"
+            "<div class='am'>Жарыя: " + str(p["n"]) + " · Бонус: " + bonus +
+            " · Чакырган: " + str(p["refs"]) + "</div>"
+            "<div class='am'>Кошулду: " + E(p["joined"][:10] or "-") +
+            " · Акыркы: " + E(p["last"][:10] or "-") + "</div>"
+            "<div class='ab'>" + btn + "</div></div>")
+    if not rows:
+        body += "<p class='cnt'>Колдонуучу жок.</p>"
+    nav = "<a href='" + E(link(p=pg - 1)) + "'>← Мурунку</a>" if pg > 1 else "<span></span>"
+    if pg * PER < total:
+        nav += "<a href='" + E(link(p=pg + 1)) + "'>Кийинки →</a>"
+    return body + "<div class='pg'>" + nav + "</div>"
+
+
 def _route(h, u):
     q = parse_qs(getattr(u, "query", "") or "")
     p = u.path.rstrip("/") or "/admin"
@@ -426,6 +575,8 @@ def _route(h, u):
         h._send(_page("Жарыялар", _ads(uid, q), "ads", msg))
     elif p == "/admin/mod":
         h._send(_page("Модерация", _mod(uid), "mod", msg))
+    elif p == "/admin/users":
+        h._send(_page("Колдонуучулар", _users(uid, q), "us", msg))
     else:
         h._send(_page("Статистика", _stats(), "st", msg))
 

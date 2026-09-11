@@ -918,6 +918,13 @@ def handle_message(msg, st):
     chat = msg["chat"]["id"]
     uid = str(msg["from"]["id"])
     name = msg["from"].get("first_name", "")
+    try:  #BAN1
+        import admin
+        if admin.is_banned(uid):
+            send(chat, "⛔ Сиз бөгөттөлдүңүз. Суроо болсо администраторго кайрылыңыз.")
+            return
+    except Exception as _e:
+        print("ban:", _e, flush=True)
     u = user(st, uid)
     text = (msg.get("text") or "").strip()
 
@@ -1087,6 +1094,13 @@ def handle_callback(cb, st):
     chat = cb["message"]["chat"]["id"]
     uid = str(cb["from"]["id"])
     name = cb["from"].get("first_name", "")
+    try:  #BAN2
+        import admin
+        if admin.is_banned(uid):
+            api("answerCallbackQuery", callback_query_id=cb["id"], text="⛔")
+            return
+    except Exception as _e:
+        print("ban:", _e, flush=True)
     data = cb.get("data", "")
     u = user(st, uid)
     api("answerCallbackQuery", callback_query_id=cb["id"])

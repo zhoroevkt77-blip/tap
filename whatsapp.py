@@ -366,6 +366,13 @@ def handle(body):
     chat_id = sender.get("chatId") or ""
     if not chat_id or chat_id.endswith("@g.us"):
         return                      # топтогу жазышууга кийлигишпейбиз
+    try:  #BAN3
+        import admin
+        if admin.is_banned(chat_id.split("@")[0]):
+            send(chat_id, "⛔ Сиз бөгөттөлдүңүз. Суроо болсо администраторго кайрылыңыз.")
+            return
+    except Exception as _e:
+        print("ban:", _e, flush=True)
 
     md = body.get("messageData") or {}
     kind = md.get("typeMessage") or ""
