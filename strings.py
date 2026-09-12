@@ -1287,5 +1287,12 @@ def L(text, lang="ky"):
         if len(halves) >= 2:
             out.append((halves[1] if lang == "ru" else halves[0]).strip())
         else:
-            out.append(part.strip())
+            _p = part.strip()  #L_RUFALL
+            if lang == "ru" and _p:
+                try:
+                    import bridge
+                    _p = bridge.ru_value(_p, "ru")
+                except Exception:
+                    pass
+            out.append(_p)
     return " | ".join(x for x in out if x)
