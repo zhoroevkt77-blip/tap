@@ -162,6 +162,11 @@ def ru_value(text, lang="ky"):
     # «A | B | C» түрүндөгү курама аталыш — ар бир бөлүгүн өзүнчө
     if "|" in t:
         return " | ".join(ru_value(p.strip(), "ru") for p in t.split("|"))
+    if ":" in t:  #COLON_SPLIT
+        _a, _, _b = t.partition(":")
+        _ra, _rb = ru_value(_a.strip(), "ru"), ru_value(_b.strip(), "ru")
+        if _ra != _a.strip() or _rb != _b.strip():
+            return _ra + ": " + _rb
     return t
 
 
