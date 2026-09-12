@@ -711,7 +711,7 @@ def cat_tiles(at, cid, ob, lang):
         except Exception:
             pass
         if not pic:
-            pic = f'<span class="cte">{NAV_ICONS["grid"]}</span>'
+            pic = f'<img src="/si/{at}.jpg?v={secimg.VERSION}" alt="" loading="lazy">'
         on = " on" if cid == c else ""
         href = f"/?at={at}&cid={esc(c)}{_obq(ob)}"
         out += (f'<a class="ct{on}" href="{href}">'
