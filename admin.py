@@ -57,14 +57,19 @@ RSN = {"scam": "Алдамчылык", "gone": "Товар жок", "wrong": "Т
        "ban": "Тыюу салынган товар", "other": "Башка себеп"}
 
 
-def report(h, u):
-    """Колдонуучунун даттануусу. #RPT4"""
+def report(h):
+    """Колдонуучунун даттануусу (POST). #RPT8"""
     import tap
-    q = parse_qs(getattr(u, "query", "") or "")
-    lang = "ru" if "ru" in (h.headers.get("Cookie") or "") else "ky"
+    lang = "ru" if "lang=ru" in (h.headers.get("Cookie") or "") else "ky"
+    try:
+        n = int(h.headers.get("Content-Length") or 0)
+        q = parse_qs(h.rfile.read(n).decode("utf-8")) if 0 < n < 4000 else {}
+    except Exception:
+        q = {}
     lid, code = _q(q, "id"), _q(q, "r")
-    ok = "Рахмат! Даттануу кабыл алынды." if lang != "ru" else "Спасибо! Жалоба принята."
-    bad = "Даттануу жөнөтүлгөн жок." if lang != "ru" else "Жалоба не отправлена."
+    note = re.sub(r"\s+", " ", _q(q, "t")).strip()[:150]
+    ok = "Спасибо! Жалоба принята." if lang == "ru" else "Рахмат! Даттануу кабыл алынды."
+    bad = "Жалоба не отправлена." if lang == "ru" else "Даттануу жөнөтүлгөн жок."
     done = False
     if lid.isdigit() and code in RSN:
         try:
@@ -73,17 +78,15 @@ def report(h, u):
                            fetch="one")
             if r:
                 cur = str(_g(r, "flagged", 0) or "")
-                tag = "📣 " + RSN[code]
+                tag = "📣 " + RSN[code] + ((": " + note) if note else "")
                 if tag not in cur:
-                    new = (cur + " · " + tag).strip(" ·")[:200]
                     core.query("UPDATE listings SET flagged=? WHERE id=?",
-                               (new, int(lid)))
+                               ((cur + " · " + tag).strip(" ·")[:400], int(lid)))
                 done = True
         except Exception as e:
             print("report:", e, flush=True)
-    msg = ok if done else bad
     back = "/e/" + lid if lid.isdigit() else "/"
-    body = ("<main class='wrap'><div class='rok'>" + E(msg) + "</div>"
+    body = ("<main class='wrap'><div class='rok'>" + E(ok if done else bad) + "</div>"
             "<p><a href='" + E(back) + "'>← Артка</a></p></main>")
     h._send(tap.page(tap.header("", None, None, lang) + body, "ТАП!", "", lang))
 

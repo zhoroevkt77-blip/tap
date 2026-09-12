@@ -1247,15 +1247,21 @@ _RSNS = (("scam", "Алдамчылык", "Мошенничество"),
 
 
 def _report(r, lang="ky"):
-    """Жарыя барагындагы даттануу баскычы. #RPT1"""
-    lid = r["id"]
-    ttl = "Даттануу" if lang != "ru" else "Пожаловаться"
-    ask = "Себебин тандаңыз:" if lang != "ru" else "Выберите причину:"
-    out = ("<details class='rpt'><summary>⚠️ " + esc(ttl) + "</summary>"
-           "<div class='rptb'><p>" + esc(ask) + "</p>")
-    for code, ky, ru in _RSNS:
-        out += ("<a href='/report?id=%d&r=%s'>%s</a>" % (lid, code, esc(ru if lang == "ru" else ky)))
-    return out + "</div></details>"
+    """Жарыя барагындагы даттануу формасы. #RPT5"""
+    ru = lang == "ru"
+    ttl = "Пожаловаться" if ru else "Даттануу"
+    ask = "Выберите причину:" if ru else "Себебин тандаңыз:"
+    txt = "Опишите подробнее" if ru else "Кеңири жазыңыз"
+    btn = "Отправить" if ru else "Жөнөтүү"
+    opts = "".join("<option value='%s'>%s</option>" % (c, esc(rr if ru else ky))
+                   for c, ky, rr in _RSNS)
+    return ("<details class='rpt'><summary>⚠️ " + esc(ttl) + "</summary>"
+            "<form class='rptb' method='post' action='/report'>"
+            "<input type='hidden' name='id' value='%d'>" % r["id"] +
+            "<p>" + esc(ask) + "</p><select name='r'>" + opts + "</select>"
+            "<textarea name='t' rows='3' maxlength='250' placeholder='" +
+            esc(txt) + "'></textarea>"
+            "<button type='submit'>" + esc(btn) + "</button></form></details>")
 
 
 def detail(r, lang="ky"):
@@ -1898,6 +1904,11 @@ class H(BaseHTTPRequestHandler):
     def do_POST(self):
         """Green API'ден келген WhatsApp билдирүүсү."""
         u = urllib.parse.urlparse(self.path)
+        if u.path == "/report":  #RPT6
+            import admin
+            admin.report(self)
+            return
+        
         if u.path != "/wa":
             self._send("not found", 404)
             return
