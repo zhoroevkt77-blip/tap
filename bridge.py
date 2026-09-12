@@ -79,7 +79,7 @@ def _pair_ru(label, value):
 
 def _collect_ru(obj, depth=0):
     """Каталогдон «A / B» түрүндөгү саптарды таап, сөздүккө жазат."""
-    if depth > 6:
+    if depth > 20:
         return
     if isinstance(obj, dict) and "label" in obj and "value" in obj:
         _pair_ru(obj.get("label"), obj.get("value"))
