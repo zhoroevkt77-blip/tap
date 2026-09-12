@@ -1904,6 +1904,11 @@ class H(BaseHTTPRequestHandler):
     def do_POST(self):
         """Green API'ден келген WhatsApp билдирүүсү."""
         u = urllib.parse.urlparse(self.path)
+        if u.path.startswith("/admin"):  #MSG2
+            import admin
+            admin.handle(self, u)
+            return
+        
         if u.path == "/report":  #RPT6
             import admin
             admin.report(self)

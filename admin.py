@@ -91,6 +91,115 @@ def report(h):
     h._send(tap.page(tap.header("", None, None, lang) + body, "ТАП!", "", lang))
 
 
+WARN = {
+    "photo": ("Сүрөт жарыяга туура келбейт. Оңдоп коюңуз.",
+              "Фото не соответствует объявлению. Исправьте, пожалуйста."),
+    "cat": ("Жарыя туура эмес бөлүмгө коюлган. Оңдоп коюңуз.",
+            "Объявление в неверном разделе. Исправьте, пожалуйста."),
+    "ban": ("Бул товарга тыюу салынган. Жарыя өчүрүлүшү мүмкүн.",
+            "Этот товар запрещён. Объявление может быть удалено."),
+    "phone": ("Байланыш номери туура эмес окшойт. Текшериңиз.",
+              "Номер для связи указан неверно. Проверьте."),
+    "text": ("Жарыянын аталышы же сүрөттөмөсү түшүнүксүз. Оңдоңуз.",
+             "Заголовок или описание непонятны. Исправьте."),
+}
+
+
+def _token():
+    t = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    if t:
+        return t
+    try:
+        return open(os.path.join(core.BASE, "token.txt"), encoding="utf-8").read().strip()
+    except Exception:
+        return ""
+
+
+def _tg_send(chat, text):
+    import json
+    import urllib.request
+    import urllib.parse
+    tok = _token()
+    if not tok:
+        return False, "Токен табылган жок"
+    data = urllib.parse.urlencode({
+        "chat_id": chat, "text": text, "parse_mode": "HTML",
+        "disable_web_page_preview": "true"}).encode()
+    try:
+        req = urllib.request.Request(
+            "https://api.telegram.org/bot%s/sendMessage" % tok, data=data)
+        with urllib.request.urlopen(req, timeout=25) as r:
+            res = json.loads(r.read().decode())
+        if res.get("ok"):
+            return True, ""
+        return False, str(res.get("description") or "ката")[:80]
+    except Exception as e:
+        return False, repr(e)[:80]
+
+
+def _msg_form(uid, lid, back):
+    r = core.query("SELECT * FROM listings WHERE id=?", (int(lid),), fetch="one")
+    if not r:
+        return "<p class='er'>Жарыя табылган жок.</p>"
+    import bridge
+    tid = str(_v(r, "tg_id") or "")
+    title = str(bridge.show_title(r) or "-")
+    opts = "".join("<option value='%s'>%s</option>" % (c, E(v[0]))
+                   for c, v in WARN.items())
+    if not tid.isdigit() or len(tid) > 10:
+        return ("<div class='ad'><div class='ah'>№" + E(str(lid)) + " · " + E(title) +
+                "</div><p class='am'>Бул колдонуучуга бот жаза албайт "
+                "(Telegram эмес).</p><div class='ab'><a href='" + E(back) +
+                "'>← Артка</a></div></div>")
+    return ("<div class='ad'><div class='ah'>№" + E(str(lid)) + " · " + E(title) + "</div>"
+            "<div class='am'>👤 " + E(str(_v(r, "tg_name") or "-")) + " · ID " + E(tid) + "</div>"
+            "<form class='mf' method='post' action='/admin/msg'>"
+            "<input type='hidden' name='id' value='" + E(str(lid)) + "'>"
+            "<input type='hidden' name='k' value='" + _csrf(uid) + "'>"
+            "<input type='hidden' name='back' value='" + E(back) + "'>"
+            "<p>Даяр себеп:</p><select name='w'><option value=''>— тандаңыз —</option>" +
+            opts + "</select>"
+            "<p>Кошумча (каалаша):</p>"
+            "<textarea name='t' rows='3' maxlength='400' "
+            "placeholder='Өз сөзүңүз менен жазыңыз'></textarea>"
+            "<button type='submit'>✉️ Жөнөтүү</button></form>"
+            "<div class='ab'><a href='" + E(back) + "'>← Артка</a></div></div>")
+
+
+def _msg_post(h, uid, q):
+    lid, w = _q(q, "id"), _q(q, "w")
+    note = re.sub(r"\s+", " ", _q(q, "t")).strip()[:400]
+    back = _q(q, "back") or "/admin/ads"
+    if not back.startswith("/admin"):
+        back = "/admin/ads"
+    if not lid.isdigit() or not hmac.compare_digest(_q(q, "k"), _csrf(uid)):
+        h._send(_page("Ката", "<p class='er'>Жараксыз суроо.</p>"), 403)
+        return
+    r = core.query("SELECT * FROM listings WHERE id=?", (int(lid),), fetch="one")
+    body = []
+    if w in WARN:
+        body.append(WARN[w][0])
+    if note:
+        body.append(note)
+    if not r:
+        msg = "Жарыя табылган жок"
+    elif not body:
+        msg = "Себеп же текст жазылган жок"
+    else:
+        import bridge
+        tid = str(_v(r, "tg_id") or "")
+        title = str(bridge.show_title(r) or "-")
+        site = (os.environ.get("SITE_URL") or "").rstrip("/")
+        link = ("\n🌐 %s/e/%s" % (site, lid)) if site and "localhost" not in site else ""
+        txt = ("⚠️ <b>Администратордун эскертүүсү</b>\n\n"
+               "Жарыя №%s: <b>%s</b>\n\n%s%s" %
+               (lid, html.escape(title), html.escape("\n".join(body)), link))
+        ok, err = _tg_send(tid, txt)
+        msg = ("№%s: кабар жөнөтүлдү" % lid) if ok else ("Жөнөтүлгөн жок: " + err)
+    sep = "&" if "?" in back else "?"
+    h._go(back + sep + "m=" + quote(msg), None)
+
+
 def is_banned(tid):
     """Бот жана WhatsApp чакырат. Ката болсо False кайтарат."""
     tid = str(tid or "").strip()
@@ -281,7 +390,7 @@ CSS = (
     ".ab a.del{border-color:#E24B4A;color:#A32D2D}"
     ".ab a.okb{border-color:#1F7A4D;color:#1F5E3C}"
     ".pg{display:flex;justify-content:space-between;margin:12px 0}"
-    ".pg a{color:#17365C;font-weight:600;text-decoration:none}"
+    ".pg a{color:#17365C;font-weight:600;text-decoration:none}.mf{margin-top:10px}.mf p{font-size:13px;color:#33425A;margin:8px 0 4px}.mf select,.mf textarea{width:100%;box-sizing:border-box;font-size:15px;font-family:inherit;border:1.5px solid #9AA8BF;border-radius:10px;padding:9px 10px;background:#fff;color:#152741}.mf button{width:100%;margin-top:10px;border:0;border-radius:10px;padding:11px;background:#17365C;color:#fff;font-size:15px;font-weight:600}"
 )
 
 
@@ -409,6 +518,7 @@ def _card(r, k, back, now, mod=False):
     def act(a):
         return E("/admin/do?" + urlencode({"a": a, "id": lid, "k": k, "back": back}))
     btn = "<a href='/e/" + str(lid) + "' target='_blank'>Карап көрүү</a>"
+    btn += "<a href='" + E("/admin/msg?" + urlencode({"id": lid, "back": back})) + "'>✉️ Жазуу</a>"  #MSG1
     if mod:
         btn += "<a class='okb' href='" + act("ok") + "'>✅ Калтыр</a>"
     else:
@@ -613,6 +723,19 @@ def _route(h, u):
         h._send(_page("Жарыялар", _ads(uid, q), "ads", msg))
     elif p == "/admin/mod":
         h._send(_page("Модерация", _mod(uid), "mod", msg))
+    elif p == "/admin/msg":
+        if getattr(h, "command", "GET") == "POST":
+            try:
+                n = int(h.headers.get("Content-Length") or 0)
+                d = parse_qs(h.rfile.read(n).decode("utf-8")) if 0 < n < 6000 else {}
+            except Exception:
+                d = {}
+            _msg_post(h, uid, d)
+        else:
+            bk = _q(q, "back") or "/admin/ads"
+            bk = bk if bk.startswith("/admin") else "/admin/ads"
+            h._send(_page("Колдонуучуга жазуу", _msg_form(uid, _q(q, "id") or "0", bk),
+                          "ads", msg))
     elif p == "/admin/users":
         h._send(_page("Колдонуучулар", _users(uid, q), "us", msg))
     else:
