@@ -549,6 +549,7 @@ def _subline(r, lang="ky"):
     t = str(L(bridge.show_title(r), lang) or "").strip().lower()
     parts = []
     for x in (c, s):
+        x = _ky(str(x or '').strip(), lang)  #SBT_KY2
         x = str(x or "").strip()
         if x and x.lower() != t and x.lower() not in [y.lower() for y in parts]:
             parts.append(x)
