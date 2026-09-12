@@ -53,6 +53,41 @@ def flag(lid, why=""):
     core.query("UPDATE listings SET flagged=? WHERE id=?", (why, lid))
 
 
+RSN = {"scam": "Алдамчылык", "gone": "Товар жок", "wrong": "Туура эмес бөлүм",
+       "ban": "Тыюу салынган товар", "other": "Башка себеп"}
+
+
+def report(h, u):
+    """Колдонуучунун даттануусу. #RPT4"""
+    import tap
+    q = parse_qs(getattr(u, "query", "") or "")
+    lang = "ru" if "ru" in (h.headers.get("Cookie") or "") else "ky"
+    lid, code = _q(q, "id"), _q(q, "r")
+    ok = "Рахмат! Даттануу кабыл алынды." if lang != "ru" else "Спасибо! Жалоба принята."
+    bad = "Даттануу жөнөтүлгөн жок." if lang != "ru" else "Жалоба не отправлена."
+    done = False
+    if lid.isdigit() and code in RSN:
+        try:
+            _cols()
+            r = core.query("SELECT flagged FROM listings WHERE id=?", (int(lid),),
+                           fetch="one")
+            if r:
+                cur = str(_g(r, "flagged", 0) or "")
+                tag = "📣 " + RSN[code]
+                if tag not in cur:
+                    new = (cur + " · " + tag).strip(" ·")[:200]
+                    core.query("UPDATE listings SET flagged=? WHERE id=?",
+                               (new, int(lid)))
+                done = True
+        except Exception as e:
+            print("report:", e, flush=True)
+    msg = ok if done else bad
+    back = "/e/" + lid if lid.isdigit() else "/"
+    body = ("<main class='wrap'><div class='rok'>" + E(msg) + "</div>"
+            "<p><a href='" + E(back) + "'>← Артка</a></p></main>")
+    h._send(tap.page(tap.header("", None, None, lang) + body, "ТАП!", "", lang))
+
+
 def is_banned(tid):
     """Бот жана WhatsApp чакырат. Ката болсо False кайтарат."""
     tid = str(tid or "").strip()

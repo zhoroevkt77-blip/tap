@@ -1239,6 +1239,25 @@ def _split_desc(text):
     return facts, "\n".join(rest)
 
 
+_RSNS = (("scam", "Алдамчылык", "Мошенничество"),
+         ("gone", "Товар жок / сатылып кеткен", "Товара нет / продано"),
+         ("wrong", "Туура эмес бөлүм", "Не тот раздел"),
+         ("ban", "Тыюу салынган товар", "Запрещённый товар"),
+         ("other", "Башка себеп", "Другая причина"))
+
+
+def _report(r, lang="ky"):
+    """Жарыя барагындагы даттануу баскычы. #RPT1"""
+    lid = r["id"]
+    ttl = "Даттануу" if lang != "ru" else "Пожаловаться"
+    ask = "Себебин тандаңыз:" if lang != "ru" else "Выберите причину:"
+    out = ("<details class='rpt'><summary>⚠️ " + esc(ttl) + "</summary>"
+           "<div class='rptb'><p>" + esc(ask) + "</p>")
+    for code, ky, ru in _RSNS:
+        out += ("<a href='/report?id=%d&r=%s'>%s</a>" % (lid, code, esc(ru if lang == "ru" else ky)))
+    return out + "</div></details>"
+
+
 def detail(r, lang="ky"):
     at = r.get("ad_type")
     if at:
@@ -1388,7 +1407,7 @@ def detail(r, lang="ky"):
 
     body = f"""<main class="wrap">
 <a class="back" href="{back}">{_ARROW}{esc(name)}</a>
-<div class="dph">{dimg}{shbtn}</div>{dvid}
+{_report(r, lang)}<div class="dph">{dimg}{shbtn}</div>{dvid}
 <div class="dcard">
 <div class="eb">{ic}{esc(sname or name)} · №{r['id']}</div>
 <div class="dp{' dpd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
@@ -1905,6 +1924,11 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/admin" or u.path.startswith("/admin/"):  #ADM1
             import admin
             admin.handle(self, u)
+            return
+        
+        if u.path == "/report":  #RPT2
+            import admin
+            admin.report(self, u)
             return
         
         if u.path.startswith("/lang/"):
