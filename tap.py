@@ -1213,6 +1213,16 @@ FACT_RENAME = {
     "Мөөнөтү": ("Жарыя канча мөөнөткө жарыяланды", "Срок публикации"),
 }
 
+# Маанилерди да которобуз (RU барагында кыргызча калбашы үчүн)
+FACT_VALUE_RU = {
+    "Жеткирүү жок": "Нет доставки",
+    "Жеткирүү бар": "Есть доставка",
+    "1 апта": "1 неделя",
+    "2 апта": "2 недели",
+    "3 апта": "3 недели",
+    "4 апта": "4 недели",
+}
+
 
 def _frow(icon, label, value):
     return (f'<div class="fr">{_ficon(icon)}<div class="ft">'
@@ -1382,8 +1392,10 @@ def detail(r, lang="ky"):
                 ic2 = nm
                 break
         nm = FACT_RENAME.get(k)
-        rows += _frow(ic2, _lb(nm[0], nm[1]) if nm else _ky(k, lang),
-                      _ky(v, lang))
+        _v = _ky(v, lang)
+        if lang == "ru":
+            _v = FACT_VALUE_RU.get(_v, _v)
+        rows += _frow(ic2, _lb(nm[0], nm[1]) if nm else _ky(k, lang), _v)
 
     rows += _frow("cal", _lb("Жарыя жарыяланган убактысы", "Опубликовано"),
                   ago(r["created_at"], lang))
