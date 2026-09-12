@@ -395,7 +395,7 @@ main.wrap{animation:pageIn .26s ease-out both}
 .xoff-malls .sel{background-color:#FBDDE2}
 .xoff-malls .sel.set{background-color:#FBDDE2}
 .xoff-markets .sel.set{background-color:#FCEBC8}
-.xoff-taxi /*SELSET*/.sel.set{background:#152741!important;background-color:#152741!important;color:#fff!important;border-color:#152741!important;font-weight:600!important}.sel.set option{background:#fff!important;color:#111!important}/*SELSH*/.sel{box-shadow:0 2px 6px rgba(16,24,40,.16)!important}.sel:focus{box-shadow:0 3px 10px rgba(16,24,40,.24)!important}.sel{background-color:#D8EEFB}
+.xoff-taxi /*SELDARK*/.sel{background:#152741!important;background-color:#152741!important;color:#fff!important;border-color:#152741!important;font-weight:600!important}.sel option{background:#fff!important;color:#111!important}/*SELSET*/.sel.set{background:#152741!important;background-color:#152741!important;color:#fff!important;border-color:#152741!important;font-weight:600!important}.sel.set option{background:#fff!important;color:#111!important}/*SELSH*/.sel{box-shadow:0 2px 6px rgba(16,24,40,.16)!important}.sel:focus{box-shadow:0 3px 10px rgba(16,24,40,.24)!important}.sel{background-color:#D8EEFB}
 .xoff-taxi .sel.set{background-color:#D8EEFB}
 
 
