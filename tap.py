@@ -543,7 +543,7 @@ def _subline(r, lang="ky"):
         pp = c.split(" / ")
         c = pp[-1] if lang == "ru" and len(pp) > 1 else pp[0]
     s = sub_title(r.get("category"), r.get("subcat")) or ""
-    s = L(s, lang) if s else ""
+    s = _ky(s, lang) if s else ""
     if s.strip().lower() in ("башка", "башкалар", "другое", "другие", "прочее"):
         s = ""
     t = str(L(bridge.show_title(r), lang) or "").strip().lower()
