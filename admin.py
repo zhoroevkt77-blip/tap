@@ -200,6 +200,88 @@ def _msg_post(h, uid, q):
     h._go(back + sep + "m=" + quote(msg), None)
 
 
+#BC1
+BC = {"run": False, "done": 0, "fail": 0, "total": 0, "at": ""}
+
+
+def _targets(who):
+    out, seen = [], set()
+    sql = ("SELECT DISTINCT tg_id FROM listings" if who == "ads"
+           else "SELECT tg_id FROM users")
+    for r in core.query(sql, fetch="all") or []:
+        t = str(_v(r, "tg_id") or "").strip()
+        if t.isdigit() and len(t) <= 10 and t not in seen:
+            seen.add(t)
+            out.append(t)
+    try:
+        ban = set(str(_g(x, "tid", 0)) for x in
+                  (core.query("SELECT tid FROM bans", fetch="all") or []))
+    except Exception:
+        ban = set()
+    return [t for t in out if t not in ban]
+
+
+def _bc_run(ids, txt):
+    BC.update(run=True, done=0, fail=0, total=len(ids), at=core.now_str()[:16])
+    for t in ids:
+        ok, _e = _tg_send(t, txt)
+        if ok:
+            BC["done"] += 1
+        else:
+            BC["fail"] += 1
+        time.sleep(0.05)
+    BC["run"] = False
+
+
+def _bc_page(uid):
+    n_all = len(_targets("all"))
+    n_ads = len(_targets("ads"))
+    st = ""
+    if BC["run"]:
+        st = ("<div class='ok'>Жөнөтүлүүдө: %d / %d · Жеткен жок: %d</div>"
+              "<p class='cnt'><a href='/admin/bc'>🔄 Жаңыртуу</a></p>"
+              % (BC["done"], BC["total"], BC["fail"]))
+    elif BC["total"]:
+        st = ("<div class='ok'>Акыркы жөнөтүү (%s): жетти %d, жеткен жок %d</div>"
+              % (E(BC["at"]), BC["done"], BC["fail"]))
+    return (st + "<form class='mf' method='post' action='/admin/bc'>"
+            "<input type='hidden' name='k' value='" + _csrf(uid) + "'>"
+            "<p>Кимге:</p><select name='w'>"
+            "<option value='ads'>Жарыя койгондорго (%d)</option>"
+            "<option value='all'>Бардык колдонуучуларга (%d)</option>"
+            "</select>" % (n_ads, n_all) +
+            "<p>Текст:</p>"
+            "<textarea name='t' rows='6' maxlength='3000' "
+            "placeholder='Кабардын тексти'></textarea>"
+            "<button type='submit' name='a' value='test'>👤 Өзүмө сынап көрүү</button>"
+            "<button type='submit' name='a' value='go'>📣 Баарына жөнөтүү</button>"
+            "</form>")
+
+
+def _bc_post(h, uid, q):
+    if not hmac.compare_digest(_q(q, "k"), _csrf(uid)):
+        h._send(_page("Ката", "<p class='er'>Жараксыз суроо.</p>"), 403)
+        return
+    txt = _q(q, "t").strip()[:3000]
+    who = "all" if _q(q, "w") == "all" else "ads"
+    if not txt:
+        msg = "Текст жазылган жок"
+    elif _q(q, "a") == "test":
+        ok, err = _tg_send(uid, txt)
+        msg = "Сынак кабар жөнөтүлдү" if ok else ("Ката: " + err)
+    elif BC["run"]:
+        msg = "Мурунку жөнөтүү бүтө элек"
+    else:
+        ids = _targets(who)
+        if not ids:
+            msg = "Кабар жөнөтүүчү адам жок"
+        else:
+            import threading
+            threading.Thread(target=_bc_run, args=(ids, txt), daemon=True).start()
+            msg = "Жөнөтүү башталды: %d адам" % len(ids)
+    h._go("/admin/bc?m=" + quote(msg), None)
+
+
 def is_banned(tid):
     """Бот жана WhatsApp чакырат. Ката болсо False кайтарат."""
     tid = str(tid or "").strip()
@@ -399,7 +481,8 @@ def _page(title, body, tab="", msg=""):
     for href, key, name in (("/admin", "st", "Статистика"),
                             ("/admin/ads", "ads", "Жарыялар"),
                             ("/admin/mod", "mod", "Модерация"),
-                            ("/admin/users", "us", "Колдонуучулар")):
+                            ("/admin/users", "us", "Колдонуучулар"),
+                            ("/admin/bc", "bc", "Билдирүү")):
         tabs += "<a href='%s'%s>%s</a>" % (href, " class='on'" if tab == key else "", name)
     flash = "<p class='ok'>" + E(msg) + "</p>" if msg else ""
     return ("<!doctype html><html lang='ky'><head><meta charset='utf-8'>"
@@ -736,6 +819,16 @@ def _route(h, u):
             bk = bk if bk.startswith("/admin") else "/admin/ads"
             h._send(_page("Колдонуучуга жазуу", _msg_form(uid, _q(q, "id") or "0", bk),
                           "ads", msg))
+    elif p == "/admin/bc":
+        if getattr(h, "command", "GET") == "POST":
+            try:
+                n = int(h.headers.get("Content-Length") or 0)
+                d = parse_qs(h.rfile.read(n).decode("utf-8")) if 0 < n < 9000 else {}
+            except Exception:
+                d = {}
+            _bc_post(h, uid, d)
+        else:
+            h._send(_page("Жапырт билдирүү", _bc_page(uid), "bc", msg))
     elif p == "/admin/users":
         h._send(_page("Колдонуучулар", _users(uid, q), "us", msg))
     else:
