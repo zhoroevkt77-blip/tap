@@ -3780,3 +3780,5 @@ def get(name):
     """Сүрөттүн байттары. Табылбаса None."""
     d = _B64.get(name)
     return base64.b64decode(d) if d else None
+
+_B64["groceries"] = _B64["trade"]
