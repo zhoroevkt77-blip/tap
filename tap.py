@@ -902,8 +902,14 @@ def shelves(lang="ky", ob=None):
             f'<a href="/?at={code}{_obq(ob)}" class="more">'
             f'{T("show_all", lang)} ›</a></div>'
             f'<nav class="subbar shchips" data-ob="{esc(ob or "")}">{chips}</nav>'
+            '<div class="swrap">'
+            '<button class="sarr" type="button" aria-label="prev" '
+            'onclick="this.nextElementSibling.scrollBy({left:-this.nextElementSibling.clientWidth*0.8,behavior:\'smooth\'})">&#8249;</button>'
             f'<div class="srow" id="row-{code}">'
-            f'{"".join(card(r, lang) for r in rows)}</div></section>')
+            f'{"".join(card(r, lang) for r in rows)}</div>'
+            '<button class="sarr sr" type="button" aria-label="next" '
+            'onclick="this.previousElementSibling.scrollBy({left:this.previousElementSibling.clientWidth*0.8,behavior:\'smooth\'})">&#8250;</button>'
+            '</div></section>')
     return "".join(out)
 
 
