@@ -508,9 +508,20 @@ def _stats():
         ("Бүгүн кошулду", _n("SELECT COUNT(*) AS n FROM users WHERE created_at LIKE ?", (day,))),
         ("⛔ Бандалган", _n("SELECT COUNT(*) AS n FROM bans")),
     ]
+    links = {  #TILELINK
+        "Жалпы жарыя": "/admin/ads",
+        "Активдүү": "/admin/ads?f=act",
+        "Мөөнөтү бүткөн": "/admin/ads?f=exp",
+        "⚠️ Шектүү": "/admin/ads?f=warn",
+    }
+    def _tile(a, b):
+        inner = "<small>" + E(a) + "</small><b>" + str(b) + "</b>"
+        href = links.get(a)
+        if href:
+            return "<a class='k' href='" + href + "'>" + inner + "</a>"
+        return "<div class='k'>" + inner + "</div>"
     body = "<div class='g'>" + "".join(
-        "<div class='k'><small>" + E(a) + "</small><b>" + str(b) + "</b></div>"
-        for a, b in tiles) + "</div>"
+        _tile(a, b) for a, b in tiles) + "</div>"
     try:
         rows = core.query(
             "SELECT category, COUNT(*) AS n FROM listings WHERE " + ACT +
