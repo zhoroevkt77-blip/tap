@@ -986,6 +986,26 @@ def handle_message(msg, st):
         payload = text[6:].strip() if text.startswith("/start") else ""
 
         # «/start ref12345» — дос чакыруу шилтемеси менен келди
+        if payload.startswith("ask_") and payload[4:].isdigit():  #ASK1
+            _lid = int(payload[4:])
+            try:
+                _r = core.query("SELECT id, tg_id, title FROM listings "
+                                "WHERE id=? AND is_active=1", (_lid,), fetch="one")
+            except Exception:
+                _r = None
+            if _r and _r["tg_id"] and str(_r["tg_id"]) != uid:
+                _kb = {"inline_keyboard": [[
+                    {"text": "✅ Ооба, актуалдуу",
+                     "callback_data": f"okact:{_lid}"},
+                    {"text": "❌ Жок, жаап кой",
+                     "callback_data": f"del:{_lid}"}]]}
+                send(_r["tg_id"],
+                     "❓ <b>Кардар сурап жатат:</b> жарыяңыз актуалдуубу?\n\n"
+                     f"№{_lid} — {esc(_r['title'])}", _kb)
+                send(chat, "✅ Ээсине суроо жөнөттүк. Жооп келсе, жарыя жаңыланат.")
+            else:
+                send(chat, "Жарыя табылган жок же ал сиздики.")
+            payload = ""
         if payload.startswith("ref") and payload[3:].isdigit():
             try:
                 ok = core.link_referral(uid, payload[3:])
