@@ -1325,6 +1325,15 @@ def detail(r, lang="ky"):
     tel = contact_block(
         r.get("contact"), lang, bridge.show_title(r),
         f"{core.SITE_URL}/e/{r['id']}" if core.SITE_URL else "")
+    _ask_t = ("Актуально ли объявление?" if lang == "ru"  #ASKBTN
+              else "Жарыя актуалдуубу?")
+    tel += ('<div class="askw"><a class="askb" target="_blank" rel="noopener" '
+            f'href="https://t.me/TapmeniBot?start=ask_{r["id"]}">'
+            f'❓ {_ask_t}</a></div>'
+            '<style>.askw{margin:10px 0}.askb{display:block;text-align:center;'
+            'padding:11px;border-radius:12px;border:1px solid #d7dbe3;'
+            'background:#fff;color:#1b3a5c;font-weight:600;text-decoration:none}'
+            '</style>')
 
     # Бөлүшүү: WhatsApp жана Telegram аркылуу шилтемени жиберүү
     share_url = f"{core.SITE_URL}/e/{r['id']}" if core.SITE_URL else ""
