@@ -1281,7 +1281,9 @@ def expire_worker():
             for r in core.expiring_soon():
                 kb = {"inline_keyboard": [[
                     {"text": "🔄 Узартуу / Продлить",
-                     "callback_data": f"revive:{r['id']}"}]]}
+                     "callback_data": f"revive:{r['id']}"},  #ACTUAL2
+                     {"text": "❌ Жок, жаап кой / Закрыть",
+                      "callback_data": f"del:{r['id']}"}]]}
                 send(r["tg_id"],
                      "⏳ <b>Жарыяңыздын мөөнөтү жакында бүтөт</b>\n\n"
                      f"№{r['id']} — {esc(r['title'])}\n\n"
@@ -1294,7 +1296,9 @@ def expire_worker():
             for r in core.expire_old():
                 kb = {"inline_keyboard": [[
                     {"text": "🔄 Кайра жандыруу / Возобновить",
-                     "callback_data": f"revive:{r['id']}"}]]}
+                     "callback_data": f"revive:{r['id']}"},  #ACTUAL2
+                     {"text": "❌ Жок, жаап кой / Закрыть",
+                      "callback_data": f"del:{r['id']}"}]]}
                 send(r["tg_id"],
                      "⏳ <b>Жарыяңыздын мөөнөтү бүттү</b>\n\n"
                      f"№{r['id']} — {esc(r['title'])}\n\n"
