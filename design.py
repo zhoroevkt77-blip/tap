@@ -205,7 +205,7 @@ main.wrap{animation:pageIn .26s ease-out both}
  transition:box-shadow .18s,transform .18s}
 /* Сүрөттүн катышы кабыктыкы менен бирдей (340x430), ошондуктан
    толук батат — бош жер да, кыркылган жер да калбайт. */
-.cat.pic .pic{width:100%;height:100%;object-fit:cover;display:block;
+.cat.pic .pic{width:100%;height:100%;object-fit:cover;display:block;box-shadow:0 6px 16px rgba(16,24,40,.45);/*PICSHADOW*/
  border-radius:0}
 /* Аталыш тактанын өз ичинде, ылдый жагында турат — сүрөт менен
    жазуу бир бүтүн карточка болуп көрүнөт. */
