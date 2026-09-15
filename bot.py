@@ -1185,6 +1185,14 @@ def handle_callback(cb, st):
             send(chat, m("del_fail", ulang(u)))
         return
 
+    if data.startswith("okact:"):  #ASK2
+        lid = int(data[6:])
+        if core.revive(lid, uid, phone=u.get("myphone")):
+            send(chat, f"✅ Жарыя №{lid} актуалдуу деп белгиленди, мөөнөтү узартылды.")
+        else:
+            send(chat, f"Жарыя №{lid} табылган жок.")
+        return
+
     if data.startswith("revive:"):
         lid = int(data[7:])
         if core.revive(lid, uid, phone=u.get("myphone")):
