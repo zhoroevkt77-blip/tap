@@ -859,7 +859,7 @@ def _obq(ob):
     return ("&" + urllib.parse.urlencode({"ob": ob})) if ob else ""
 
 
-def _regions_strip(link, ob, lang, at=None, q=None):
+def _regions_strip(link, ob, lang, at=None, q=None, di=None):
     """
     Облустар менен республикалык шаарлар — горизонталдуу тилке.
     Бирөөнү баскандан кийин бүт бет ошол аймакка өтөт.
@@ -876,7 +876,33 @@ def _regions_strip(link, ob, lang, at=None, q=None):
     for rg in _by_count(list(OBLASTS), oc):
         out += _chip(link(ob=rg, di=None, vi=None), rg,
                      ob == rg, oc.get(rg, 0), lang)
-    return f'<nav class="regbar">{out}</nav>'
+    # REGBAR2: облус тандалса — анын райондору экинчи катар
+    row2 = ""
+    if ob:
+        try:
+            dc = core.district_counts(ob, ad_type=at, q=q or None)
+        except Exception:
+            try:
+                dc = core.district_counts(ob)
+            except Exception:
+                dc = {}
+        dc = dc or {}
+        try:
+            ds = list(get_districts(ob)) or list(core.used_districts(ob))
+        except Exception:
+            ds = []
+        if ds:
+            _o = str(ob).lower()
+            if "шаар" in _o or "город" in _o or _o.endswith(" ш."):
+                whole = "Весь город" if lang == "ru" else "Бүт шаар"
+            else:
+                whole = T("all_oblast", lang)
+            r2 = _chip(link(ob=ob, di=None, vi=None), whole, not di, 0, lang, short=False)
+            for x in _by_count(list(ds), dc):
+                r2 += _chip(link(ob=ob, di=x, vi=None), x, di == x, dc.get(x, 0), lang)
+            row2 = ('<style>.regbar2{margin-top:-6px}</style>'
+                    f'<nav class="regbar regbar2">{r2}</nav>')
+    return f'<nav class="regbar">{out}</nav>' + row2
 
 
 def shelves(lang="ky", ob=None):
@@ -933,7 +959,7 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
 
     top = (header(q, at, vi or di or ob, lang)
            + _sections_strip(link, at, lang, ob)
-           + _regions_strip(link, ob, lang, at, q))
+           + _regions_strip(link, ob, lang, at, q, di))
 
     # Бөлүм/категория/издөө жок — катар-катар тизме.
     # Аймак гана тандалса, ошол аймактын ичинде катарлар көрүнөт.
