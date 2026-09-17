@@ -562,7 +562,7 @@ def fmt(r):
     if r.get("contact"):
         lines.append(f"\n☎️ {esc(r['contact'])}")
     if SITE_URL and "localhost" not in SITE_URL:
-        lines.append(f"\n🌐 {SITE_URL}/e/{r['id']}")
+        lines.append(f"\n🌐 <a href=\"{SITE_URL}/e/{r['id']}\">Сайттан көрүү</a>")
     return "\n".join(lines)
 
 
@@ -636,7 +636,7 @@ def notify_admins(lid, row, uid, name, warn=""):
     """
     if not ADMIN_IDS:
         return
-    link = (f"\n🌐 {SITE_URL}/e/{lid}"
+    link = (f"\n🌐 <a href=\"{SITE_URL}/e/{lid}\">Сайттан көрүү</a>"
             if SITE_URL and "localhost" not in SITE_URL else "")
     txt = (warn + "🆕 <b>Жаңы жарыя</b> №%d\n\n"
            "📦 %s\n💰 %s\n📍 %s\n☎️ %s\n"
@@ -745,7 +745,7 @@ def save_ad(chat, uid, name, u):
         [d["photoFileId"]] if d.get("photoFileId") else [])
     vfid = d.get("videoFileId")
 
-    link = (f"\n\n🌐 {SITE_URL}/e/{lid}"
+    link = (f"\n\n🌐 <a href=\"{SITE_URL}/e/{lid}\">Сайттан көрүү</a>"
             if SITE_URL and "localhost" not in SITE_URL else "")
 
     # Жооп адегенде жиберилет. Сүрөт менен видеону Telegram'дан

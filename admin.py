@@ -190,7 +190,7 @@ def _msg_post(h, uid, q):
         tid = str(_v(r, "tg_id") or "")
         title = str(bridge.show_title(r) or "-")
         site = (os.environ.get("SITE_URL") or "").rstrip("/")
-        link = ("\n🌐 %s/e/%s" % (site, lid)) if site and "localhost" not in site else ""
+        link = ("\n🌐 <a href=\"%s/e/%s\">Сайттан көрүү</a>" % (site, lid)) if site and "localhost" not in site else ""
         txt = ("⚠️ <b>Администратордун эскертүүсү</b>\n\n"
                "Жарыя №%s: <b>%s</b>\n\n%s%s" %
                (lid, html.escape(title), html.escape("\n".join(body)), link))
