@@ -897,7 +897,7 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None):
                 whole = "Весь город" if lang == "ru" else "Бүт шаар"
             else:
                 whole = T("all_oblast", lang)
-            r2 = _chip(link(ob=ob, di=None, vi=None), whole, not di, 0, lang, short=False)
+            r2 = _chip(link(ob=ob, di=None, vi=None), whole, not di, oc.get(ob, 0), lang, short=False)
             for x in _by_count(list(ds), dc):
                 r2 += _chip(link(ob=ob, di=x, vi=None), x, di == x, dc.get(x, 0), lang)
             row2 = ('<style>.regbar2{margin-top:-6px}</style>'
