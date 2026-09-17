@@ -92,6 +92,18 @@ def _hb(key, d):
 
 OTHER = "Башка / Другое"
 
+# TRADE_SIMPLE_FLOW: соода — топсуз субкатегориялар, унаада «өткөрүп жиберүү»
+SKIP = "__skip__"
+SKIP_OPT = {"label": "⏭ Өткөрүп жиберүү / Пропустить", "value": SKIP}
+
+
+def _trade_subs(cat_id):
+    """Соода/мүлк категориясынын субкатегориялары (топсуз)."""
+    for c in list(PROPERTY_CATEGORIES) + list(TRADE_CATEGORIES):
+        if c.get("id") == cat_id:
+            return c.get("subs") or []
+    return []
+
 
 # ─────────────────────────────────────────────────────────────
 #  Кичине жардамчылар
@@ -725,14 +737,20 @@ def render(step, data=None):
         return _view("Унаанын түрү? / Тип транспорта?", _from_groups(VEHICLE_CATEGORIES))
 
     if step == "trade_vehicle_body":
-        return _view("Кузовдун түрү? / Тип кузова?", _from_list(VEHICLE_BODY_TYPES))
+        return _view("Кузовдун түрү? / Тип кузова?",
+                     _from_list(VEHICLE_BODY_TYPES) + [SKIP_OPT])
 
     if step == "trade_vehicle_engine":
-        return _view("Кыймылдаткычы? / Двигатель?", _from_list(VEHICLE_ENGINE_TYPES))
+        return _view("Кыймылдаткычы? / Двигатель?",
+                     _from_list(VEHICLE_ENGINE_TYPES) + [SKIP_OPT])
 
     if step == "trade_vehicle_sub":
         return _view("Тагыраак тандаңыз / Уточните:",
                      _from_list(VEHICLE_SUBS.get(d.get("vehicleCategory"), [OTHER])), multi=True)
+
+    if step == "trade_sub_select":
+        return _view("Түрүн тандаңыз / Выберите тип:",
+                     _from_list(_trade_subs(d.get("category"))), multi=True)
 
     # Соода: топ/подтоп (14 категория үчүн бирдей)
     if step == "trade_group":
@@ -1268,26 +1286,31 @@ def advance(step, value, data=None):
     # ── Соода категориялары ─────────────────────────────────
     if step == "trade_category":
         d["category"] = value
-        if value in ("clothing", "footwear"):
+        if value == "clothing":
             return "trade_demographic", d
+        if value == "footwear":
+            return "trade_item_type", d
         if value == "heating_fuel":
             return "trade_heating_fuel_select", d
         if value == "realestate":
             return "trade_realestate_type", d
         if value == "vehicles":
             return "trade_vehicle_category", d
+        if _has_choice(_trade_subs(value)):
+            return "trade_sub_select", d
         if value in GROUP_TABLES:
             return "trade_group", d
         return _after_subcategory(d), d
 
     if step == "trade_demographic":
-        return go("trade_season", demographic=value)
+        return go("trade_item_type", demographic=value, season=None)
 
     if step == "trade_season":
         return go("trade_item_type", season=value)
 
     if step in ("trade_item_type", "trade_heating_fuel_select",
-                "trade_realestate_sub", "trade_vehicle_sub", "trade_group_sub"):
+                "trade_realestate_sub", "trade_vehicle_sub", "trade_group_sub",
+                "trade_sub_select"):
         d["subcategory"] = value
         return _after_subcategory(d), d
 
@@ -1295,13 +1318,21 @@ def advance(step, value, data=None):
         return go("trade_realestate_sub", realestateType=value)
 
     if step == "trade_vehicle_category":
-        return go("trade_vehicle_body", vehicleCategory=value)
+        d["vehicleCategory"] = value
+        if value == "electric":
+            d.update(vehicleBody="", vehicleEngine="Электромобиль / Электромобиль")
+            return "trade_vehicle_sub", d
+        if value != "light":
+            d["vehicleBody"] = ""
+            return "trade_vehicle_engine", d
+        return "trade_vehicle_body", d
 
     if step == "trade_vehicle_body":
-        return go("trade_vehicle_engine", vehicleBody=value)
+        return go("trade_vehicle_engine",
+                  vehicleBody="" if value == SKIP else value)
 
     if step == "trade_vehicle_engine":
-        d["vehicleEngine"] = value
+        d["vehicleEngine"] = "" if value == SKIP else value
         # Жеңил автоунаада кузов менен кыймылдаткыч ансыз да
         # тактап берди — бош «Башка» экранын көрсөтпөйбүз
         if not _has_choice(VEHICLE_SUBS.get(d.get("vehicleCategory"))):

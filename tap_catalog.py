@@ -10493,3 +10493,11 @@ try:
     _svs.apply(SERVICE_CATEGORIES, SERVICE_GROUP_TABLES)
 except ImportError:
     pass
+
+
+# TRADE_SIMPLE_FLOW: соода бөлүмү — топсуз жөнөкөй тизме (tap_trade_simple.py)
+try:
+    import tap_trade_simple as _tts
+    _tts.apply(globals())
+except ImportError:
+    pass
