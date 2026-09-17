@@ -559,7 +559,7 @@ def _filters(q=None, cat=None, region=None, sub=None,
     if district:
         # Бир жарыяда бир нече район болушу мүмкүн («А району, Б району»).
         # Ошондуктан үтүр менен курчап салыштырабыз.
-        sql += " AND (district IS NULL OR district='' OR (', ' || district || ', ') LIKE ?)"  # NODIST_OK: бүт шаар жарыялары да чыгат
+        sql += " AND (', ' || district || ', ') LIKE ?"
         p.append("%, " + district + ", %")
     if village:
         sql += " AND " + VILLAGE_EXPR + "=?"; p.append(village)
