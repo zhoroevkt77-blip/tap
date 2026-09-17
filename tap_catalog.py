@@ -10485,3 +10485,11 @@ JOBSEEK_CATEGORIES = list(JOB_CATEGORIES) + [
          "Багбан / Садовник",
          "Башка / Другое"]},
 ]
+
+
+# SVC_SIMPLE_APPLY: кызмат бөлүмү — топсуз, жөнөкөй тизме (tap_svc_simple.py)
+try:
+    import tap_svc_simple as _svs
+    _svs.apply(SERVICE_CATEGORIES, SERVICE_GROUP_TABLES)
+except ImportError:
+    pass
