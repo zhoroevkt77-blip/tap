@@ -1162,9 +1162,29 @@ def oblast_counts(**kw):
     return region_counts("oblast", **kw)
 
 
+def _nodistrict_count(oblast, q=None, ad_type=None, cat_id=None, sub_id=None):
+    """COUNT_FIX: району жазылбаган («бүт шаар») жарыялардын саны."""
+    where, p = _filters(q=q, ad_type=ad_type, cat_id=cat_id,
+                        oblast=oblast, sub_id=sub_id)
+    r = query("SELECT COUNT(*) AS n FROM listings WHERE is_active=1" + where +
+              " AND (district IS NULL OR district='')", tuple(p), fetch="one")
+    try:
+        return int(r["n"] or 0)
+    except Exception:
+        return 0
+
+
 def district_counts(oblast, **kw):
-    """Облустагы райондор боюнча эсеп."""
-    return region_counts("district", oblast=oblast, **kw)
+    """Облустагы райондор боюнча эсеп.
+
+    COUNT_FIX: району жок жарыялар ар бир районго чыккандыктан,
+    санакка да кошулат — чиптеги сан тизме менен дал келсин.
+    """
+    c = region_counts("district", oblast=oblast, **kw)
+    extra = _nodistrict_count(oblast, **kw)
+    if extra:
+        c = {k: v + extra for k, v in c.items()}
+    return c
 
 
 def village_counts(oblast, district, **kw):
