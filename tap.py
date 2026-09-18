@@ -735,6 +735,31 @@ def cat_tiles(at, cid, ob, lang):
     return _TILES_CSS + f'<nav class="ctiles">{out}</nav>'
 
 
+# CAT_CHIPS: категорияларды чип катары кылып көрсөтүү
+_CAT_CHIPS_CSS = ('<style>.regcat{display:flex;gap:8px;overflow-x:auto;'
+                  'scrollbar-width:none;padding:6px 14px 8px;margin:0}'
+                  '.regcat::-webkit-scrollbar{display:none}'
+                  '.regcat .rg{flex:none;padding:8px 14px;font-size:13.5px}'
+                  '</style>')
+
+
+def _chips_row(label, opts, cur, lang):
+    """Тандоо тизмесинин ордуна горизонталдуу чиптер.
+
+    Жарыясы бар категориялар гана көрсөтүлөт. Эгер андай категория
+    жок болсо, баары көрсөтүлөт (тизме бош калбасын).
+    """
+    live = [o for o in opts
+            if o[0] is None or o[3] or o[0] == cur]
+    if len(live) < 2:
+        live = opts
+    out = ""
+    for code, href, nm, n in live:
+        out += _chip(href, nm, code == cur, n or 0, lang, short=False)
+    return (f'<div class="rglb">{esc(label)}</div>'
+            f'<nav class="regcat">{out}</nav>')
+
+
 def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
     """Бөлүм жана аймак чыпкалары — тандоо тизмелери менен."""
     ru = (lang == "ru")
@@ -750,7 +775,7 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
                  "Все" if ru else "Баары", sum(cc.values()))]
         for code, nm in items:
             opts.append((code, link(cid=code, sid=None), nm, cc.get(code, 0)))
-        inner = _sel("Категория", opts, cid)
+        inner = _CAT_CHIPS_CSS + _chips_row("Категория", opts, cid, lang)
 
         if cid:
             sc = core.subid_counts(at, cid, ob, di, vi, q or None)
@@ -759,7 +784,7 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
             for code, n in sorted(sc.items(), key=lambda x: (-x[1], x[0])):
                 opts.append((code, link(sid=code), _ky(code, lang), n))
             if len(opts) > 1:
-                inner += _sel("Субкатегория", opts, sid)
+                inner += _chips_row("Субкатегория", opts, sid, lang)
 
         out += _group("Что вы ищете" if ru else "Эмне издеп жатасыз", inner)
 
