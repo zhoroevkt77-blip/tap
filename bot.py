@@ -783,22 +783,37 @@ def save_ad(chat, uid, name, u):
         except Exception:
             pass       # чакыруучу ботту бөгөттөп койгон болушу мүмкүн
 
-    saved = []
-    for i, fid in enumerate(ids[:PHOTO_MAX], 1):
-        fn = f"{lid}.jpg" if i == 1 else f"{lid}_{i}.jpg"
-        if download_photo(fid, os.path.join(MEDIA, fn)):
-            saved.append(fn)
-    if saved:
-        core.set_photos(lid, saved)
-
-    if vfid:
-        vfn = f"{lid}.mp4"
-        if download_file(vfid, os.path.join(MEDIA, vfn), "Видео"):
-            core.set_video(lid, vfn)
-
+    # SPEED2: сүрөт менен видео жүктөө ондогон секунд алат. Аны өзүнчө
+    # агымга чыгарабыз, ансыз ошол убакта башка колдонуучулар күтүп калат.
     warn = ("⚠️ <b>Шектүү сөз:</b> %s\n\n" % esc(", ".join(hits[:5]))
             if level == "soft" else "")
-    notify_admins(lid, row, uid, name, warn)
+
+    def _media_job():
+        try:
+            saved = []
+            for i, fid in enumerate(ids[:PHOTO_MAX], 1):
+                fn = f"{lid}.jpg" if i == 1 else f"{lid}_{i}.jpg"
+                if download_photo(fid, os.path.join(MEDIA, fn)):
+                    saved.append(fn)
+            if saved:
+                core.set_photos(lid, saved)
+
+            if vfid:
+                vfn = f"{lid}.mp4"
+                if download_file(vfid, os.path.join(MEDIA, vfn), "Видео"):
+                    core.set_video(lid, vfn)
+        except Exception as e:
+            print("  Медиа катасы:", e, flush=True)
+        finally:
+            try:
+                notify_admins(lid, row, uid, name, warn)
+            except Exception as e:
+                print("  Админге кабар катасы:", e, flush=True)
+
+    if ids or vfid:
+        threading.Thread(target=_media_job, daemon=True).start()
+    else:
+        notify_admins(lid, row, uid, name, warn)
 
 
 def ask_title(chat, u):

@@ -506,6 +506,29 @@ def init_db():
     _migrate_malls()
     query("CREATE INDEX IF NOT EXISTS idx_active ON listings(is_active)")
     query("CREATE INDEX IF NOT EXISTS idx_cat ON listings(category)")
+    # SPEED2: чыпка менен иргөө бир индекстен жүрсүн
+    for sql in (
+        "CREATE INDEX IF NOT EXISTS idx_live_type "
+        "ON listings(is_active, ad_type, id)",
+        "CREATE INDEX IF NOT EXISTS idx_live_ob "
+        "ON listings(is_active, oblast, id)",
+        "CREATE INDEX IF NOT EXISTS idx_live_cat "
+        "ON listings(is_active, cat_id, id)",
+        "CREATE INDEX IF NOT EXISTS idx_expires ON listings(expires_at)",
+        "CREATE INDEX IF NOT EXISTS idx_owner ON listings(tg_id)",
+    ):
+        try:
+            query(sql)
+        except Exception as e:
+            print("  Индекс:", e, flush=True)
+    if IS_PG:
+        # Издөө «%сөз%» боюнча жүрөт — ага үч тамгалуу (trigram) индекс керек.
+        try:
+            query("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+            query("CREATE INDEX IF NOT EXISTS idx_stext_trgm "
+                  "ON listings USING gin (stext gin_trgm_ops)")
+        except Exception as e:
+            print("  pg_trgm жок:", e, flush=True)
     try:
         query("CREATE INDEX IF NOT EXISTS idx_adtype ON listings(ad_type)")
         query("CREATE INDEX IF NOT EXISTS idx_oblast ON listings(oblast)")
@@ -719,10 +742,46 @@ def count(q=None, cat=None, region=None, sub=None,
     return (r or {}).get("n", 0)
 
 
+# SPEED2: ар бир кирүүдө базага жазбайбыз. Көрүүлөр эстутумда жыйналып,
+# 60 секунд сайын (же 30 көрүүдөн кийин) бир жолу базага түшөт.
+_VIEWS = {}
+_VIEWS_AT = [0.0]
+VIEWS_FLUSH_SEC = int(os.environ.get("VIEWS_FLUSH_SEC", "60"))
+
+
+def flush_views(force=False):
+    now = _time.time()
+    with _CACHE_LOCK:
+        if not _VIEWS:
+            _VIEWS_AT[0] = _VIEWS_AT[0] or now
+            return
+        if not force and now - (_VIEWS_AT[0] or now) < VIEWS_FLUSH_SEC \
+                and len(_VIEWS) < 30:
+            return
+        pend = dict(_VIEWS)
+        _VIEWS.clear()
+        _VIEWS_AT[0] = now
+    for lid, n in pend.items():
+        try:
+            _query_once("UPDATE listings SET views=views+? WHERE id=?", (n, lid))
+        except Exception:
+            pass
+
+
 def one(lid, count_view=True):
     r = query("SELECT * FROM listings WHERE id=? AND is_active=1", (lid,), fetch="one")
     if r and count_view:
-        query("UPDATE listings SET views=views+1 WHERE id=?", (lid,))
+        with _CACHE_LOCK:
+            _VIEWS[lid] = _VIEWS.get(lid, 0) + 1
+            pend = _VIEWS[lid]
+            if not _VIEWS_AT[0]:
+                _VIEWS_AT[0] = _time.time()
+        try:
+            r = dict(r)
+            r["views"] = int(r.get("views") or 0) + pend
+        except Exception:
+            pass
+        flush_views()
     return r
 
 
