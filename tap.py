@@ -108,6 +108,18 @@ for _lst in _CAT_LISTS.values():
         _ALL_RAW.setdefault(_c["id"], _c.get("label") or _c["id"])
 
 
+# CHIP_EMOJI: ар бир категориянын белгиси (каталогдон)
+_CAT_EMOJI = {}
+for _lst in _CAT_LISTS.values():
+    for _c in _lst:
+        if _c.get("emoji"):
+            _CAT_EMOJI.setdefault(_c["id"], _c["emoji"])
+
+
+def cat_emoji(cat_id):
+    return _CAT_EMOJI.get(cat_id, "")
+
+
 def cat_label(ad_type, cat_id, lang="ky"):
     if not cat_id:
         return ""
@@ -973,8 +985,10 @@ def _shelves(lang="ky", ob=None):
         chips = (f'<button class="sb2 on" data-sec="{code}" data-cid="">'
                  f'{T("all", lang)}</button>')
         for cid, n in sorted(cc.items(), key=lambda x: -x[1])[:12]:
+            _em = cat_emoji(cid)
             chips += (f'<button class="sb2" data-sec="{code}" data-cid="{esc(cid)}">'
-                      f'{esc(cat_label(code, cid, lang))} <em>{n}</em></button>')
+                      f'{(_em + " ") if _em else ""}{esc(cat_label(code, cid, lang))}'
+                      f' <em>{n}</em></button>')
         out.append(
             f'<section class="shelf" id="sh-{code}">'
             f'<div class="shead"><h2>{esc(section_name(code, lang))}</h2>'
