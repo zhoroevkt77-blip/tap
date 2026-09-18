@@ -952,7 +952,11 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
                 r3 += _chip(link(ob=ob, di=di, vi=x), x, vi == x, vc.get(x, 0), lang)
             row3 = ('<style>.regbar3{margin-top:-6px}</style>'
                     f'<nav class="regbar regbar3">{r3}</nav>')
-    return f'<nav class="regbar">{out}</nav>' + row2 + row3
+    # REGBAR1_WRAP: облустар сыдырылбайт, эки катарга жайылат
+    css = ('<style>.regbar1{flex-wrap:wrap;overflow-x:visible;row-gap:7px;'
+           'gap:7px;padding-bottom:6px}'
+           '.regbar1 .rg{padding:8px 14px;font-size:13.5px}</style>')
+    return css + f'<nav class="regbar regbar1">{out}</nav>' + row2 + row3
 
 
 # PERF_PATCH: башкы бет ондогон суроо жасайт. Даяр HTML'ди бир нече
