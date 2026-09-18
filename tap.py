@@ -885,8 +885,13 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
         oc = core.oblast_counts(ad_type=at, q=q or None)
     except Exception:
         oc = {}
+    # ALL_COUNT: «Бүт Кыргызстан» чибинде да жалпы сан турсун
+    try:
+        _all_n = core.count(ad_type=at, q=q or None)
+    except Exception:
+        _all_n = sum(oc.values()) if oc else 0
     out = _chip(link(ob=None, di=None, vi=None), T("all_kg", lang),
-                not ob, 0, lang, short=False)
+                not ob, _all_n, lang, short=False)
     for rg in _by_count(list(OBLASTS), oc):
         out += _chip(link(ob=rg, di=None, vi=None), rg,
                      ob == rg, oc.get(rg, 0), lang)
@@ -937,7 +942,12 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
                 whole3 = "Весь город" if lang == "ru" else "Бүт шаар"
             else:
                 whole3 = "Весь район" if lang == "ru" else "Бүт район"
-            r3 = _chip(link(ob=ob, di=di, vi=None), whole3, not vi, 0, lang, short=False)
+            try:
+                _d_n = core.count(oblast=ob, district=di, ad_type=at, q=q or None)
+            except Exception:
+                _d_n = 0
+            r3 = _chip(link(ob=ob, di=di, vi=None), whole3, not vi, _d_n, lang,
+                       short=False)
             for x in _by_count(list(vs), vc):
                 r3 += _chip(link(ob=ob, di=di, vi=x), x, vi == x, vc.get(x, 0), lang)
             row3 = ('<style>.regbar3{margin-top:-6px}</style>'
