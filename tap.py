@@ -788,33 +788,9 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
 
         out += _group("Что вы ищете" if ru else "Эмне издеп жатасыз", inner)
 
-    # ── Кайсы жерден: облус → район → айыл ────────────────────
-    oc = core.oblast_counts(**flt)
-    opts = [(None, link(ob=None, di=None, vi=None), T("all_kg", lang),
-             sum(oc.values()))]
-    for rg in _by_count(list(OBLASTS), oc):
-        opts.append((rg, link(ob=rg, di=None, vi=None),
-                     _place_name(rg, lang), oc.get(rg, 0)))
-    inner = _sel("Область · город" if ru else "Облус · шаар", opts, ob)
-
-    if ob:
-        dc = core.district_counts(ob, **flt)
-        ds = list(get_districts(ob)) or core.used_districts(ob)
-        if ds:
-            # Бишкек менен Ош — республикалык маанидеги шаарлар,
-            # аларда «облус» эмес, «шаар» деп жазылат.
-            city = "шаар" in str(ob).lower() or "город" in str(ob).lower()
-            if city:
-                whole = "Весь город" if ru else "Бүт шаар"
-                lbl = "Район города" if ru else "Шаардын району"
-            else:
-                whole = T("all_oblast", lang)
-                lbl = "Район · город" if ru else "Район · шаар"
-            opts = [(None, link(di=None, vi=None), whole, None)]
-            for x in _by_count(list(ds), dc):
-                opts.append((x, link(di=x, vi=None),
-                             _place_name(x, lang), dc.get(x, 0)))
-            inner += _sel(lbl, opts, di)
+    # ── Кайсы жерден: айыл аймагы ─────────────────────────────
+    # NO_DUP_GEO: облус менен район жогорку тилкелерде турат
+    inner = ""
 
     if ob and di:
         vc = core.village_counts(ob, di, **flt)
@@ -824,10 +800,13 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
             opts = [(None, link(vi=None), whole, None)]
             for x in _by_count(list(vs), vc):
                 opts.append((x, link(vi=x), _place_name(x, lang), vc.get(x, 0)))
-            inner += _sel("Айыльный округ · село" if ru else "Айыл аймагы · айыл",
-                          opts, vi)
+            # CHIPS2: айылдар да чип катары
+            inner += _chips_row(
+                "Айыльный округ · село" if ru else "Айыл аймагы · айыл",
+                opts, vi, lang)
 
-    out += _group("Откуда" if ru else "Кайсы жерден", inner)
+    if inner:
+        out += _group("Откуда" if ru else "Кайсы жерден", inner)
 
     # ── Тартиби: жаңысынан, арзандан, кымбаттан ───────────────
     names = ([("new", "Сначала новые"), ("cheap", "Сначала дешёвые"),
@@ -835,7 +814,8 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
              [("new", "Жаңысынан"), ("cheap", "Арзандан"),
               ("rich", "Кымбаттан"), ("views", "Көп көрүлгөн")])
     opts = [(code, link(sort=code), nm, None) for code, nm in names]
-    inner = _sel("Сортировка" if ru else "Тартиби", opts, sort or "new")
+    inner = _chips_row("Сортировка" if ru else "Тартиби", opts,
+                       sort or "new", lang)
     out += _group("Как показать" if ru else "Кантип көрсөтүү", inner)
     # Тандалган бөлүмдүн түсү фильтр полосаларына өтсүн
     return f'<div class="fsec s-{at}">{out}</div>' if at else out
