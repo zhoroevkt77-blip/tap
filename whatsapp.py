@@ -249,6 +249,29 @@ def _pick(view, u, text):
 
 def _save_ad(chat_id, u):
     d = u["data"]
+    # GUARD3: Telegram'дагыдай эле чек жана уят сөз чыпкасы
+    import rules
+    uid = chat_id.split("@")[0]
+    try:
+        ok, _bonus_used, _left = rules.spend_post(uid)
+    except Exception:
+        ok = True
+    if not ok:
+        send(chat_id, "⛔ Суткалык чек толду (%d жарыя). Эртең кайра "
+                      "аракет кылыңыз." % rules.DAILY_LIMIT)
+        _reset(u)
+        return
+    try:
+        level, hits = rules.check_text(d.get("title"), d.get("postComment"),
+                                       d.get("subcategory"), d.get("description"))
+    except Exception:
+        level, hits = "", []
+    if level in ("hard", "swear"):
+        send(chat_id, "⛔ Жарыяда уруксат берилбеген сөз бар: %s"
+             % ", ".join(hits[:3]))
+        _reset(u)
+        return
+
     row = bridge.to_listing(d)
     if not row["title"]:
         row["title"] = "Жарыя"

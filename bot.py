@@ -1352,6 +1352,28 @@ def expire_worker():
         time.sleep(6 * 60 * 60)      # алты сааттан кийин кайра карайт
 
 
+# GUARD3: оор ката чыкса админге кабар. Бирдей ката кайталанса,
+# 10 мүнөттө бир жолу гана жиберилет — телефон чырылдап турбасын.
+_ALERTS = {}
+
+
+def alert_admin(err):
+    import traceback
+    key = type(err).__name__ + str(err)[:80]
+    now = time.time()
+    if _ALERTS.get(key, 0) > now:
+        return
+    _ALERTS[key] = now + 600
+    if len(_ALERTS) > 200:
+        _ALERTS.clear()
+    tail = traceback.format_exc()[-600:]
+    for aid in ADMIN_IDS:
+        try:
+            send(int(aid), "⚠️ <b>Ботто ката</b>\n<code>%s</code>" % esc(tail))
+        except Exception:
+            pass
+
+
 def main():
     global TOKEN, API
     TOKEN = read_token()
@@ -1426,6 +1448,7 @@ def main():
                     handle_callback(up["callback_query"], st)
             except Exception as e:
                 print("  Ката:", e, flush=True)
+                alert_admin(e)   # GUARD3
             save_state(st)
 
 

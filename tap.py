@@ -8,6 +8,7 @@ TAP! — витрина (сайт).
 Ачуу:    http://localhost:8000
 """
 
+import base64
 import html, json, os, urllib.parse
 import time as _t
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -936,6 +937,11 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
 # секунд эстеп турабыз; жаңы жарыя кошулса, core.version() өзгөрүп кэш
 # өзү жаңыланат.
 SHELF_TTL = int(os.environ.get("SHELF_TTL", "45"))
+
+# GUARD3: бир IP бир мүнөттө канча бет ача алат (0 — чектөө жок)
+RATE_MAX = int(os.environ.get("RATE_MAX", "150"))
+_RATE = {}
+_RATE_LOCK = __import__("threading").Lock()
 _SHELF_CACHE = {}
 
 
@@ -1073,6 +1079,15 @@ _ARROW = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
           '<path d="M14.5 5.5 8 12l6.5 6.5"/></svg>')
 
 
+_NUM_JS = """<script>
+function tapNum(b){
+  var box = b.closest('.ctc');
+  try { box.innerHTML = decodeURIComponent(escape(atob(b.dataset.h))); }
+  catch(e) { box.innerHTML = atob(b.dataset.h); }
+}
+</script>"""
+
+
 def contact_block(raw, lang="ky", title="", url=""):
     """
     Байланыш баскычтары: чалуу, WhatsApp, Telegram.
@@ -1110,15 +1125,24 @@ def contact_block(raw, lang="ky", title="", url=""):
                     else "Текст көчүрүлдү — чатка коюңуз")
     else:
         tg_msg = tg_ok = ""
-    return f"""<div class="cnum">{esc(shown)}</div>
-<div class="cbar">
-<a class="cb1 call" href="tel:+{intl}">{_PHONE}<span>{T("c_call", lang)}</span></a>
-<a class="cb1 wa" href="https://wa.me/{intl}{wa_msg}" target="_blank" rel="noopener">
-{_WA}<span>WhatsApp</span></a>
-<a class="cb1 tg" href="https://t.me/+{intl}" target="_blank" rel="noopener"
- onclick="tapCopy(this)" data-m="{tg_msg}" data-ok="{tg_ok}">
-{_TG}<span>Telegram</span></a>
-</div>"""
+    # GUARD3: номер басканда гана ачылат. Спам роботтор беттен номерди
+    # чогултуп ала албасын үчүн HTML'де ачык жатпайт.
+    real = (f'<div class="cnum">{esc(shown)}</div>'
+            f'<div class="cbar">'
+            f'<a class="cb1 call" href="tel:+{intl}">{_PHONE}'
+            f'<span>{T("c_call", lang)}</span></a>'
+            f'<a class="cb1 wa" href="https://wa.me/{intl}{wa_msg}" '
+            f'target="_blank" rel="noopener">{_WA}<span>WhatsApp</span></a>'
+            f'<a class="cb1 tg" href="https://t.me/+{intl}" target="_blank" '
+            f'rel="noopener" onclick="tapCopy(this)" data-m="{tg_msg}" '
+            f'data-ok="{tg_ok}">{_TG}<span>Telegram</span></a>'
+            f'</div>')
+    enc = base64.b64encode(real.encode("utf-8")).decode("ascii")
+    show = "Показать номер" if lang == "ru" else "Номерди көрсөтүү"
+    return (f'<div class="ctc"><div class="cbar">'
+            f'<button class="cb1 call" type="button" data-h="{enc}" '
+            f'onclick="tapNum(this)">{_PHONE}<span>{esc(show)}</span></button>'
+            f'</div></div>{_NUM_JS}')
 
 
 def pretty_phone(num):
@@ -2055,8 +2079,32 @@ class H(BaseHTTPRequestHandler):
         except Exception as e:
             print("  WhatsApp катасы:", e, flush=True)
 
+    def _too_fast(self):
+        """GUARD3: бир IP мүнөтүнө канча бет ача алат."""
+        if RATE_MAX <= 0:
+            return False
+        ip = (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip() \
+            or self.client_address[0]
+        now = _t.time()
+        with _RATE_LOCK:
+            box = _RATE.get(ip)
+            if not box or box[0] < now:
+                _RATE[ip] = [now + 60, 1]
+                if len(_RATE) > 5000:
+                    for k in [k for k, v in _RATE.items() if v[0] < now]:
+                        _RATE.pop(k, None)
+                return False
+            box[1] += 1
+            return box[1] > RATE_MAX
+
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
+        if not u.path.startswith(("/media/", "/pwa/", "/si/")) and self._too_fast():
+            self.send_response(429)
+            self.send_header("Retry-After", "60")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         qs = urllib.parse.parse_qs(u.query)
 
         lang = _lang(self)
