@@ -955,7 +955,7 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
     # REGBAR1_WRAP: облустар сыдырылбайт, эки катарга жайылат
     css = ('<style>.regbar1{flex-wrap:wrap;overflow-x:visible;row-gap:7px;'
            'gap:7px;padding-bottom:6px}'
-           '.regbar1 .rg{padding:8px 14px;font-size:13.5px}</style>')
+           '.regbar1 .rg{flex:1 1 auto;min-width:0;max-width:100%;text-align:center;padding:8px 12px;font-size:13.5px}</style>')  # REGBAR1_JUSTIFY
     return css + f'<nav class="regbar regbar1">{out}</nav>' + row2 + row3
 
 
