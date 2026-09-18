@@ -213,7 +213,21 @@ def mkstext(title, desc, sub_name=""):
 
 # ==================== База ====================
 
-def _connect():
+# PERF_PATCH: туташуу ар суроодо кайра ачылбайт. Postgres'ке туташуу
+# 50-150 мс алат, ал эми башкы бет ондогон суроо жасайт. Ошондуктан ар бир
+# агым өз туташуусун сактап калат; үзүлүп калса, кайра ачылат.
+import threading as _th
+import time as _time
+
+_local = _th.local()
+
+CACHE_TTL = int(os.environ.get("CACHE_TTL", "45"))
+_CACHE = {}
+_CACHE_LOCK = _th.Lock()
+_VER = [0]
+
+
+def _new_conn():
     if IS_PG:
         import psycopg2
         import psycopg2.extras
@@ -224,12 +238,87 @@ def _connect():
     return conn
 
 
+def _connect():
+    """Ушул агымдын туташуусу (жок болсо — жаңысы)."""
+    conn = getattr(_local, "conn", None)
+    if conn is not None and not getattr(conn, "closed", 0):
+        return conn
+    conn = _new_conn()
+    _local.conn = conn
+    return conn
+
+
+def _drop():
+    conn = getattr(_local, "conn", None)
+    _local.conn = None
+    if conn is not None:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def _broken(e):
+    """Туташуу үзүлгөнбү (SQL катасы эмес)."""
+    if type(e).__name__ in ("InterfaceError", "AdminShutdown"):
+        return True
+    t = str(e).lower()
+    for w in ("closed", "ssl", "terminat", "connection", "server",
+              "timeout", "broken pipe", "not connected"):
+        if w in t:
+            return True
+    return False
+
+
+def version():
+    """Жазуу болгон сайын өсөт — кэшти жаңыртуу үчүн."""
+    return _VER[0]
+
+
+def cache_clear():
+    with _CACHE_LOCK:
+        _CACHE.clear()
+    _VER[0] += 1
+
+
+def _bump_if_write(sql):
+    head = sql.lstrip()[:6].upper()
+    if head in ("INSERT", "UPDATE", "DELETE") and "views=views" not in sql:
+        cache_clear()
+
+
+def _cached(fn):
+    """Жыйынтыкты CACHE_TTL секунд эстеп турат."""
+    def wrap(*a, **kw):
+        if CACHE_TTL <= 0:
+            return fn(*a, **kw)
+        try:
+            key = (fn.__name__, a, tuple(sorted(kw.items())))
+            hash(key)
+        except TypeError:
+            return fn(*a, **kw)
+        now = _time.time()
+        with _CACHE_LOCK:
+            hit = _CACHE.get(key)
+            if hit and hit[0] > now:
+                return hit[1]
+        val = fn(*a, **kw)
+        with _CACHE_LOCK:
+            if len(_CACHE) > 3000:
+                _CACHE.clear()
+            _CACHE[key] = (now + CACHE_TTL, val)
+        return val
+    wrap.__name__ = fn.__name__
+    wrap.__doc__ = fn.__doc__
+    return wrap
+
+
 def _ph(sql):
     """SQLite '?' -> Postgres '%s'."""
     return sql.replace("?", "%s") if IS_PG else sql
 
 
-def query(sql, params=(), fetch=None):
+def _query_once(sql, params=(), fetch=None):
     """
     Бир суроо аткарат.
     fetch: None (жооп жок), "one" (бир сап), "all" (бардыгы), "id" (жаңы id)
@@ -246,6 +335,7 @@ def query(sql, params=(), fetch=None):
             cur.execute(_ph(sql + (" RETURNING id" if IS_PG else "")), params)
             new_id = cur.fetchone()["id"] if IS_PG else cur.lastrowid
             conn.commit()
+            _bump_if_write(sql)
             return new_id
 
         cur.execute(_ph(sql), params)
@@ -259,12 +349,25 @@ def query(sql, params=(), fetch=None):
             out = None
 
         conn.commit()
+        _bump_if_write(sql)
         return out
     except Exception:
-        conn.rollback()
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         raise
-    finally:
-        conn.close()
+
+
+def query(sql, params=(), fetch=None):
+    """Суроо. Туташуу үзүлүп калса, бир жолу кайра аракет кылат."""
+    try:
+        return _query_once(sql, params, fetch)
+    except Exception as e:
+        if not _broken(e):
+            raise
+        _drop()
+        return _query_once(sql, params, fetch)
 
 
 SCHEMA_SQLITE = """
@@ -1107,3 +1210,13 @@ def is_deal(price):
     return (p in DEAL_WORDS
             or p.startswith("келишим")
             or p.startswith("договор"))
+
+
+# PERF_PATCH: көп кайталанган санактар кэште турат.
+region_counts = _cached(region_counts)
+catid_counts = _cached(catid_counts)
+subid_counts = _cached(subid_counts)
+used_oblasts = _cached(used_oblasts)
+used_districts = _cached(used_districts)
+used_villages = _cached(used_villages)
+count = _cached(count)

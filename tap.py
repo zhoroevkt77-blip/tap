@@ -9,6 +9,7 @@ TAP! — витрина (сайт).
 """
 
 import html, json, os, urllib.parse
+import time as _t
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
@@ -267,7 +268,7 @@ if ('serviceWorker' in navigator) {
 </script>"""
 
 
-def page(body, title="ТАП!", tab="home", lang="ky"):
+def page(body, title="ТАП!", tab="home", lang="ky", meta=""):
     return f"""<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#17365C">
@@ -277,7 +278,7 @@ def page(body, title="ТАП!", tab="home", lang="ky"):
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ТАП!">
-<title>{esc(title)}</title>{FONTS}<style>{CSS}{EXTRA_CSS}</style></head><body>{body}{nav(tab, lang)}
+<title>{esc(title)}</title>{meta}{FONTS}<style>{CSS}{EXTRA_CSS}</style></head><body>{body}{nav(tab, lang)}
 {SCROLL_JS}{FAV_JS}{SHELF_JS}{PWA_JS}</body></html>"""
 
 
@@ -931,7 +932,27 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
     return f'<nav class="regbar">{out}</nav>' + row2 + row3
 
 
+# PERF_PATCH: башкы бет ондогон суроо жасайт. Даяр HTML'ди бир нече
+# секунд эстеп турабыз; жаңы жарыя кошулса, core.version() өзгөрүп кэш
+# өзү жаңыланат.
+SHELF_TTL = int(os.environ.get("SHELF_TTL", "45"))
+_SHELF_CACHE = {}
+
+
 def shelves(lang="ky", ob=None):
+    key = (lang, ob or "")
+    now = _t.time()
+    hit = _SHELF_CACHE.get(key)
+    if hit and hit[0] > now and hit[1] == core.version():
+        return hit[2]
+    out = _shelves(lang, ob)
+    if len(_SHELF_CACHE) > 200:
+        _SHELF_CACHE.clear()
+    _SHELF_CACHE[key] = (now + SHELF_TTL, core.version(), out)
+    return out
+
+
+def _shelves(lang="ky", ob=None):
     """
     Башкы бет: ар бир бөлүм өзүнчө катар болуп турат, жарыялары оңго-солго
     сүрүлөт. Категория чиптерин басканда ошол катардын ичи алмашат —
@@ -1498,8 +1519,24 @@ def detail(r, lang="ky"):
 <h1>{esc(L(bridge.show_title(r), lang))}</h1>
 </div>
 <div class="dcard facts">{rows}</div>{desc}{tel}{share}</main>"""
+    # PERF_PATCH: издөө системасы жана шилтеме үчүн сүрөттөмө
+    _ttl = L(bridge.show_title(r), lang)
+    _dsc = " ".join(str(r.get("description") or "").split())[:160] or _ttl
+    _img = ""
+    _ph = (str(r.get("photos") or "").split(",") or [""])[0].strip() or r.get("photo")
+    if _ph:
+        _img = '<meta property="og:image" content="%s/media/%s">' % (
+            core.SITE_URL, esc(os.path.basename(str(_ph))))
+    _meta = ('<meta name="description" content="%s">'
+             '<link rel="canonical" href="%s/e/%s">'
+             '<meta property="og:type" content="article">'
+             '<meta property="og:title" content="%s">'
+             '<meta property="og:description" content="%s">'
+             '<meta property="og:url" content="%s/e/%s">%s'
+             % (esc(_dsc), core.SITE_URL, r["id"], esc(_ttl), esc(_dsc),
+                core.SITE_URL, r["id"], _img))
     return page(header("", None, None, lang) + body,
-                L(bridge.show_title(r), lang), tab="home", lang=lang)
+                _ttl, tab="home", lang=lang, meta=_meta)
 
 
 def find_page(ob=None, di=None, lang="ky"):
@@ -1961,6 +1998,15 @@ def _lang(handler):
 class H(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
+    def _text(self, body, ctype):
+        data = body.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "max-age=3600")
+        self.end_headers()
+        self.wfile.write(data)
+
     def _send(self, body, code=200, cookie=None):
         data = body.encode("utf-8")
         self.send_response(code)
@@ -2115,6 +2161,21 @@ class H(BaseHTTPRequestHandler):
             import whatsapp
             self._send("ok" if whatsapp.ENABLED else "whatsapp off")
 
+        elif u.path == "/robots.txt":
+            txt = ("User-agent: *\n"
+                   "Allow: /\n"
+                   "Disallow: /admin\n"
+                   "Disallow: /api/\n"
+                   "Disallow: /me\n"
+                   "Disallow: /my\n"
+                   "Disallow: /bal\n"
+                   "Disallow: /fav\n"
+                   "Sitemap: %s/sitemap.xml\n" % core.SITE_URL)
+            self._text(txt, "text/plain; charset=utf-8")
+
+        elif u.path == "/sitemap.xml":
+            self._text(sitemap(), "application/xml; charset=utf-8")
+
         elif u.path == "/health":
             self._send("ok")
 
@@ -2238,6 +2299,33 @@ class H(BaseHTTPRequestHandler):
 
     def log_message(self, *a):
         pass
+
+
+# PERF_PATCH: издөө системалары үчүн карта. 10 мүнөт кэште турат.
+_SITEMAP = [0, ""]
+
+
+def sitemap():
+    now = _t.time()
+    if _SITEMAP[0] > now and _SITEMAP[1]:
+        return _SITEMAP[1]
+    base = core.SITE_URL
+    parts = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for path in ["/", "/find", "/terms"] + ["/?at=%s" % c for c, _i, _n in SECTIONS]:
+        parts.append("<url><loc>%s%s</loc></url>" % (base, esc(path)))
+    try:
+        rows = core.query("SELECT id FROM listings WHERE is_active=1 "
+                          "ORDER BY id DESC LIMIT 5000", (), fetch="all") or []
+    except Exception:
+        rows = []
+    for r in rows:
+        parts.append("<url><loc>%s/e/%s</loc></url>" % (base, r["id"]))
+    parts.append("</urlset>")
+    out = "".join(parts)
+    _SITEMAP[0] = now + 600
+    _SITEMAP[1] = out
+    return out
 
 
 class Server(ThreadingMixIn, HTTPServer):
