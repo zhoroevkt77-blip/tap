@@ -1365,6 +1365,22 @@ def main():
         print("  Эскертүү: Telegram жооп бербей жатат. "
               "Бот сурамдарды кийинчерээк улантат.", flush=True)
 
+    # MEDIA_CLEANUP_WORKER: медиа папканы күнүнө бир жолу тазалайт
+    def media_worker():
+        import os as _os
+        import time as _t
+        _t.sleep(600)
+        while True:
+            try:
+                import media_cleanup
+                media_cleanup.run(delete=_os.environ.get("MEDIA_CLEANUP") == "1")
+            except Exception as _e:
+                print("[media] ката: %s" % _e, flush=True)
+            _t.sleep(86400)
+
+
+    threading.Thread(target=media_worker, daemon=True).start()
+
     threading.Thread(target=expire_worker, daemon=True).start()
 
     print(f"\n  Бот иштеп жатат: @{uname}", flush=True)
