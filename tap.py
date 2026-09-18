@@ -918,6 +918,10 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
         except Exception:
             vs = []
         if vs:
+            _d3 = str(di).lower()
+        if "шаар" in _d3 or "город" in _d3 or _d3.endswith(" ш."):
+            whole3 = "Весь город" if lang == "ru" else "Бүт шаар"
+        else:
             whole3 = "Весь район" if lang == "ru" else "Бүт район"
             r3 = _chip(link(ob=ob, di=di, vi=None), whole3, not vi, 0, lang, short=False)
             for x in _by_count(list(vs), vc):
