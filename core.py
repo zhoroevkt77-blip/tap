@@ -685,7 +685,8 @@ def _filters(q=None, cat=None, region=None, sub=None,
     if district:
         # Бир жарыяда бир нече район болушу мүмкүн («А району, Б району»).
         # Ошондуктан үтүр менен курчап салыштырабыз.
-        sql += " AND (district IS NULL OR district='' OR (', ' || district || ', ') LIKE ?)"  # NODIST_OK: бүт шаар жарыялары да чыгат
+        # STRICT_DIST_FILTER: так ошол райондогу жарыялар гана
+        sql += " AND (', ' || district || ', ') LIKE ?"
         p.append("%, " + district + ", %")
     if village:
         sql += " AND " + VILLAGE_EXPR + "=?"; p.append(village)
@@ -1180,11 +1181,7 @@ def district_counts(oblast, **kw):
     COUNT_FIX: району жок жарыялар ар бир районго чыккандыктан,
     санакка да кошулат — чиптеги сан тизме менен дал келсин.
     """
-    c = region_counts("district", oblast=oblast, **kw)
-    extra = _nodistrict_count(oblast, **kw)
-    if extra:
-        c = {k: v + extra for k, v in c.items()}
-    return c
+    return region_counts("district", oblast=oblast, **kw)
 
 
 def village_counts(oblast, district, **kw):
