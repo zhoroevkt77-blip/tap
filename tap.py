@@ -859,7 +859,7 @@ def _obq(ob):
     return ("&" + urllib.parse.urlencode({"ob": ob})) if ob else ""
 
 
-def _regions_strip(link, ob, lang, at=None, q=None, di=None):
+def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
     """
     Облустар менен республикалык шаарлар — горизонталдуу тилке.
     Бирөөнү баскандан кийин бүт бет ошол аймакка өтөт.
@@ -902,7 +902,29 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None):
                 r2 += _chip(link(ob=ob, di=x, vi=None), x, di == x, dc.get(x, 0), lang)
             row2 = ('<style>.regbar2{margin-top:-6px}</style>'
                     f'<nav class="regbar regbar2">{r2}</nav>')
-    return f'<nav class="regbar">{out}</nav>' + row2
+    # REGBAR3: район тандалса — анын айылдары/кичи райондору үчүнчү катар
+    row3 = ""
+    if ob and di:
+        try:
+            vc = core.village_counts(ob, di, ad_type=at, q=q or None)
+        except Exception:
+            try:
+                vc = core.village_counts(ob, di)
+            except Exception:
+                vc = {}
+        vc = vc or {}
+        try:
+            vs = list(get_localities(ob, di)) or list(core.used_villages(ob, di))
+        except Exception:
+            vs = []
+        if vs:
+            whole3 = "Весь район" if lang == "ru" else "Бүт район"
+            r3 = _chip(link(ob=ob, di=di, vi=None), whole3, not vi, 0, lang, short=False)
+            for x in _by_count(list(vs), vc):
+                r3 += _chip(link(ob=ob, di=di, vi=x), x, vi == x, vc.get(x, 0), lang)
+            row3 = ('<style>.regbar3{margin-top:-6px}</style>'
+                    f'<nav class="regbar regbar3">{r3}</nav>')
+    return f'<nav class="regbar">{out}</nav>' + row2 + row3
 
 
 def shelves(lang="ky", ob=None):
@@ -959,7 +981,7 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
 
     top = (header(q, at, vi or di or ob, lang)
            + _sections_strip(link, at, lang, ob)
-           + _regions_strip(link, ob, lang, at, q, di))
+           + _regions_strip(link, ob, lang, at, q, di, vi))
 
     # Бөлүм/категория/издөө жок — катар-катар тизме.
     # Аймак гана тандалса, ошол аймактын ичинде катарлар көрүнөт.
