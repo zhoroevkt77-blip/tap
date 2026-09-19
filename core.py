@@ -666,7 +666,8 @@ def photo_list(row):
 
 def _filters(q=None, cat=None, region=None, sub=None,
              ad_type=None, cat_id=None, oblast=None, district=None,
-             village=None, sub_id=None, pmin=None, pmax=None):
+             village=None, sub_id=None, pmin=None, pmax=None,
+             locality=None):
     sql, p = "", []
     if cat:
         sql += " AND category=?"; p.append(cat)
@@ -688,6 +689,9 @@ def _filters(q=None, cat=None, region=None, sub=None,
         # STRICT_DIST_FILTER: так ошол райондогу жарыялар гана
         sql += " AND (', ' || district || ', ') LIKE ?"
         p.append("%, " + district + ", %")
+    if locality:
+        # VILLAGE_LEVEL: айыл аймагы — айылы жазылган жарыялар да кирет
+        sql += " AND " + LOCALITY_EXPR + "=?"; p.append(locality)
     if village:
         sql += " AND " + VILLAGE_EXPR + "=?"; p.append(village)
     if pmin is not None:
@@ -723,9 +727,10 @@ SORTS = {
 
 def find(q=None, cat=None, region=None, sub=None, limit=30, offset=0,
          ad_type=None, cat_id=None, oblast=None, district=None, village=None,
-         sub_id=None, pmin=None, pmax=None, sort="new"):
+         sub_id=None, pmin=None, pmax=None, sort="new", locality=None):
     where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast,
-                        district, village, sub_id, pmin, pmax)
+                        district, village, sub_id, pmin, pmax,
+                        locality=locality)
     order = SORTS.get(sort or "new", SORTS["new"])
     return query(
         "SELECT * FROM listings WHERE is_active=1" + where +
@@ -1110,7 +1115,7 @@ def adtype_counts(oblast=None):
 
 
 def catid_counts(ad_type=None, oblast=None, district=None,
-                 village=None, q=None, sub_id=None):
+                 village=None, q=None, sub_id=None, locality=None):
     """
     Бөлүмдүн ичиндеги категориялар боюнча эсеп.
 
@@ -1118,17 +1123,18 @@ def catid_counts(ad_type=None, oblast=None, district=None,
     айыл аймагы. Ошондуктан сандар экрандагы тизме менен дал келет.
     """
     where, p = _filters(q=q, ad_type=ad_type, oblast=oblast,
-                        district=district, village=village, sub_id=sub_id)
+                        district=district, village=village, sub_id=sub_id,
+                        locality=locality)
     rows = query("SELECT cat_id, COUNT(*) AS n FROM listings WHERE is_active=1"
                  + where + " GROUP BY cat_id", tuple(p), fetch="all")
     return {r["cat_id"]: r["n"] for r in rows if r["cat_id"]}
 
 
 def subid_counts(ad_type=None, cat_id=None, oblast=None, district=None,
-                 village=None, q=None):
+                 village=None, q=None, locality=None):
     """Категориянын ичиндеги субкатегориялар боюнча эсеп."""
     where, p = _filters(q=q, ad_type=ad_type, cat_id=cat_id, oblast=oblast,
-                        district=district, village=village)
+                        district=district, village=village, locality=locality)
     rows = query("SELECT sub_id, COUNT(*) AS n FROM listings WHERE is_active=1"
                  + where + " GROUP BY sub_id", tuple(p), fetch="all")
     return {r["sub_id"]: r["n"] for r in rows if r["sub_id"]}
@@ -1136,10 +1142,13 @@ def subid_counts(ad_type=None, cat_id=None, oblast=None, district=None,
 
 # Айыл да, кичи район да ушул бир туюнтма менен эсептелет.
 VILLAGE_EXPR = "COALESCE(NULLIF(village,''), NULLIF(locality,''))"
+# VILLAGE_LEVEL: айыл аймагы боюнча эсеп
+LOCALITY_EXPR = "COALESCE(NULLIF(locality,''), NULLIF(village,''))"
 
 
 def region_counts(level, oblast=None, district=None,
-                  q=None, ad_type=None, cat_id=None, sub_id=None):
+                  q=None, ad_type=None, cat_id=None, sub_id=None,
+                  locality=None):
     """
     Аймактар боюнча жарыялардын саны — учурдагы чыпканын ичинде.
 
@@ -1148,9 +1157,12 @@ def region_counts(level, oblast=None, district=None,
     сандар экранда көрүнүп турган тизме менен дал келет.
     """
     expr = {"oblast": "oblast",
-            "district": "district"}.get(level, VILLAGE_EXPR)
+            "district": "district",
+            "locality": LOCALITY_EXPR,
+            "village": "village"}.get(level, VILLAGE_EXPR)
     where, p = _filters(q=q, ad_type=ad_type, cat_id=cat_id,
-                        oblast=oblast, district=district, sub_id=sub_id)
+                        oblast=oblast, district=district, sub_id=sub_id,
+                        locality=locality)
     rows = query("SELECT " + expr + " AS k, COUNT(*) AS n FROM listings "
                  "WHERE is_active=1" + where +
                  " AND " + expr + " IS NOT NULL AND " + expr + "<>'' "
@@ -1182,6 +1194,17 @@ def district_counts(oblast, **kw):
     санакка да кошулат — чиптеги сан тизме менен дал келсин.
     """
     return region_counts("district", oblast=oblast, **kw)
+
+
+def locality_counts(oblast, district, **kw):
+    """VILLAGE_LEVEL: райондогу айыл аймактар боюнча эсеп."""
+    return region_counts("locality", oblast=oblast, district=district, **kw)
+
+
+def villages_in(oblast, district, locality, **kw):
+    """VILLAGE_LEVEL: айыл аймактагы айылдар боюнча эсеп."""
+    return region_counts("village", oblast=oblast, district=district,
+                         locality=locality, **kw)
 
 
 def village_counts(oblast, district, **kw):
@@ -1296,3 +1319,8 @@ used_oblasts = _cached(used_oblasts)
 used_districts = _cached(used_districts)
 used_villages = _cached(used_villages)
 count = _cached(count)
+
+
+# VILLAGE_LEVEL: жаңы санактар да кэште турсун
+locality_counts = _cached(locality_counts)
+villages_in = _cached(villages_in)

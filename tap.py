@@ -22,7 +22,8 @@ from tap_catalog import (TRADE_CATEGORIES, PROPERTY_CATEGORIES,
                          DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES,
                          MALLS_TYPES,
                          WHOLESALE_CATEGORIES, CARGO_CATEGORIES, JOBSEEK_CATEGORIES,
-                         OBLASTS, get_districts, get_localities, ru_name)
+                         OBLASTS, get_districts, get_localities, get_villages,
+                         ru_name)
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
 from scenes import SCENES
 import secimg
@@ -760,7 +761,8 @@ def _chips_row(label, opts, cur, lang):
             f'<nav class="regcat">{out}</nav>')
 
 
-def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
+def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
+                 vv=None):
     """Бөлүм жана аймак чыпкалары — тандоо тизмелери менен."""
     ru = (lang == "ru")
     flt = {"q": q or None, "ad_type": at, "cat_id": cid, "sub_id": sid}
@@ -768,7 +770,8 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
 
     # ── Эмне издеп жатасыз: категория → субкатегория ──────────
     if at:
-        cc = core.catid_counts(at, ob, di, vi, q or None, sid)
+        cc = core.catid_counts(at, ob, di, vv, q or None, sid,
+                               locality=vi)
         items = list(cat_labels(at, lang).items())
         items.sort(key=lambda x: (-cc.get(x[0], 0), x[1]))
         opts = [(None, link(cid=None, sid=None),
@@ -778,7 +781,8 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
         inner = _CAT_CHIPS_CSS + _chips_row("Категория", opts, cid, lang)
 
         if cid:
-            sc = core.subid_counts(at, cid, ob, di, vi, q or None)
+            sc = core.subid_counts(at, cid, ob, di, vv, q or None,
+                                   locality=vi)
             whole = "Вся категория" if ru else "Бүт категория"
             opts = [(None, link(sid=None), whole, None)]
             for code, n in sorted(sc.items(), key=lambda x: (-x[1], x[0])):
@@ -793,20 +797,38 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new"):
     inner = ""
 
     if ob and di:
-        vc = core.village_counts(ob, di, **flt)
+        # VILLAGE_LEVEL: айыл аймактары
+        try:
+            vc = core.locality_counts(ob, di, **flt)
+        except Exception:
+            vc = core.village_counts(ob, di, **flt)
         vs = list(get_localities(ob, di)) or core.used_villages(ob, di)
         if vs:
-            whole = "Весь район" if ru else "Бүт район"
-            opts = [(None, link(vi=None), whole, None)]
+            whole = "Все айыльные округа" if ru else "Бүт айыл аймактары"
+            opts = [(None, link(vi=None, vv=None), whole, None)]
             for x in _by_count(list(vs), vc):
-                opts.append((x, link(vi=x), _place_name(x, lang), vc.get(x, 0)))
-            # CHIPS2: айылдар да чип катары
-            inner += _chips_row(
-                "Айыльный округ · село" if ru else "Айыл аймагы · айыл",
-                opts, vi, lang)
+                opts.append((x, link(vi=x, vv=None),
+                             _place_name(x, lang), vc.get(x, 0)))
+            inner += _chips_row("Айыльный округ" if ru else "Айыл аймагы",
+                                opts, vi, lang)
+
+        if vi:
+            # VILLAGE_LEVEL: тандалган аймактын айылдары
+            try:
+                gc = core.villages_in(ob, di, vi, **flt)
+            except Exception:
+                gc = {}
+            gs = list(get_villages(ob, di, vi))
+            if gs:
+                whole2 = "Все сёла" if ru else "Бүт айылдар"
+                opts = [(None, link(vv=None), whole2, None)]
+                for x in _by_count(list(gs), gc):
+                    opts.append((x, link(vv=x), _place_name(x, lang),
+                                 gc.get(x, 0)))
+                inner += _chips_row("Село" if ru else "Айыл", opts, vv, lang)
 
     if inner:
-        out += _group("Откуда" if ru else "Кайсы жерден", inner)
+        out += inner   # VILLAGE_LEVEL: «Кайсы жерден» аталышы алынды
 
     # ── Тартиби: жаңысынан, арзандан, кымбаттан ───────────────
     names = ([("new", "Сначала новые"), ("cheap", "Сначала дешёвые"),
@@ -1026,7 +1048,7 @@ def _shelves(lang="ky", ob=None):
 
 
 def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
-         lang="ky", sort="new"):
+         lang="ky", sort="new", vv=None):
     """
     Башкы бет.
       at  — бөлүм (trade/service/…)
@@ -1037,7 +1059,7 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
     def link(**kw):
         """Учурдагы чыпкаларды сактап, бирөөнү гана өзгөрткөн шилтеме."""
         prm = {"q": q or None, "at": at, "cid": cid, "sid": sid,
-               "ob": ob, "di": di, "vi": vi,
+               "ob": ob, "di": di, "vi": vi, "vv": vv,
                "sort": (sort if sort and sort != "new" else None)}
         prm.update(kw)
         prm = {k: v for k, v in prm.items() if v}
@@ -1049,14 +1071,15 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
 
     # Бөлүм/категория/издөө жок — катар-катар тизме.
     # Аймак гана тандалса, ошол аймактын ичинде катарлар көрүнөт.
-    if not (q or at or cid or sid or di or vi):
+    if not (q or at or cid or sid or di or vi or vv):
         return page(top + f'<main class="wrap">{shelves(lang, ob)}</main>',
                     "ТАП!", "home", lang)
 
     rows = core.find(q, limit=60, ad_type=at, cat_id=cid, sub_id=sid,
-                     oblast=ob, district=di, village=vi, sort=sort)
+                     oblast=ob, district=di, locality=vi, village=vv,
+                     sort=sort)
     body = ((cat_tiles(at, cid, ob, lang) if at and not q else "")
-            + _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort))
+            + _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort, vv))
 
     if rows:
         if q:
@@ -2203,6 +2226,7 @@ class H(BaseHTTPRequestHandler):
             ob = (qs.get("ob", [""])[0]).strip() or None
             di = (qs.get("di", [""])[0]).strip() or None
             vi = (qs.get("vi", [""])[0]).strip() or None
+            vv = (qs.get("vv", [""])[0]).strip() or None
 
             # Эски шилтемелер иштей берсин (/?cat=…&region=…)
             if not ob:
@@ -2213,7 +2237,7 @@ class H(BaseHTTPRequestHandler):
                       "personal": "trade", "service": "service",
                       "shop": "markets", "business": "job"}.get(old)
 
-            self._send(home(q, at, cid, sid, ob, di, vi, lang, sort))
+            self._send(home(q, at, cid, sid, ob, di, vi, lang, sort, vv))
 
         elif u.path == "/fav":
             self._send(fav_page(lang))
