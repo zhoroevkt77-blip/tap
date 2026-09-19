@@ -738,9 +738,10 @@ def cat_tiles(at, cid, ob, lang):
 
 # CAT_CHIPS: категорияларды чип катары кылып көрсөтүү
 _CAT_CHIPS_CSS = ('<style>.regcat{display:flex;gap:8px;overflow-x:auto;'
-                  'scrollbar-width:none;padding:6px 14px 8px;margin:0}'
+                  'scrollbar-width:none;padding:8px 14px 14px;margin:0}'
                   '.regcat::-webkit-scrollbar{display:none}'
                   '.regcat .rg{flex:none;padding:8px 14px;font-size:13.5px}'
+                  '.rglb{padding-top:14px}'   # CHIP_SPACE
                   '</style>')
 
 
@@ -946,7 +947,7 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
             r2 = _chip(link(ob=ob, di=None, vi=None), whole, not di, oc.get(ob, 0), lang, short=False)
             for x in _by_count(list(ds), dc):
                 r2 += _chip(link(ob=ob, di=x, vi=None), x, di == x, dc.get(x, 0), lang)
-            row2 = ('<style>.regbar2{margin-top:-6px}</style>'
+            row2 = ('<style>.regbar2{margin-top:0;padding-top:4px;padding-bottom:8px}</style>'
                     f'<nav class="regbar regbar2">{r2}</nav>')
     # REGBAR3: район тандалса — анын айылдары/кичи райондору үчүнчү катар
     row3 = ""
@@ -977,7 +978,7 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
                        short=False)
             for x in _by_count(list(vs), vc):
                 r3 += _chip(link(ob=ob, di=di, vi=x), x, vi == x, vc.get(x, 0), lang)
-            row3 = ('<style>.regbar3{margin-top:-6px}</style>'
+            row3 = ('<style>.regbar3{margin-top:0;padding-top:4px;padding-bottom:10px}</style>'
                     f'<nav class="regbar regbar3">{r3}</nav>')
     # REGBAR1_WRAP: облустар сыдырылбайт, эки катарга жайылат
     css = ('<style>.regbar1{flex-wrap:wrap;overflow-x:visible;row-gap:7px;'
