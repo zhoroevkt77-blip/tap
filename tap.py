@@ -767,7 +767,7 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
     """Бөлүм жана аймак чыпкалары — тандоо тизмелери менен."""
     ru = (lang == "ru")
     flt = {"q": q or None, "ad_type": at, "cat_id": cid, "sub_id": sid}
-    out = ""
+    out = _CAT_CHIPS_CSS   # CHIP_FIX: стиль ар дайым жүктөлсүн
 
     # ── Эмне издеп жатасыз: категория → субкатегория ──────────
     if at:
@@ -779,7 +779,7 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
                  "Все" if ru else "Баары", sum(cc.values()))]
         for code, nm in items:
             opts.append((code, link(cid=code, sid=None), nm, cc.get(code, 0)))
-        inner = _CAT_CHIPS_CSS + _chips_row("Категория", opts, cid, lang)
+        inner = _chips_row("Категория", opts, cid, lang)
 
         if cid:
             sc = core.subid_counts(at, cid, ob, di, vv, q or None,
@@ -792,6 +792,20 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
                 inner += _chips_row("Субкатегория", opts, sid, lang)
 
         out += _group("Что вы ищете" if ru else "Эмне издеп жатасыз", inner)
+
+    else:
+        # CHIP_FIX: бөлүм тандала элек — бөлүмдөрдүн чиптери
+        try:
+            ac = core.adtype_counts(ob)
+        except Exception:
+            ac = {}
+        opts = [(None, link(at=None, cid=None, sid=None),
+                 "Все" if ru else "Баары", sum(ac.values()))]
+        for code, _ic, _nm in SECTIONS:
+            opts.append((code, link(at=code, cid=None, sid=None),
+                         section_name(code, lang), ac.get(code, 0)))
+        out += _group("Что ищете" if ru else "Эмне издеп жатасыз",
+                      _chips_row("Раздел" if ru else "Бөлүм", opts, at, lang))
 
     # ── Кайсы жерден: айыл аймагы ─────────────────────────────
     # NO_DUP_GEO: облус менен район жогорку тилкелерде турат
