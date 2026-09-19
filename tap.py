@@ -829,7 +829,8 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
                 inner += _chips_row("Село" if ru else "Айыл", opts, vv, lang)
 
     if inner:
-        out += inner   # VILLAGE_LEVEL: «Кайсы жерден» аталышы алынды
+        # GEO_BOX: аталышсыз курчоо — чиптер беттин ичинде калсын
+        out += '<div class="fbox">' + inner + '</div>'
 
     # ── Тартиби: жаңысынан, арзандан, кымбаттан ───────────────
     names = ([("new", "Сначала новые"), ("cheap", "Сначала дешёвые"),
