@@ -807,44 +807,7 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
         out += _group("Что ищете" if ru else "Эмне издеп жатасыз",
                       _chips_row("Раздел" if ru else "Бөлүм", opts, at, lang))
 
-    # ── Кайсы жерден: айыл аймагы ─────────────────────────────
-    # NO_DUP_GEO: облус менен район жогорку тилкелерде турат
-    inner = ""
-
-    if ob and di:
-        # VILLAGE_LEVEL: айыл аймактары
-        try:
-            vc = core.locality_counts(ob, di, **flt)
-        except Exception:
-            vc = core.village_counts(ob, di, **flt)
-        vs = list(get_localities(ob, di)) or core.used_villages(ob, di)
-        if vs:
-            whole = "Все айыльные округа" if ru else "Бүт айыл аймактары"
-            opts = [(None, link(vi=None, vv=None), whole, None)]
-            for x in _by_count(list(vs), vc):
-                opts.append((x, link(vi=x, vv=None),
-                             _place_name(x, lang), vc.get(x, 0)))
-            inner += _chips_row("Айыльный округ" if ru else "Айыл аймагы",
-                                opts, vi, lang)
-
-        if vi:
-            # VILLAGE_LEVEL: тандалган аймактын айылдары
-            try:
-                gc = core.villages_in(ob, di, vi, **flt)
-            except Exception:
-                gc = {}
-            gs = list(get_villages(ob, di, vi))
-            if gs:
-                whole2 = "Все сёла" if ru else "Бүт айылдар"
-                opts = [(None, link(vv=None), whole2, None)]
-                for x in _by_count(list(gs), gc):
-                    opts.append((x, link(vv=x), _place_name(x, lang),
-                                 gc.get(x, 0)))
-                inner += _chips_row("Село" if ru else "Айыл", opts, vv, lang)
-
-    if inner:
-        # GEO_BOX: аталышсыз курчоо — чиптер беттин ичинде калсын
-        out += '<div class="fbox">' + inner + '</div>'
+    # VILLAGE_TOP: аймак чыпкалары жогорку тилкеге көчтү
 
     # ── Тартиби: жаңысынан, арзандан, кымбаттан ───────────────
     names = ([("new", "Сначала новые"), ("cheap", "Сначала дешёвые"),
@@ -916,7 +879,10 @@ def _obq(ob):
     return ("&" + urllib.parse.urlencode({"ob": ob})) if ob else ""
 
 
-def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
+def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
+                   vv=None):
+    # VILLAGE_TOP: жогорку тилкенин шилтемелери айылды тазалайт
+    link = lambda **kw: link0(**{"vv": None, **kw})
     """
     Облустар менен республикалык шаарлар — горизонталдуу тилке.
     Бирөөнү баскандан кийин бүт бет ошол аймакка өтөт.
@@ -995,13 +961,34 @@ def _regions_strip(link, ob, lang, at=None, q=None, di=None, vi=None):
                 r3 += _chip(link(ob=ob, di=di, vi=x), x, vi == x, vc.get(x, 0), lang)
             row3 = ('<style>.regbar3{margin-top:0;padding-top:4px;padding-bottom:10px}</style>'
                     f'<nav class="regbar regbar3">{r3}</nav>')
+    # VILLAGE_TOP: айыл аймагы тандалса — анын айылдары төртүнчү катар
+    row4 = ""
+    if ob and di and vi:
+        try:
+            gc = core.villages_in(ob, di, vi, ad_type=at, q=q or None)
+        except Exception:
+            gc = {}
+        gc = gc or {}
+        try:
+            gs = list(get_villages(ob, di, vi))
+        except Exception:
+            gs = []
+        if gs:
+            whole4 = "Все сёла" if lang == "ru" else "Бүт айылдар"
+            r4 = _chip(link(ob=ob, di=di, vi=vi), whole4, not vv,
+                       sum(gc.values()) if gc else None, lang, short=False)
+            for x in _by_count(list(gs), gc):
+                r4 += _chip(link(ob=ob, di=di, vi=vi, vv=x), x, vv == x,
+                            gc.get(x, 0), lang)
+            row4 = ('<style>.regbar4{margin-top:0;padding-top:4px;padding-bottom:10px}</style>'
+                    f'<nav class="regbar regbar4">{r4}</nav>')
     # REGBAR1_WRAP: облустар сыдырылбайт, эки катарга жайылат
     css = ('<style>html,body{overflow-x:hidden;max-width:100%}'   # FIT_X
            '.fbox,.regcat,.regbar,.subbar{max-width:100%;box-sizing:border-box}'
            '.regbar1{flex-wrap:wrap;overflow-x:hidden;row-gap:7px;'
            'gap:7px;padding-bottom:6px}'
            '.regbar1 .rg{flex:1 1 auto;min-width:0;max-width:100%;text-align:center;padding:8px 12px;font-size:13.5px}</style>')  # REGBAR1_JUSTIFY
-    return css + f'<nav class="regbar regbar1">{out}</nav>' + row2 + row3
+    return css + f'<nav class="regbar regbar1">{out}</nav>' + row2 + row3 + row4
 
 
 # PERF_PATCH: башкы бет ондогон суроо жасайт. Даяр HTML'ди бир нече
@@ -1085,7 +1072,7 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
 
     top = (header(q, at, vi or di or ob, lang)
            + _sections_strip(link, at, lang, ob)
-           + _regions_strip(link, ob, lang, at, q, di, vi))
+           + _regions_strip(link, ob, lang, at, q, di, vi, vv))
 
     # Бөлүм/категория/издөө жок — катар-катар тизме.
     # Аймак гана тандалса, ошол аймактын ичинде катарлар көрүнөт.
