@@ -935,7 +935,7 @@ def render(step, data=None):
     if step == "post_photo":
         return _view(PHOTO_STEP_TEXT,
                      _opts([("✅ Даяр / Готово", "__photo_done__")]),
-                     photo=True, video=(at in VIDEO_TYPES),
+                     photo=True, video=(at in VIDEO_TYPES and at not in ONE_PHOTO_TYPES),
                      photo_max=(1 if at in ONE_PHOTO_TYPES else None))
 
     if step == "post_preview":
