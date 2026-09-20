@@ -206,6 +206,8 @@ MSG = {
                    "Можно выбрать несколько — потом нажмите «Готово»."),
     "photo_hint": ("📎 кыстаргыч → Галерея → сүрөттөрдү тандаңыз.",
                    "📎 скрепка → Галерея → выберите фото."),
+    "photo_hint1": ("📎 кыстаргыч → Галерея → 1 сүрөт тандаңыз.",
+                    "📎 скрепка → Галерея → выберите 1 фото."),
     "more_left":  ("Дагы %d жарыя бар.",   "Ещё %d объявлений."),
     "thats_all":  ("Баары ушул.",          "Это всё."),
     "near":       ("Так дал келгени табылган жок, жакындарын көрсөтөм 👇",
@@ -233,8 +235,10 @@ MSG = {
                    "📸 Загружено фото: %d. Нужно ещё %d."),
     "photo_ok":   ("📸 %d сүрөт жүктөлдү. Бүтсөңүз «Даяр» басыңыз.",
                    "📸 Загружено фото: %d. Закончили — нажмите «Готово»."),
-    "photo_max":  ("📸 %d сүрөт — эң көбү ушул. «Даяр» басыңыз.",
-                   "📸 %d фото — это максимум. Нажмите «Готово»."),
+    "photo_max":  ("📸 %d сүрөт кабыл алынды — эң көбү ушул, калгандары кошулбайт.\n"
+                   "«Даяр» басыңыз.",
+                   "📸 Принято фото: %d — это максимум, остальные не добавляются.\n"
+                   "Нажмите «Готово»."),
     "photo_few":  ("Жок дегенде %d сүрөт керек.", "Нужно минимум %d фото."),
     "photo_done": ("✅ Даяр",                 "✅ Готово"),
     # ── Видео ──
@@ -508,15 +512,19 @@ def photo_status(chat, u):
         kb = {"inline_keyboard": [[{"text": m("photo_done", lang),
                                     "callback_data": "photodone"}]]}
     mid = u.get("photoMsgId")
+    if mid and u.get("photoMsgTxt") == txt:
+        return  # ошол эле абал — Telegram «not modified» деп ката берет
     if mid:
         r = api("editMessageText", chat_id=chat, message_id=mid,
                 text=txt, parse_mode="HTML", reply_markup=kb)
         if r and r.get("ok"):
+            u["photoMsgTxt"] = txt
             return
     r = api("sendMessage", chat_id=chat, text=txt,
             parse_mode="HTML", reply_markup=kb)
     if r and r.get("ok"):
         u["photoMsgId"] = r["result"]["message_id"]
+        u["photoMsgTxt"] = txt
 
 
 def add_photo(chat, u, fid):
@@ -542,7 +550,8 @@ def ask(chat, u, short=False):
     if view["multi"]:
         text += "\n<i>%s</i>" % m("multi_hint", lang)
     if view["photo"]:
-        text += "\n<i>%s</i>" % m("photo_hint", lang)
+        text += "\n<i>%s</i>" % m("photo_hint1" if step_photo_max(u) == 1
+                                   else "photo_hint", lang)
         if view.get("video"):
             text += "\n<i>%s</i>" % m("vid_hint", lang, VIDEO_MAX_MB)
     elif view["input"] and view["placeholder"]:
