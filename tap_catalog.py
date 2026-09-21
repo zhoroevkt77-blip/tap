@@ -10505,3 +10505,45 @@ try:
     _tts.apply(globals())
 except ImportError:
     pass
+
+
+# ORDER_FIX: популярдуулары алдыда (Каке берген тизме боюнча)
+def _ky(x):
+    return (x.get("label", "") if isinstance(x, dict) else x).split(" / ")[0].strip()
+
+
+def _front(lst, keys, by_id=False):
+    """keys'теги элементтерди ошол иретте алдыга чыгарат, калганы ордунда."""
+    get = (lambda x: x.get("id")) if by_id else _ky
+    first = [x for k in keys for x in lst if get(x) == k]
+    rest = [x for x in lst if x not in first]
+    lst[:] = first + rest
+
+
+for _c in RENTAL_CATEGORIES:
+    if _c.get("id") == "rent_residential" and _c.get("subs"):
+        _front(_c["subs"], ["Батир", "Үй", "Бөлмө", "Суткалык бөлмө",
+                            "1 бөлмөлүү батир", "2 бөлмөлүү батир",
+                            "3 бөлмөлүү батир", "4+ бөлмөлүү батир",
+                            "Студия батир", "Элиталык батир",
+                            "Коттедж", "Дача", "Жатакана"])
+
+_front(VEHICLE_CATEGORIES, ["light", "passenger_transport", "truck",
+                            "moto", "special", "electric"], by_id=True)
+if VEHICLE_SUBS.get("passenger_transport"):
+    _front(VEHICLE_SUBS["passenger_transport"], ["Микроавтобус", "Автобус", "Минибус"])
+
+_JOB_ORDER = ["drivers", "delivery_job", "sales", "construction", "home_staff_job",
+              "sewing_job", "security_job", "office", "edu", "medical", "beauty_job",
+              "agro_job", "abroad_job", "finance_job", "logistics_job",
+              "creative_job", "religious_job", "other"]
+_front(JOB_CATEGORIES, _JOB_ORDER, by_id=True)
+_front(JOBSEEK_CATEGORIES, _JOB_ORDER, by_id=True)
+
+_front(SERVICE_CATEGORIES, ["construction", "home", "transport", "moving", "it",
+                            "photo", "edu", "beauty", "events", "appliance_svc",
+                            "agro", "legal", "family", "pet_services",
+                            "money_transfer", "religious", "tattoo", "other"], by_id=True)
+for _c in SERVICE_CATEGORIES:
+    if _c.get("id") == "home" and _c.get("subs"):
+        _front(_c["subs"], ["Электрик", "Сантехник", "Үй тазалоо"])
