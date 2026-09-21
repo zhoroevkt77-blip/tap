@@ -3631,14 +3631,18 @@ TRADE_CATEGORIES = [
 # Кыймылсыз (үй, жер) жана кыймылдуу (унаа, техника) мүлк соода
 # бөлүмүнөн бөлүнүп чыкты: Кыргызстанда мүлк өзүнчө чоң багыт,
 # аны кийим-кечек менен бир тизмеде издөө ыңгайсыз эле.
-PROPERTY_CAT_IDS = ("realestate", "vehicles", "agro_machinery")
+PROPERTY_CAT_IDS = ("realestate",)
+# VEHICLE_SECTION: унаа жана айыл чарба техникасы — өзүнчө «Унаа сатуу» бөлүмү
+VEHICLE_CAT_IDS = ("vehicles", "agro_machinery")
 
 PROPERTY_CATEGORIES = [c for c in TRADE_CATEGORIES
                        if c["id"] in PROPERTY_CAT_IDS]
+VEHICLE_SALE_CATEGORIES = [c for c in TRADE_CATEGORIES
+                           if c["id"] in VEHICLE_CAT_IDS]
 
 # Соодадан алып салабыз — эки жерде кайталанбасын
 TRADE_CATEGORIES = [c for c in TRADE_CATEGORIES
-                    if c["id"] not in PROPERTY_CAT_IDS]
+                    if c["id"] not in PROPERTY_CAT_IDS + VEHICLE_CAT_IDS]
 
 
 HEATING_FUEL_SUBS = [
@@ -10229,6 +10233,7 @@ def get_categories(ad_type):
     return {
         "trade": TRADE_CATEGORIES,
         "property": PROPERTY_CATEGORIES,
+        "vehicle": VEHICLE_SALE_CATEGORIES,
         "rental": RENTAL_CATEGORIES,
         "delivery": DELIVERY_CATEGORIES,
         "service": SERVICE_CATEGORIES,

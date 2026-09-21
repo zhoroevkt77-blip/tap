@@ -329,7 +329,8 @@ def footwear_subs():
 
 def apply(ns):
     """tap_catalog модулунун глобалдык аттарын (ns = globals()) жаңыртат."""
-    cats = {c.get("id"): c for c in list(ns["TRADE_CATEGORIES"]) + list(ns["PROPERTY_CATEGORIES"])}
+    cats = {c.get("id"): c for c in list(ns["TRADE_CATEGORIES"]) + list(ns["PROPERTY_CATEGORIES"])
+            + list(ns.get("VEHICLE_SALE_CATEGORIES", []))}
     missing = [k for k in TRADE_SIMPLE if k not in cats]
     if missing:
         raise KeyError("TRADE_SIMPLE: табылбаган категориялар: %s" % missing)
