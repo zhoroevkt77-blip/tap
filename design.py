@@ -229,6 +229,7 @@ main.wrap{animation:pageIn .26s ease-out both}
 .cat.s-trade .pill{background:#FCE7D2;border-color:#F3D5B8}
 .cat.s-wholesale .pill{background:#E6DEFB;border-color:#D5C9F5}
 .cat.s-property .pill{background:#D9EDFB;border-color:#C2DFF4}
+.cat.s-vehicle .pill{background:#DFE8F2;border-color:#C9D6E6}
 .cat.s-service .pill{background:#E4DDFA;border-color:#D2C8F3}
 .cat.s-rental .pill{background:#D8F0DA;border-color:#BFE4C3}
 .cat.s-delivery .pill{background:#D7EBFA;border-color:#BFDCF3}
