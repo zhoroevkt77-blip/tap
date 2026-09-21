@@ -633,6 +633,41 @@ main.wrap{animation:pageIn .26s ease-out both}
 
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 :focus-visible{outline:2.5px solid var(--leaf);outline-offset:2px;border-radius:6px}
+
+/* CARD2: бөлүм — сүрөт жана түстүү жазуу тилкеси бир карточкада */
+.cats{gap:10px 7px;padding:14px 9px 10px}
+.cat.pic{gap:0;border-radius:16px;overflow:hidden;background:#fff;isolation:isolate;
+ box-shadow:0 8px 16px -8px rgba(16,24,40,.6);transition:transform .18s cubic-bezier(.34,1.4,.5,1)}
+.cat.pic .picw{border-radius:0;aspect-ratio:1/1}
+.cat.pic.on .picw{box-shadow:none;transform:none}
+.cat.pic.on{box-shadow:0 0 0 2.5px var(--moss),0 8px 16px -8px rgba(16,24,40,.6)}
+.cat.pic .pill,.cat.pic.on .pill{position:relative;z-index:1;margin-top:-12px;
+ justify-content:flex-start;gap:3px;min-height:40px;padding:5px 4px 5px 5px;
+ border:0;border-radius:12px 12px 0 0;color:#fff;text-align:left;
+ font-size:10px;font-weight:800;line-height:1.1;letter-spacing:-.2px;
+ text-shadow:0 1px 1px rgba(0,0,0,.2);box-shadow:0 -2px 6px rgba(0,0,0,.1);
+ background:linear-gradient(180deg,var(--c1,#4A8FF0),var(--c2,#1E6FE0));
+ overflow-wrap:anywhere;hyphens:auto;animation:none;
+ font-family:Roboto,"Segoe UI",Arial,system-ui,sans-serif}
+.cat.s-malls .pill,.cat.s-wholesale .pill{font-size:9.3px;letter-spacing:-.3px}
+.cat.pic .pill::before{content:"";flex:none;width:13px;height:13px;background:#fff;
+ -webkit-mask:var(--ic) center/contain no-repeat;mask:var(--ic) center/contain no-repeat}
+.cat.pic:active{transform:scale(.95)}
+.cat.pic:active .picw,.cat.pic:active .pill{transform:none;filter:none}
+.cat.s-all{--c1:#5291DE;--c2:#005DCF;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='%23000'><rect x='3' y='3' width='8' height='8' rx='2'/><rect x='13' y='3' width='8' height='8' rx='2'/><rect x='3' y='13' width='8' height='8' rx='2'/><rect x='13' y='13' width='8' height='8' rx='2'/></g></svg>")}
+.cat.s-trade{--c1:#FEA152;--c2:#FE7501;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M2.5 4h2.3l2.4 10.2h10.4L20 7.5H6'/><g fill='%23000'><circle cx='9' cy='19' r='1.7'/><circle cx='17' cy='19' r='1.7'/></g></svg>")}
+.cat.s-wholesale{--c1:#9166F8;--c2:#5D1EF5;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M12 2.5 3.5 7v10l8.5 4.5 8.5-4.5V7z M3.5 7l8.5 4.5L20.5 7 M12 11.5v10'/></svg>")}
+.cat.s-property{--c1:#53C4BD;--c2:#02A89E;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M3 11.5 12 4l9 7.5 M5.5 10v10h4.5v-5.5h4V20h4.5V10'/></svg>")}
+.cat.s-vehicle{--c1:#52B4F6;--c2:#0191F2;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M4 15.5V12l2-5.5h12l2 5.5v3.5 M3.5 12h17 M3.5 15.5h17v3h-17z'/><g fill='%23000'><circle cx='7.5' cy='14' r='1.3'/><circle cx='16.5' cy='14' r='1.3'/></g></svg>")}
+.cat.s-service{--c1:#8E6BF2;--c2:#5925EC;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M14.5 6.5a4 4 0 0 0-5 5.2L3.5 17.7l2.8 2.8 6-6a4 4 0 0 0 5.2-5l-2.4 2.4-2.3-.5-.5-2.3z'/></svg>")}
+.cat.s-rental{--c1:#63BC93;--c2:#1A9C60;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' cx='7.5' cy='15.5' r='4.5'/><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M10.8 12.2 20.5 2.5 M16.5 6.5l2.8 2.8 M14 9l2 2'/></svg>")}
+.cat.s-delivery{--c1:#52ACFE;--c2:#0085FE;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M2 6h11.5v10H2z M13.5 9.5h4l3.5 3.5v3h-7.5'/><g fill='%23000'><circle cx='6' cy='18' r='2'/><circle cx='17.5' cy='18' r='2'/></g></svg>")}
+.cat.s-cargo{--c1:#8378F9;--c2:#4938F6;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M1.5 5h13.5v11H1.5z M15 9h4.5l3 3.5V16H15'/><g fill='%23000'><circle cx='5' cy='18.5' r='2'/><circle cx='11' cy='18.5' r='2'/><circle cx='19' cy='18.5' r='2'/></g></svg>")}
+.cat.s-jobseek{--c1:#65B86B;--c2:#1C9725;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' cx='10.5' cy='10.5' r='6.5'/><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M15.5 15.5 21 21'/></svg>")}
+.cat.s-job{--c1:#F97399;--c2:#F63169;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' cx='9' cy='8' r='3.5'/><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M2.5 20.5a6.5 6.5 0 0 1 13 0'/><circle stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' cx='17' cy='8.5' r='2.8'/><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M16.5 13.8a5 5 0 0 1 5.5 5.2'/></svg>")}
+.cat.s-markets{--c1:#FDCB55;--c2:#FCB205;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M3 9.5 4.5 4h15L21 9.5z M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0 M5 12.5V20h14v-7.5 M10 20v-5h4v5'/></svg>")}
+.cat.s-taxi{--c1:#FCC954;--c2:#FAB003;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M4 16V12.5l2-5h12l2 5V16 M3.5 12.5h17 M3.5 16h17v3h-17z M9.5 4h5v3.5'/><g fill='%23000'><circle cx='7.5' cy='14.3' r='1.2'/><circle cx='16.5' cy='14.3' r='1.2'/></g></svg>")}
+.cat.s-malls{--c1:#F367A4;--c2:#EE1F79;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M5 8h14l-1 13H6z M9 8V6.5a3 3 0 0 1 6 0V8'/></svg>")}
 """
 
 # /*DEEPSHADOW*/
