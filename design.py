@@ -668,6 +668,12 @@ main.wrap{animation:pageIn .26s ease-out both}
 .cat.s-markets{--c1:#FDCB55;--c2:#FCB205;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M3 9.5 4.5 4h15L21 9.5z M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0 M5 12.5V20h14v-7.5 M10 20v-5h4v5'/></svg>")}
 .cat.s-taxi{--c1:#FCC954;--c2:#FAB003;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M4 16V12.5l2-5h12l2 5V16 M3.5 12.5h17 M3.5 16h17v3h-17z M9.5 4h5v3.5'/><g fill='%23000'><circle cx='7.5' cy='14.3' r='1.2'/><circle cx='16.5' cy='14.3' r='1.2'/></g></svg>")}
 .cat.s-malls{--c1:#F367A4;--c2:#EE1F79;--ic:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none' d='M5 8h14l-1 13H6z M9 8V6.5a3 3 0 0 1 6 0V8'/></svg>")}
+
+/* CARD5: тилкесиз — аталыш сүрөттүн өзүндө, ылдыйы акырын карарат */
+.cat.pic .pill,.cat.pic.on .pill{margin-top:-46px;min-height:46px;padding:14px 5px 6px 6px;
+ border-radius:0;box-shadow:none;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.65);
+ background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.45) 35%,rgba(0,0,0,.78) 100%)}
+.cat.pic .pill::before{background:#fff;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
 """
 
 # /*DEEPSHADOW*/
