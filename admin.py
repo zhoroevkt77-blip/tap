@@ -18,7 +18,7 @@ SEC_KY = {
     "personal": "Жеке буюмдар",
     "transport": "Транспорт",
     "shop": "Курулуш жана азык-түлүк",
-    "realty": "Кыймылсыз мүлк",
+    "realty": "Үй-жер",
 }
 FLG = "flagged IS NOT NULL AND flagged<>''"
 ACT = "COALESCE(is_active,1)=1 AND expires_at>?"

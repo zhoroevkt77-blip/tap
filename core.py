@@ -40,7 +40,7 @@ SITE_URL = (os.environ.get("SITE_URL") or "http://localhost:8000").rstrip("/")
 
 CATS = {
     "transport": ("Транспорт", "🚗"),
-    "realty":    ("Кыймылсыз мүлк", "🏠"),
+    "realty":    ("Үй-жер", "🏠"),
     "personal":  ("Жеке буюмдар", "👕"),
     "service":   ("Кызматтар", "🔧"),
     "shop":      ("Магазиндер", "🛍"),
