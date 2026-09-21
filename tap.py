@@ -18,6 +18,7 @@ import core
 from core import (CATS, SUBS, MEDIA, category_title, category_icon, sub_title,
                   price_label, is_deal, ago)
 from tap_catalog import (TRADE_CATEGORIES, PROPERTY_CATEGORIES,
+                         VEHICLE_SALE_CATEGORIES,
                          SERVICE_CATEGORIES, RENTAL_CATEGORIES,
                          DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES,
                          MALLS_TYPES,
@@ -40,6 +41,7 @@ SECTIONS = [
     ("trade",     SCENES["trade"],     "Соода-сатык"),
     ("wholesale", SCENES.get("wholesale", SCENES["trade"]), "Соода-сатык (дүң)"),
     ("property",  SCENES.get("property", SCENES["trade"]),   "Мүлк сатуу"),
+    ("vehicle",   SCENES.get("vehicle", SCENES["taxi"]),     "Унаа сатуу"),
     ("service",   SCENES["service"],   "Кызмат көрсөтүү"),
     ("rental",    SCENES["rental"],    "Ижарага берүү"),
     ("delivery",  SCENES["delivery"],  "Жеткирүү"),
@@ -56,6 +58,7 @@ SECTIONS = [
 _NEW_SECTION_NAMES = {
     "wholesale": ("Соода-сатык (дүң)", "Оптовая торговля"),
     "property":  ("Мүлк сатуу", "Продажа имущества"),
+    "vehicle":   ("Унаа сатуу", "Продажа транспорта"),
     "cargo":     ("Жүк ташуу", "Грузоперевозки"),
     "jobseek":   ("Жумуш издөө", "Поиск работы"),
     "malls":     ("Соода борборлору", "Торговые центры"),
@@ -67,6 +70,7 @@ SECTION_NAME = {code: name for code, _, name in SECTIONS}
 _CAT_LISTS = {
     "trade":    TRADE_CATEGORIES,
     "property": PROPERTY_CATEGORIES,
+    "vehicle":  VEHICLE_SALE_CATEGORIES,
     "service":  SERVICE_CATEGORIES,
     "rental":   RENTAL_CATEGORIES,
     "delivery": DELIVERY_CATEGORIES,

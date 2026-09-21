@@ -496,6 +496,23 @@ def _migrate_malls():
         print("  Соода борборлоруна көчтү: %d жарыя" % moved, flush=True)
 
 
+def _migrate_vehicle():
+    """Мүлк сатуудагы унаа жана техника «Унаа сатууга» көчөт (кайталаса коопсуз)."""
+    try:
+        row = query("SELECT COUNT(*) AS n FROM listings WHERE ad_type=? "
+                    "AND cat_id IN (?, ?)",
+                    ("property", "vehicles", "agro_machinery"), fetch="one")
+        n = int((row or {}).get("n") or 0)
+        if n:
+            query("UPDATE listings SET ad_type=?, sec_name=? WHERE ad_type=? "
+                  "AND cat_id IN (?, ?)",
+                  ("vehicle", "Унаа сатуу / Продажа транспорта",
+                   "property", "vehicles", "agro_machinery"))
+            print("  Унаа сатууга көчтү: %d жарыя" % n, flush=True)
+    except Exception as e:
+        print("  Унаа көчүрүү катасы:", e, flush=True)
+
+
 def init_db():
     """Таблицаны түзөт. Кайра-кайра чакырса коопсуз."""
     os.makedirs(MEDIA, exist_ok=True)
@@ -504,6 +521,7 @@ def init_db():
     _add_missing_columns()
     _add_missing_user_columns()
     _migrate_malls()
+    _migrate_vehicle()
     query("CREATE INDEX IF NOT EXISTS idx_active ON listings(is_active)")
     query("CREATE INDEX IF NOT EXISTS idx_cat ON listings(category)")
     # SPEED2: чыпка менен иргөө бир индекстен жүрсүн

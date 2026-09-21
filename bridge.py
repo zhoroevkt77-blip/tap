@@ -27,7 +27,7 @@ if _tc is not None:
     for _name in ("TRADE_CATEGORIES", "SERVICE_CATEGORIES", "RENTAL_CATEGORIES",
                   "DELIVERY_CATEGORIES", "JOB_CATEGORIES", "MARKETS_TYPES",
                   "WHOLESALE_CATEGORIES", "CARGO_CATEGORIES", "JOBSEEK_CATEGORIES",
-                  "PROPERTY_CATEGORIES"):
+                  "PROPERTY_CATEGORIES", "VEHICLE_SALE_CATEGORIES"):
         for _c in (getattr(_tc, _name, None) or []):
             if isinstance(_c, dict) and _c.get("id"):
                 CAT_LABELS.setdefault(_c["id"], _c.get("label") or _c["id"])
@@ -35,6 +35,7 @@ if _tc is not None:
 SECTION_LABELS = {
     "wholesale": "Соода-сатык (дүң) / Оптовая торговля",
     "property":  "Мүлк сатуу / Продажа имущества",
+    "vehicle":   "Унаа сатуу / Продажа транспорта",
     "cargo":     "Жүк ташуу / Грузоперевозки",
     "jobseek":   "Жумуш издөө / Поиск работы",
     "trade":    "Соода-сатык / Торговля",
@@ -305,7 +306,7 @@ def to_legacy(ad_type, cat_id):
         return _JOB_MAP.get(cat_id, ("business", "other"))
     if ad_type in ("markets", "malls"):
         return ("shop", "other")
-    if ad_type == "taxi":
+    if ad_type in ("taxi", "vehicle"):
         return ("transport", "car")
     return ("personal", "other")
 
