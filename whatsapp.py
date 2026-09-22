@@ -276,6 +276,19 @@ def _save_ad(chat_id, u):
     if not row["title"]:
         row["title"] = "Жарыя"
     lid = core.add_listing(row, chat_id.split("@")[0], d.get("waName", ""))
+    vok = ""
+    try:  # VERIFY_PHONE: Green API берген номерди жасалма кылуу мүмкүн эмес
+        _dg = lambda x: "".join(ch for ch in str(x or "") if ch.isdigit())[-9:]
+        if len(_dg(uid)) == 9 and _dg(uid) == _dg(row.get("contact")):
+            try:
+                core.query("ALTER TABLE listings ADD COLUMN %s verified INTEGER DEFAULT 0"
+                           % ("IF NOT EXISTS" if getattr(core, "IS_PG", False) else ""))
+            except Exception:
+                pass
+            core.query("UPDATE listings SET verified=1 WHERE id=?", (lid,))
+            vok = "\n✅ Номер ырасталган"
+    except Exception as _e:
+        print("wa verify:", _e, flush=True)
 
     src = d.get("photoUrl")
     if src:
@@ -288,7 +301,7 @@ def _save_ad(chat_id, u):
     send(chat_id,
          "✅ *Жарыя коюлду!*  №%s\n\n📦 %s\n💰 %s\n📍 %s%s"
          % (lid, row["title"], price_label(row.get("price")),
-            row.get("region") or "—", link))
+            row.get("region") or "—", link) + vok)
     _reset(u)
 
 
