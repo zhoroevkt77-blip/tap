@@ -85,10 +85,49 @@ def report(h):
                 done = True
         except Exception as e:
             print("report:", e, flush=True)
+    if done:
+        try:
+            _after_report(h, int(lid), RSN[code], note)
+        except Exception as e:
+            print("report+:", e, flush=True)
     back = "/e/" + lid if lid.isdigit() else "/"
     body = ("<main class='wrap'><div class='rok'>" + E(ok if done else bad) + "</div>"
             "<p><a href='" + E(back) + "'>← Артка</a></p></main>")
     h._send(tap.page(tap.header("", None, None, lang) + body, "ТАП!", "", lang))
+
+
+REPORT_HIDE = 3  # ушунча башка киши даттанса, жарыя убактылуу жашырылат
+
+
+def _after_report(h, lid, why, note):
+    """RPT_AUTO: даттангандарды эсептейт, админге Telegram'дан кабарлайт."""
+    ip = ((h.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+          or h.client_address[0])
+    who = hashlib.sha256(("rpt|%s|%s" % (ip, h.headers.get("User-Agent") or ""))
+                         .encode()).hexdigest()[:16]
+    core.query("CREATE TABLE IF NOT EXISTS reports "
+               "(lid INTEGER, who TEXT, created_at TEXT)")
+    if core.query("SELECT 1 AS x FROM reports WHERE lid=? AND who=?",
+                  (lid, who), fetch="one"):
+        return
+    core.query("INSERT INTO reports (lid, who, created_at) VALUES (?, ?, ?)",
+               (lid, who, core.now_str()))
+    r = core.query("SELECT COUNT(*) AS n FROM reports WHERE lid=?", (lid,),
+                   fetch="one")
+    n = int(_g(r, "n", 0) or 0)
+    hid = ""
+    if n >= REPORT_HIDE:
+        core.query("UPDATE listings SET is_active=0 WHERE id=? "
+                   "AND COALESCE(is_active,1)=1", (lid,))
+        hid = "\n🙈 Жарыя убактылуу жашырылды. «Калтыруу» басылса кайра ачылат."
+    site = (getattr(core, "SITE_URL", "") or "").rstrip("/")
+    txt = ("📣 <b>Даттануу</b> — жарыя №%d\nСебеби: %s%s\nДаттангандар: %d%s"
+           % (lid, E(why), ("\n«" + E(note) + "»") if note else "", n, hid))
+    if site:
+        txt += "\n\n%s/e/%d\n%s/admin/mod" % (site, lid, site)
+    import threading
+    for a in _ids():
+        threading.Thread(target=_tg_send, args=(a, txt), daemon=True).start()
 
 
 WARN = {
@@ -574,6 +613,14 @@ def _do(h, uid, q):
         msg = ("№%s: +7 күн узартылды" % tid) if _extend(int(tid)) else "Жарыя табылган жок"
     elif a == "ok":
         core.query("UPDATE listings SET flagged='' WHERE id=?", (int(tid),))
+        try:  # RPT_AUTO
+            rr = core.query("SELECT COUNT(*) AS n FROM reports WHERE lid=?",
+                            (int(tid),), fetch="one")
+            if int(_g(rr, "n", 0) or 0) >= REPORT_HIDE:
+                core.query("UPDATE listings SET is_active=1 WHERE id=?", (int(tid),))
+            core.query("DELETE FROM reports WHERE lid=?", (int(tid),))
+        except Exception:
+            pass
         msg = "№%s калтырылды" % tid
     elif a == "ban":
         if tid in _ids():

@@ -172,7 +172,8 @@ FAV_JS = ("""<script>
  };
  window.tapGo=function(e,b){
    e.preventDefault(); e.stopPropagation();
-   window.open(b.dataset.u,"_blank","noopener");
+   var u=b.dataset.u||(b.dataset.h?atob(b.dataset.h):"");
+   if(u)window.open(u,"_blank","noopener");
  };
  window.tapBindFavs();
 })();
@@ -537,12 +538,13 @@ def _cta(r):
     intl = _intl(r.get("contact"))
     if not intl:
         return ""
+    _h = lambda u: base64.b64encode(u.encode()).decode("ascii")  # NUMHIDE
     wa = ('<button class="cta wa" onclick="tapGo(event,this)"'
-          ' data-u="https://wa.me/%s" aria-label="WhatsApp">%s</button>'
-          % (intl, _CWA))
+          ' data-h="%s" aria-label="WhatsApp">%s</button>'
+          % (_h("https://wa.me/" + intl), _CWA))
     tg = ('<button class="cta tg" onclick="tapGo(event,this)"'
-          ' data-u="https://t.me/+%s" aria-label="Telegram">%s</button>'
-          % (intl, _CTG))
+          ' data-h="%s" aria-label="Telegram">%s</button>'
+          % (_h("https://t.me/+" + intl), _CTG))
     return wa + tg  #CTA2
 
 
@@ -1487,6 +1489,12 @@ def detail(r, lang="ky"):
     tel = contact_block(
         r.get("contact"), lang, bridge.show_title(r),
         f"{core.SITE_URL}/e/{r['id']}" if core.SITE_URL else "")
+    if str(r.get("verified") or "") == "1":  # VERIFY_PHONE
+        tel = ('<div class="vbadge">✅ '
+               + ("Номер подтверждён" if lang == "ru" else "Номер ырасталган")
+               + '</div><style>.vbadge{display:inline-block;margin:6px 0 4px;'
+               'padding:5px 11px;border-radius:999px;background:#E3F6EA;'
+               'color:#17693A;font-weight:700;font-size:13px}</style>') + tel
     _ask_t = ("Актуально ли объявление?" if lang == "ru"  #ASKBTN
               else "Жарыя актуалдуубу?")
     tel += ('<div class="askw"><a class="askb" target="_blank" rel="noopener" '
@@ -1496,6 +1504,19 @@ def detail(r, lang="ky"):
             'padding:11px;border-radius:12px;border:1px solid #d7dbe3;'
             'background:#fff;color:#1b3a5c;font-weight:600;text-decoration:none}'
             '</style>')
+
+    # SAFE_BOX: алдамчылардан эскертүү
+    _sf = ("🛡 Остерегайтесь мошенников: не переводите предоплату, пока не "
+           "увидели товар; не вводите данные карты по чужим ссылкам и никому "
+           "не сообщайте код из SMS. ТАП! не предлагает доставку и оплату."
+           if lang == "ru" else
+           "🛡 Алдамчылардан сактаныңыз: товарды көрмөйүн алдын ала акча "
+           "которбоңуз; бөтөн шилтемеге карта маалыматын киргизбеңиз, SMS-кодду "
+           "эч кимге айтпаңыз. ТАП! жеткирүү же төлөм кызматын сунуштабайт.")
+    tel += ('<div class="safe">' + esc(_sf) + '</div>'
+            '<style>.safe{margin:10px 0;padding:10px 12px;border-radius:12px;'
+            'background:#FFF6DC;border:1px solid #F1D98B;color:#5B4300;'
+            'font-size:13.5px;line-height:1.4}</style>')
 
     # Бөлүшүү: WhatsApp жана Telegram аркылуу шилтемени жиберүү
     share_url = f"{core.SITE_URL}/e/{r['id']}" if core.SITE_URL else ""

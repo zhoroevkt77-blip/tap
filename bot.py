@@ -556,7 +556,19 @@ def ask(chat, u, short=False):
             text += "\n<i>%s</i>" % m("vid_hint", lang, VIDEO_MAX_MB)
     elif view["input"] and view["placeholder"]:
         text += "\n<i>%s</i>" % esc(loc(view["placeholder"], lang))
-    send(chat, text, flow_kb(view, u.get("picked"), lang, back=bool(u.get("hist"))))
+    kb = flow_kb(view, u.get("picked"), lang, back=bool(u.get("hist")))
+    if u["step"] == "post_whatsapp" and kb is None:  # VERIFY_PHONE
+        if lang == "ru":
+            text += ("\n\n📱 Или нажмите кнопку ниже «Поделиться номером» — "
+                     "номер будет подтверждён, и в объявлении появится ✅")
+            btn = "📱 Поделиться номером"
+        else:
+            text += ("\n\n📱 Же төмөнкү «Номеримди бөлүшүү» баскычын басыңыз — "
+                     "номериңиз ырасталып, жарыяңызда ✅ белгиси чыгат")
+            btn = "📱 Номеримди бөлүшүү"
+        kb = {"keyboard": [[{"text": btn, "request_contact": True}]],
+              "resize_keyboard": True, "one_time_keyboard": True}
+    send(chat, text, kb)
 
 
 # ==================== Жарыяны көрсөтүү ====================
@@ -715,6 +727,62 @@ def show_invite(chat, uid, u):
          kb)
 
 
+# VERIFY_PHONE: Telegram'дагы «Номеримди бөлүшүү» баскычы менен номер ырасталат.
+_VCOLS = [False]
+
+
+def _vcols():
+    if _VCOLS[0]:
+        return
+    pg = getattr(core, "IS_PG", False)
+    for sql in ("ALTER TABLE users ADD COLUMN %s phone_verified TEXT",
+                "ALTER TABLE listings ADD COLUMN %s verified INTEGER DEFAULT 0"):
+        try:
+            core.query(sql % ("IF NOT EXISTS" if pg else ""))
+        except Exception:
+            pass
+    _VCOLS[0] = True
+
+
+def _d9(p):
+    d = "".join(ch for ch in str(p or "") if ch.isdigit())
+    return d[-9:] if len(d) >= 9 else ""
+
+
+def _val(r, k):
+    if not r:
+        return None
+    return r.get(k) if isinstance(r, dict) else r[0]
+
+
+def set_verified(uid, phone):
+    """Колдонуучу өз номерин бөлүштү — эстеп калабыз, эски жарыяларын белгилейбиз."""
+    _vcols()
+    d = _d9(phone)
+    if not d:
+        return False
+    core.get_user(uid)
+    core.query("UPDATE users SET phone_verified=? WHERE tg_id=?", (d, str(uid)))
+    rows = core.query("SELECT id, contact FROM listings WHERE tg_id=?",
+                      (str(uid),), fetch="all") or []
+    for r in rows:
+        lid = r.get("id") if isinstance(r, dict) else r[0]
+        ct = r.get("contact") if isinstance(r, dict) else r[1]
+        if _d9(ct) == d:
+            core.query("UPDATE listings SET verified=1 WHERE id=?", (lid,))
+    return True
+
+
+def mark_verified(uid, lid, contact):
+    """Жаңы жарыянын номери ырасталган номерге дал келсе — белги коёбуз."""
+    _vcols()
+    r = core.query("SELECT phone_verified FROM users WHERE tg_id=?",
+                   (str(uid),), fetch="one")
+    v = _val(r, "phone_verified")
+    if v and v == _d9(contact):
+        core.query("UPDATE listings SET verified=1 WHERE id=?", (lid,))
+
+
 def save_ad(chat, uid, name, u):
     """Даяр жарыяны базага жазат."""
     lang = ulang(u)
@@ -749,6 +817,10 @@ def save_ad(chat, uid, name, u):
         core.remember_phone(uid, row.get("contact"))
     except Exception:
         pass
+    try:  # VERIFY_PHONE
+        mark_verified(uid, lid, row.get("contact"))
+    except Exception as _e:
+        print("verify mark:", _e, flush=True)
 
     ids = d.get("photoFileIds") or (
         [d["photoFileId"]] if d.get("photoFileId") else [])
@@ -990,6 +1062,12 @@ def handle_message(msg, st):
 
     if msg.get("contact"):
         text = msg["contact"].get("phone_number", "") or text
+        try:  # VERIFY_PHONE: башка бирөөнүн номери эмес, өзүнүкү гана
+            if str(msg["contact"].get("user_id") or "") == uid and set_verified(uid, text):
+                send(chat, "✅ Номер подтверждён." if ulang(u) == "ru"
+                     else "✅ Номериңиз ырасталды.")
+        except Exception as _e:
+            print("verify:", _e, flush=True)
 
     # Сайттагы ылдыйкы баскычтар ботко «/start post» же «/start my» деп
     # келет — ошолорду түз керектүү кадамга алып барабыз.
