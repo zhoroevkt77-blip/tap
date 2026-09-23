@@ -684,6 +684,20 @@ main.wrap{animation:pageIn .26s ease-out both}
 /* TILESEL: тандалган бөлүмдүн сүрөтүнүн астында жашыл сызык */
 .cats .cat.pic{border-bottom:4px solid transparent!important;box-sizing:border-box}
 .cats .cat.pic.on{border-bottom-color:#3AA167!important}
+
+/* CARD11: белги ак тегеректе, жазуу ортодо; тандалганда — чиптердей */
+.cats .cat.pic .pill,.cats .cat.pic.on .pill{position:relative;flex-direction:column;
+ justify-content:center;align-items:center;text-align:center;gap:2px;
+ margin-top:-10px;min-height:46px;padding:2px 5px 7px;border-radius:12px 12px 0 0;
+ color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.25);box-shadow:0 -2px 6px rgba(0,0,0,.12);
+ background:linear-gradient(180deg,var(--c1,#4A8FF0),var(--c2,#1E6FE0))}
+.cats .cat.pic .pill::before{content:"";flex:none;width:26px;height:26px;border-radius:50%;
+ background:#fff;-webkit-mask:none;mask:none;filter:none;margin-top:-13px;
+ box-shadow:0 2px 5px rgba(0,0,0,.3)}
+.cats .cat.pic .pill::after{content:"";position:absolute;top:-8px;left:50%;
+ transform:translateX(-50%);width:16px;height:16px;background:var(--c2,#1E6FE0);
+ -webkit-mask:var(--ic) center/contain no-repeat;mask:var(--ic) center/contain no-repeat}
+.cats .cat.pic.on .pill{background:#152741!important}
 """
 
 # /*DEEPSHADOW*/
