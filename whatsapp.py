@@ -276,6 +276,10 @@ def _save_ad(chat_id, u):
     if not row["title"]:
         row["title"] = "Жарыя"
     lid = core.add_listing(row, chat_id.split("@")[0], d.get("waName", ""))
+    try:  # AUDIT_LOG
+        core.log_event("post", lid, chat_id.split("@")[0], "whatsapp")
+    except Exception:
+        pass
     vok = ""
     try:  # VERIFY_PHONE: Green API берген номерди жасалма кылуу мүмкүн эмес
         _dg = lambda x: "".join(ch for ch in str(x or "") if ch.isdigit())[-9:]

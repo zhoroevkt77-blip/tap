@@ -817,6 +817,11 @@ def save_ad(chat, uid, name, u):
         core.remember_phone(uid, row.get("contact"))
     except Exception:
         pass
+    try:  # AUDIT_LOG
+        core.log_event("post", lid, uid, "telegram",
+                       note=(name or "")[:60])
+    except Exception:
+        pass
     try:  # VERIFY_PHONE
         mark_verified(uid, lid, row.get("contact"))
     except Exception as _e:

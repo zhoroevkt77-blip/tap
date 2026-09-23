@@ -1061,9 +1061,51 @@ def posted_today(tg_id):
     return (r or {}).get("n", 0)
 
 
+# AUDIT_LOG: аракеттердин журналы — компетенттүү органдарга справка үчүн.
+# Сактоо мөөнөтү AUDIT_DAYS (демейде 180 күн), андан эскиси өзү өчөт.
+AUDIT_DAYS = int(os.environ.get("AUDIT_DAYS") or 180)
+_AUD = [False]
+
+
+def _audit_init():
+    if _AUD[0]:
+        return
+    try:
+        query("CREATE TABLE IF NOT EXISTS events (id %s, at TEXT, kind TEXT,"
+              " lid INTEGER, tg_id TEXT, src TEXT, ip TEXT, ua TEXT, note TEXT)"
+              % ("SERIAL PRIMARY KEY" if IS_PG else "INTEGER PRIMARY KEY AUTOINCREMENT"))
+        query("CREATE INDEX IF NOT EXISTS idx_ev_lid ON events(lid)")
+    except Exception as e:
+        print("audit init:", e, flush=True)
+    _AUD[0] = True
+
+
+def log_event(kind, lid=None, tg_id=None, src=None, ip=None, ua=None, note=None):
+    """Бир аракетти журналга жазат. Ката болсо жарыяга тоскоол болбойт."""
+    try:
+        _audit_init()
+        query("INSERT INTO events (at, kind, lid, tg_id, src, ip, ua, note)"
+              " VALUES (?,?,?,?,?,?,?,?)",
+              (now_str(), str(kind)[:20], lid, str(tg_id) if tg_id else None,
+               src, ip, (ua or "")[:200], (note or "")[:300]))
+    except Exception as e:
+        print("audit:", e, flush=True)
+
+
+def audit_cleanup():
+    """Мөөнөтү өткөн жазууларды өчүрөт."""
+    try:
+        _audit_init()
+        cut = (datetime.now(timezone.utc) - timedelta(days=AUDIT_DAYS))
+        query("DELETE FROM events WHERE at < ?", (cut.strftime("%Y-%m-%d %H:%M:%S"),))
+    except Exception as e:
+        print("audit clean:", e, flush=True)
+
+
 def update_listing(lid, tg_id, fields, phone=None):
     """Жарыянын айрым талааларын оңдойт (ээси гана)."""
     allowed = ("title", "description", "price", "contact")
+    log_event("edit", lid, tg_id, note=",".join(sorted(k for k in fields if k in allowed)))
     sets, p = [], []
     for k, v in fields.items():
         if k in allowed:

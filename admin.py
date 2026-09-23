@@ -120,6 +120,11 @@ def _after_report(h, lid, why, note):
         core.query("UPDATE listings SET is_active=0 WHERE id=? "
                    "AND COALESCE(is_active,1)=1", (lid,))
         hid = "\n🙈 Жарыя убактылуу жашырылды. «Калтыруу» басылса кайра ачылат."
+    try:  # AUDIT_LOG
+        core.log_event("report", lid, None, "site", ip,
+                       h.headers.get("User-Agent"), why)
+    except Exception:
+        pass
     site = (getattr(core, "SITE_URL", "") or "").rstrip("/")
     txt = ("📣 <b>Даттануу</b> — жарыя №%d\nСебеби: %s%s\nДаттангандар: %d%s"
            % (lid, E(why), ("\n«" + E(note) + "»") if note else "", n, hid))
@@ -521,7 +526,8 @@ def _page(title, body, tab="", msg=""):
                             ("/admin/ads", "ads", "Жарыялар"),
                             ("/admin/mod", "mod", "Модерация"),
                             ("/admin/users", "us", "Колдонуучулар"),
-                            ("/admin/bc", "bc", "Билдирүү")):
+                            ("/admin/bc", "bc", "Билдирүү"),
+                            ("/admin/log", "log", "Журнал")):
         tabs += "<a href='%s'%s>%s</a>" % (href, " class='on'" if tab == key else "", name)
     flash = "<p class='ok'>" + E(msg) + "</p>" if msg else ""
     return ("<!doctype html><html lang='ky'><head><meta charset='utf-8'>"
@@ -598,6 +604,40 @@ def _extend(lid, days=7):
     return True
 
 
+def _log_page(q):
+    """AUDIT_LOG: аракеттердин журналы. ?lid=N — бир жарыя боюнча."""
+    lid = _q(q, "lid")
+    try:
+        core.audit_cleanup()
+    except Exception:
+        pass
+    try:
+        if lid.isdigit():
+            rows = core.query("SELECT * FROM events WHERE lid=? ORDER BY id DESC"
+                              " LIMIT 300", (int(lid),), fetch="all") or []
+        else:
+            rows = core.query("SELECT * FROM events ORDER BY id DESC LIMIT 300",
+                              fetch="all") or []
+    except Exception as e:
+        return "<p class='er'>Журнал ачылган жок: " + E(repr(e)) + "</p>"
+    out = ("<form method='get' action='/admin/log' style='margin:0 0 10px'>"
+           "<input name='lid' value='" + E(lid) + "' placeholder='Жарыянын №'>"
+           " <button>Издөө</button></form>"
+           "<p style='color:#667085;font-size:13px'>Сактоо мөөнөтү: "
+           + str(getattr(core, "AUDIT_DAYS", 180)) + " күн. Убакыт — UTC.</p>"
+           "<table><tr><th>Убакыт</th><th>Аракет</th><th>№</th>"
+           "<th>Ким</th><th>Кайдан</th><th>IP</th><th>Эскертүү</th></tr>")
+    for r in rows:
+        g = lambda k, i: E(str(_g(r, k, i) or ""))
+        out += ("<tr><td>" + g("at", 1) + "</td><td>" + g("kind", 2) + "</td><td>"
+                + g("lid", 3) + "</td><td>" + g("tg_id", 4) + "</td><td>"
+                + g("src", 5) + "</td><td>" + g("ip", 6) + "</td><td>"
+                + g("note", 8) + "</td></tr>")
+    if not rows:
+        out += "<tr><td colspan='7'>Жазуу жок</td></tr>"
+    return out + "</table>"
+
+
 def _do(h, uid, q):
     a, tid = _q(q, "a"), _q(q, "id")
     back = _q(q, "back") or "/admin/ads"
@@ -634,6 +674,13 @@ def _do(h, uid, q):
     elif a == "bon":
         _bonus(tid, 1)
         msg = "%s: +1 бонус кошулду" % tid
+    try:  # AUDIT_LOG: админдин аракети
+        core.log_event("adm:" + a, int(tid), uid, "admin",
+                       ((h.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+                        or h.client_address[0]),
+                       h.headers.get("User-Agent"), msg)
+    except Exception:
+        pass
     else:
         msg = "Белгисиз аракет"
     sep = "&" if "?" in back else "?"
@@ -887,6 +934,8 @@ def _route(h, u):
             _bc_post(h, uid, d)
         else:
             h._send(_page("Жапырт билдирүү", _bc_page(uid), "bc", msg))
+    elif p == "/admin/log":
+        h._send(_page("Журнал", _log_page(q), "log", msg))
     elif p == "/admin/users":
         h._send(_page("Колдонуучулар", _users(uid, q), "us", msg))
     else:
