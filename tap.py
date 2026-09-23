@@ -1028,7 +1028,9 @@ def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
         bl = []
         for b in _CAR_BRANDS:
             try:
-                n = core.count(q=b, ad_type="vehicle", oblast=ob or None,
+                n = core.count(q=(b if not (q or "") in _CAR_FUEL
+                                  else b + " " + q),
+                               ad_type="vehicle", oblast=ob or None,
                                district=di or None)
             except Exception:
                 n = 0
@@ -1040,12 +1042,17 @@ def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
                        not q, None, lang, short=False)
             for b, n in bl[:12]:
                 bb += _chip(link0(q=b), b, (q or "") == b, n, lang, short=False)
-            brands = ('<style>.regbr{margin-top:0;padding-top:4px}</style>'
+            brands = ('<style>.regbr{margin-top:0;padding-top:2px}'
+                      '.rglb{margin:8px 12px 0;font-size:11px;font-weight:800;'
+                      'letter-spacing:.08em;color:#667085}</style>'
+                      f'<div class="rglb">{"МАРКА" if lang != "ru" else "МАРКА"}</div>'
                       f'<nav class="regbar regbr">{bb}</nav>')
         fl = []
         for x in _CAR_FUEL:
             try:
-                n = core.count(q=x, ad_type="vehicle", oblast=ob or None,
+                n = core.count(q=(x if not (q or "") in _CAR_BRANDS
+                                  else q + " " + x),
+                               ad_type="vehicle", oblast=ob or None,
                                district=di or None)
             except Exception:
                 n = 0
@@ -1055,7 +1062,9 @@ def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
             fb = ""
             for x, n in fl:
                 fb += _chip(link0(q=x), x, (q or "") == x, n, lang, short=False)
-            brands += f'<nav class="regbar regbr">{fb}</nav>' 
+            brands += (f'<div class="rglb">'
+                       f'{"КУЯР МАЙ" if lang != "ru" else "ТОПЛИВО"}</div>'
+                       f'<nav class="regbar regbr">{fb}</nav>')  # BRANDLBL
     return (css + sec + f'<nav class="regbar regbar1">{out}</nav>'
             + row2 + row3 + row4 + brands)
 
