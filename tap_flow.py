@@ -316,9 +316,15 @@ REALESTATE_BARGAIN = _opts([
     ("🔁 Алмашуу каралат / Возможен обмен", "Алмашуу каралат"),
 ])
 
+HOME_ROOMS = _opts([(x, x) for x in (
+    "Студия", "1 бөлмө", "2 бөлмө", "3 бөлмө", "4 бөлмө", "5+ бөлмө",
+)])
+
 CHAIN_HOME = [
     ("homeArea", "📐 Аянты, бөлмөнүн саны жана кабаты? / Площадь, количество комнат и этаж?",
      "Мис: 64 м², 3 бөлмө, 5/9-кабат / Например: 64 м², 3 комнаты, 5/9 этаж"),
+    ("homeRooms", "🚪 Канча бөлмө? / Сколько комнат?",
+     "", HOME_ROOMS),
     ("homeCondition", "🔨 Абалы жана ремонту кандай? / Состояние и ремонт?",
      "Мис: Евроремонт, эмерек менен / Например: Евроремонт, с мебелью"),
     ("homeDocs", "📄 Документтери жана сериясы? / Документы и серия?",
@@ -1422,9 +1428,10 @@ def advance(step, value, data=None):
             if p:
                 d[p[0]] = value
                 if p[0] == _rch[-1][0]:
-                    d["title"] = "%s | %s" % (
+                    _rm = d.get("homeRooms")
+                    d["title"] = "%s | %s%s" % (
                         d.get("subcategory") or _cat_label(d.get("category")),
-                        d.get(_rch[0][0]))
+                        d.get(_rch[0][0]), (", " + _rm) if _rm else "")
                     return "trade_price", d
                 return "trade_title", d
 

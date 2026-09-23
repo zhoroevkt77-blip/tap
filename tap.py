@@ -804,28 +804,30 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
             if len(opts) > 1:
                 inner += _chips_row("Субкатегория", opts, sid, lang)
 
-        # BRANDMOVE: Унаа сатууда — марка жана куяр май
-        if at == "vehicle":
-            for ttl, vals in (("Марка" if not ru else "Марка", _CAR_BRANDS),
-                              ("Куяр май" if not ru else "Топливо", _CAR_FUEL)):
-                rows = []
-                for v in vals:
-                    try:
-                        n = core.count(q=v, ad_type=at, cat_id=cid or None,
-                                       sub_id=sid or None, oblast=ob or None,
-                                       district=di or None)
-                    except Exception:
-                        n = 0
-                    if n:
-                        rows.append((v, n))
-                if not rows:
-                    continue
-                rows.sort(key=lambda x: (-x[1], x[0]))
-                cur = q if (q or "") in vals else None
-                opts = [(None, link(q=None), "Все" if ru else "Баары", None)]
-                for v, n in rows[:12]:
-                    opts.append((v, link(q=v), v, n))
-                inner += _chips_row(ttl, opts, cur, lang)
+        # QUICKFLT: бөлүмгө жараша тез чыпкалар
+        _QF = {"vehicle": (("Марка", "Марка", _CAR_BRANDS),
+                           ("Куяр май", "Топливо", _CAR_FUEL)),
+               "property": (("Бөлмө", "Комнат", _HOME_ROOMS),)}
+        for _kt, _rt, vals in _QF.get(at or "", ()):
+            ttl = _rt if ru else _kt
+            rows = []
+            for v in vals:
+                try:
+                    n = core.count(q=v, ad_type=at, cat_id=cid or None,
+                                   sub_id=sid or None, oblast=ob or None,
+                                   district=di or None)
+                except Exception:
+                    n = 0
+                if n:
+                    rows.append((v, n))
+            if not rows:
+                continue
+            rows.sort(key=lambda x: (-x[1], x[0]))
+            cur = q if (q or "") in vals else None
+            opts = [(None, link(q=None), "Все" if ru else "Баары", None)]
+            for v, n in rows[:12]:
+                opts.append((v, link(q=v), v, n))
+            inner += _chips_row(ttl, opts, cur, lang)
 
         out += _group("Что вы ищете" if ru else "Эмне издеп жатасыз", inner)
 
@@ -914,6 +916,9 @@ def _obq(ob):
     """Шилтемеге «&ob=…» кошот (аймак тандалган болсо)."""
     return ("&" + urllib.parse.urlencode({"ob": ob})) if ob else ""
 
+
+_HOME_ROOMS = ("Студия", "1 бөлмө", "2 бөлмө", "3 бөлмө",
+               "4 бөлмө", "5+ бөлмө")
 
 _CAR_FUEL = ("Бензин", "Дизель", "Газ", "Электр", "Гибрид", "Плагин гибрид")
 
