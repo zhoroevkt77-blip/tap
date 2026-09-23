@@ -676,7 +676,7 @@ main.wrap{animation:pageIn .26s ease-out both}
 .cat.pic .pill::before{background:#fff;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
 
 /* CHIPSEL: тандалган чип — кочкул көк, ылдыйында жашыл сызык */
-.regbar .rg.on,.regcat .rg.on,.subbar .rg.on{background:#152741!important;
+.regbar .rg.on:not(.cb .rg):not(.cb2 .rg),.regcat .rg.on:not(.cb .rg),.subbar .rg.on:not(.cb .rg){background:#152741!important;
  border-color:#152741!important;color:#fff!important;
  box-shadow:inset 0 -4px 0 #3AA167,0 4px 10px rgba(16,24,40,.45)!important}
 .cb .rg.on,a.c .rg.on{box-shadow:none!important}
