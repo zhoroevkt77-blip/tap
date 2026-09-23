@@ -280,6 +280,10 @@ VEHICLE_BARGAIN = _opts([
     ("🔁 Алмашуу каралат / Возможен обмен", "Алмашуу каралат"),
 ])
 
+VEHICLE_FUEL = _opts([(x, x) for x in (
+    "Бензин", "Дизель", "Газ", "Электр", "Гибрид", "Плагин гибрид",
+)])
+
 CHAIN_VEHICLES = [
     ("vehicleBrand", "🚘 Маркасын тандаңыз, же өзүңүз жазыңыз / "
      "Выберите марку или впишите свою",
@@ -292,6 +296,8 @@ CHAIN_VEHICLES = [
      "Мис: 115 000 км / Например: 115 000 км"),
     ("vehicleTransRoul", "🕹 Кыймылдаткычтын көлөмү, коробкасы, руулу жана приводу? / Объём двигателя, коробка, руль и привод?",
      "Мис: 2.0, автомат, оң рул, толук привод / Например: 2.0, автомат, правый руль, полный привод"),
+    ("vehicleFuel", "⛽ Куяр майы кандай? / На чём ездит?",
+     "", VEHICLE_FUEL),
     ("vehicleHistory", "🎨 Кырсык, краска жана ээлеринин саны? / ДТП, покраска и число владельцев?",
      "Мис: Кырсыксыз, краскасы өзүнүкү, 2-ээси / Например: Без ДТП, родная краска, 2-й владелец"),
     ("vehicleBargain", "💵 Баа боюнча шарт кандай? / Условия по цене?",
@@ -1403,10 +1409,10 @@ def advance(step, value, data=None):
                 d.pop("_china", None)
                 d[p[0]] = value
                 if p[0] == "vehicleCondition":
-                    d["title"] = "%s %s, %s-ж., %s | %s" % (
+                    d["title"] = "%s %s, %s-ж., %s | %s, %s" % (
                         d.get("vehicleBrand"), d.get("vehicleModel"),
                         d.get("vehicleYear"), d.get("vehicleMileage"),
-                        d.get("vehicleTransRoul"))
+                        d.get("vehicleTransRoul"), d.get("vehicleFuel") or "")
                     return "trade_price", d
                 return "trade_title", d
 

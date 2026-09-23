@@ -892,6 +892,8 @@ def _obq(ob):
     return ("&" + urllib.parse.urlencode({"ob": ob})) if ob else ""
 
 
+_CAR_FUEL = ("Бензин", "Дизель", "Газ", "Электр", "Гибрид", "Плагин гибрид")
+
 _CAR_BRANDS = ("Toyota", "Mercedes-Benz", "Honda", "Hyundai", "Kia",
                "Lexus", "BMW", "Nissan", "Daewoo", "Lada (ВАЗ)", "Audi",
                "Volkswagen", "Mitsubishi", "Chevrolet", "Opel", "Subaru",
@@ -1040,6 +1042,20 @@ def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
                 bb += _chip(link0(q=b), b, (q or "") == b, n, lang, short=False)
             brands = ('<style>.regbr{margin-top:0;padding-top:4px}</style>'
                       f'<nav class="regbar regbr">{bb}</nav>')
+        fl = []
+        for x in _CAR_FUEL:
+            try:
+                n = core.count(q=x, ad_type="vehicle", oblast=ob or None,
+                               district=di or None)
+            except Exception:
+                n = 0
+            if n:
+                fl.append((x, n))
+        if fl:
+            fb = ""
+            for x, n in fl:
+                fb += _chip(link0(q=x), x, (q or "") == x, n, lang, short=False)
+            brands += f'<nav class="regbar regbr">{fb}</nav>' 
     return (css + sec + f'<nav class="regbar regbar1">{out}</nav>'
             + row2 + row3 + row4 + brands)
 
