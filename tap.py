@@ -892,6 +892,12 @@ def _obq(ob):
     return ("&" + urllib.parse.urlencode({"ob": ob})) if ob else ""
 
 
+_CAR_BRANDS = ("Toyota", "Mercedes-Benz", "Honda", "Hyundai", "Kia",
+               "Lexus", "BMW", "Nissan", "Daewoo", "Lada (ВАЗ)", "Audi",
+               "Volkswagen", "Mitsubishi", "Chevrolet", "Opel", "Subaru",
+               "Mazda", "Ford", "Chery", "Changan", "Haval", "BYD", "Geely")
+
+
 def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
                    vv=None):
     # VILLAGE_TOP: жогорку тилкенин шилтемелери айылды тазалайт
@@ -1014,8 +1020,28 @@ def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
                '<nav class="regbar regsec">'
                f'<a href="{link(at=None, cid=None, sid=None)}" class="rg on">'
                f'{_nm}{_n}<span class="x">✕</span></a></nav>')
+    # BRANDROW: Унаа сатууда — маркалар боюнча тез чыпка
+    brands = ""
+    if at == "vehicle":
+        bl = []
+        for b in _CAR_BRANDS:
+            try:
+                n = core.count(q=b, ad_type="vehicle", oblast=ob or None,
+                               district=di or None)
+            except Exception:
+                n = 0
+            if n:
+                bl.append((b, n))
+        if bl:
+            bl.sort(key=lambda x: (-x[1], x[0]))
+            bb = _chip(link0(q=None), "Баары" if lang != "ru" else "Все",
+                       not q, None, lang, short=False)
+            for b, n in bl[:12]:
+                bb += _chip(link0(q=b), b, (q or "") == b, n, lang, short=False)
+            brands = ('<style>.regbr{margin-top:0;padding-top:4px}</style>'
+                      f'<nav class="regbar regbr">{bb}</nav>')
     return (css + sec + f'<nav class="regbar regbar1">{out}</nav>'
-            + row2 + row3 + row4)
+            + row2 + row3 + row4 + brands)
 
 
 # PERF_PATCH: башкы бет ондогон суроо жасайт. Даяр HTML'ди бир нече
