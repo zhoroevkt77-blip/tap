@@ -1001,7 +1001,21 @@ def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
            '.regbar1{flex-wrap:wrap;overflow-x:hidden;row-gap:7px;'
            'gap:7px;padding-bottom:6px}'
            '.regbar1 .rg{flex:1 1 auto;min-width:0;max-width:100%;text-align:center;padding:8px 12px;font-size:13.5px}</style>')  # REGBAR1_JUSTIFY
-    return css + f'<nav class="regbar regbar1">{out}</nav>' + row2 + row3 + row4
+    # SECCHIP: тандалган бөлүмдүн аты — аймак чиптеринин үстүндө, узун чип
+    sec = ""
+    if at:
+        _nm = esc(section_name(at, lang))
+        _n = f' <em>{_all_n}</em>' if _all_n else ""
+        sec = ('<style>.regsec{padding-bottom:2px}'
+               '.regsec .rg{flex:1 1 100%;max-width:100%;text-align:center;'
+               'font-weight:800;font-size:14px;padding:10px 14px}'
+               '.regsec .rg em{font-style:normal;opacity:.85;margin-left:4px}'
+               '.regsec .x{margin-left:8px;opacity:.7;font-weight:700}</style>'
+               '<nav class="regbar regsec">'
+               f'<a href="{link(at=None, cid=None, sid=None)}" class="rg on">'
+               f'{_nm}{_n}<span class="x">✕</span></a></nav>')
+    return (css + sec + f'<nav class="regbar regbar1">{out}</nav>'
+            + row2 + row3 + row4)
 
 
 # PERF_PATCH: башкы бет ондогон суроо жасайт. Даяр HTML'ди бир нече
