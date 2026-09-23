@@ -125,6 +125,12 @@ def cat_emoji(cat_id):
     return _CAT_EMOJI.get(cat_id, "")
 
 
+def _ce(cat_id):
+    """CAT_EMOJI_SHOW: категориянын белгиси + боштук (жок болсо — бош)."""
+    e = _CAT_EMOJI.get(cat_id, "")
+    return (e + " ") if e else ""
+
+
 def cat_label(ad_type, cat_id, lang="ky"):
     if not cat_id:
         return ""
@@ -738,7 +744,7 @@ def cat_tiles(at, cid, ob, lang):
         href = f"/?at={at}&cid={esc(c)}{_obq(ob)}"
         out += (f'<a class="ct{on}" href="{href}">'
                 f'<div class="cti">{pic}<span class="ctn">{n}</span></div>'
-                f'<div class="ctl">{esc(cat_label(at, c, lang))}</div></a>')
+                f'<div class="ctl">{_ce(c)}{esc(cat_label(at, c, lang))}</div></a>')
     return _TILES_CSS + f'<nav class="ctiles">{out}</nav>'
 
 
@@ -784,7 +790,8 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
         opts = [(None, link(cid=None, sid=None),
                  "Все" if ru else "Баары", sum(cc.values()))]
         for code, nm in items:
-            opts.append((code, link(cid=code, sid=None), nm, cc.get(code, 0)))
+            opts.append((code, link(cid=code, sid=None),
+                         _ce(code) + nm, cc.get(code, 0)))
         inner = _chips_row("Категория", opts, cid, lang)
 
         if cid:
