@@ -680,6 +680,10 @@ main.wrap{animation:pageIn .26s ease-out both}
  border-color:#152741!important;color:#fff!important;
  box-shadow:inset 0 -4px 0 #3AA167,0 4px 10px rgba(16,24,40,.45)!important}
 .cb .rg.on,a.c .rg.on{box-shadow:none!important}
+
+/* TILESEL: тандалган бөлүмдүн сүрөтүнүн астында жашыл сызык */
+.cats .cat.pic{border-bottom:4px solid transparent!important;box-sizing:border-box}
+.cats .cat.pic.on{border-bottom-color:#3AA167!important}
 """
 
 # /*DEEPSHADOW*/
