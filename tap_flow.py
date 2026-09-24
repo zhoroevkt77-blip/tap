@@ -844,8 +844,9 @@ def render(step, data=None):
                     opts = CHINA_BRANDS
                 return _view(p[1], opts, input=True, placeholder=p[2])
 
-        if cat == "realestate":
-            _rch = REALESTATE_CHAINS.get(d.get("realestateType"), CHAIN_HOME)
+        if cat == "realestate" or str(cat).startswith("re_"):   # RE_SPLIT
+            _rch = REALESTATE_CHAINS.get(
+                d.get("realestateType") or str(cat)[3:], CHAIN_HOME)
             p = _chain_pending(_rch, d)
             if p:
                 opts = p[3] if len(p) > 3 else None
@@ -866,7 +867,9 @@ def render(step, data=None):
             if p:
                 return _view(p[1], input=True, placeholder=p[2])
 
-        if at == "trade" and cat not in ("vehicles", "animals", "realestate", "agro_machinery"):
+        if (at == "trade" and not str(cat).startswith("re_")
+                and cat not in ("vehicles", "animals", "realestate",
+                                "agro_machinery")):
             if d.get("tradeDelivery") is None:
                 return _view(CHAIN_TRADE_TAIL_TEXT[0], input=True, placeholder=CHAIN_TRADE_TAIL_TEXT[1])
 
@@ -1312,6 +1315,9 @@ def advance(step, value, data=None):
             return "trade_item_type", d
         if value == "heating_fuel":
             return "trade_heating_fuel_select", d
+        if str(value).startswith("re_"):   # RE_SPLIT
+            d["realestateType"] = str(value)[3:]
+            return "trade_realestate_sub", d
         if value == "realestate":
             return "trade_realestate_type", d
         if value == "vehicles":
@@ -1422,8 +1428,9 @@ def advance(step, value, data=None):
                     return "trade_price", d
                 return "trade_title", d
 
-        if cat == "realestate":
-            _rch = REALESTATE_CHAINS.get(d.get("realestateType"), CHAIN_HOME)
+        if cat == "realestate" or str(cat).startswith("re_"):   # RE_SPLIT
+            _rch = REALESTATE_CHAINS.get(
+                d.get("realestateType") or str(cat)[3:], CHAIN_HOME)
             p = _chain_pending(_rch, d)
             if p:
                 d[p[0]] = value
@@ -1469,7 +1476,9 @@ def advance(step, value, data=None):
                     return "trade_price", d
                 return "trade_title", d
 
-        if at == "trade" and cat not in ("vehicles", "animals", "realestate", "agro_machinery"):
+        if (at == "trade" and not str(cat).startswith("re_")
+                and cat not in ("vehicles", "animals", "realestate",
+                                "agro_machinery")):
             if d.get("tradeDelivery") is None:
                 d["tradeDelivery"] = value
                 d["title"] = "%s | Жеткирүү: %s" % (

@@ -10552,3 +10552,17 @@ _front(SERVICE_CATEGORIES, ["construction", "home", "transport", "moving", "it",
 for _c in SERVICE_CATEGORIES:
     if _c.get("id") == "home" and _c.get("subs"):
         _front(_c["subs"], ["Электрик", "Сантехник", "Үй тазалоо"])
+
+
+# RE_SPLIT: «Үй-жер» төрт өзүнчө категорияга бөлүндү (Турак жай, Жер,
+# Бизнес үчүн жай, Гараж). Ички түрлөрү (residential/land/...) сакталат.
+RE_SPLIT = {}
+_re_new = []
+for _t in REALESTATE_TYPES:
+    _rid = "re_" + _t["id"]
+    RE_SPLIT[_rid] = _t["id"]
+    _re_new.append({"id": _rid, "emoji": _t.get("emoji", "🏠"),
+                    "label": _t["label"],
+                    "subs": list(REALESTATE_SUBS.get(_t["id"], []))})
+if _re_new:
+    PROPERTY_CATEGORIES[:] = _re_new

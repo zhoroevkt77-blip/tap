@@ -513,6 +513,30 @@ def _migrate_vehicle():
         print("  Унаа көчүрүү катасы:", e, flush=True)
 
 
+def _migrate_re_split():
+    """RE_SPLIT: эски «realestate» жарыялары төрт категорияга бөлүнөт."""
+    try:
+        rows = query("SELECT id, subcat FROM listings WHERE cat_id=?",
+                     ("realestate",), fetch="all") or []
+        if not rows:
+            return
+        import tap_catalog as _tc
+        m = {}
+        for t, subs in getattr(_tc, "REALESTATE_SUBS", {}).items():
+            for s in subs:
+                m[str(s).split(" / ")[0].strip()] = "re_" + t
+        n = 0
+        for r in rows:
+            lid = r.get("id") if isinstance(r, dict) else r[0]
+            sc = str((r.get("subcat") if isinstance(r, dict) else r[1]) or "")
+            new = m.get(sc.split(" / ")[0].strip(), "re_residential")
+            query("UPDATE listings SET cat_id=? WHERE id=?", (new, lid))
+            n += 1
+        print("  Үй-жер бөлүндү: %d жарыя" % n, flush=True)
+    except Exception as e:
+        print("  Үй-жер көчүрүү катасы:", e, flush=True)
+
+
 def init_db():
     """Таблицаны түзөт. Кайра-кайра чакырса коопсуз."""
     os.makedirs(MEDIA, exist_ok=True)
@@ -522,6 +546,7 @@ def init_db():
     _add_missing_user_columns()
     _migrate_malls()
     _migrate_vehicle()
+    _migrate_re_split()
     query("CREATE INDEX IF NOT EXISTS idx_active ON listings(is_active)")
     query("CREATE INDEX IF NOT EXISTS idx_cat ON listings(category)")
     # SPEED2: чыпка менен иргөө бир индекстен жүрсүн
