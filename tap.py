@@ -763,10 +763,7 @@ def _chips_row(label, opts, cur, lang):
     Жарыясы бар категориялар гана көрсөтүлөт. Эгер андай категория
     жок болсо, баары көрсөтүлөт (тизме бош калбасын).
     """
-    live = [o for o in opts
-            if o[0] is None or o[3] or o[0] == cur]
-    if len(live) < 2:
-        live = opts
+    live = opts   # CHIP_ALL: бардык категориялар ар дайым көрүнөт
     out = ""
     for code, href, nm, n in live:
         out += _chip(href, nm, code == cur, n or 0, lang, short=False)
