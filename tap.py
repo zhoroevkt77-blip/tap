@@ -917,10 +917,10 @@ def _obq(ob):
     return ("&" + urllib.parse.urlencode({"ob": ob})) if ob else ""
 
 
-_HOME_ROOMS = ("Студия", "1 бөлмө", "2 бөлмө", "3 бөлмө",
-               "4 бөлмө", "5+ бөлмө")
+_HOME_ROOMS = ("Студия", "1-бөлмө", "2-бөлмө", "3-бөлмө",
+               "4-бөлмө", "5+бөлмө")
 
-_CAR_FUEL = ("Бензин", "Дизель", "Газ", "Электр", "Гибрид", "Плагин гибрид")
+_CAR_FUEL = ("Бензин", "Дизель", "Газ", "Электр", "Гибрид", "Плагин-гибрид")
 
 _CAR_BRANDS = ("Toyota", "Mercedes-Benz", "Honda", "Hyundai", "Kia",
                "Lexus", "BMW", "Nissan", "Daewoo", "Lada (ВАЗ)", "Audi",
