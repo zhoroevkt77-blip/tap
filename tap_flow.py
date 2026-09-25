@@ -632,11 +632,20 @@ def render(step, data=None):
         # Уста, жеткирүү жана жүк ташуу кошуна райондорду тейлейт —
         # аларга бир нече район тандоого уруксат.
         multi = _is_city(ob) or at in MULTI_DISTRICT_TYPES
-        text = ("Бир же бир нече районду тандаңыз / Выберите один или несколько районов:"
-                if multi else "%s — район же шаарды тандаңыз / Выберите район или город:" % ob)
-        return _view(text,
-                     [{"label": "%s / %s" % (x, ru_name(x)), "value": x} for x in get_districts(ob)],
-                     multi=multi)
+        # CITY_ALL: шаарда — «Бүт шаар боюнча» жана аймактык башкармалыктар
+        if _is_city(ob):
+            text = ("Бүт шаар боюнча, же аймактык башкармалыктарды тандаңыз / "
+                    "По всему городу или выберите территориальные управления:")
+        elif multi:
+            text = "Бир же бир нече районду тандаңыз / Выберите один или несколько районов:"
+        else:
+            text = "%s — район же шаарды тандаңыз / Выберите район или город:" % ob
+        opts = [{"label": "%s / %s" % (x, ru_name(x)), "value": x}
+                for x in get_districts(ob)]
+        if _is_city(ob):
+            opts = [{"label": "🏙 Бүт шаар боюнча / По всему городу",
+                     "value": "__city__"}] + opts
+        return _view(text, opts, multi=multi)
 
     if step == "city_district_scope_select":
         verb = "жарыя бересизби" if act == "post" else "издейсизби"
@@ -1249,6 +1258,9 @@ def advance(step, value, data=None):
         return go("district_select")
 
     if step == "district_select":
+        if "__city__" in str(value).split(","):   # CITY_ALL
+            d.update(district=None, locality=None)
+            return _after_region(d), d
         d["district"] = value
         if "," in value:            # бир нече район тандалды
             d["locality"] = None
