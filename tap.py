@@ -346,6 +346,10 @@ EXTRA_CSS += ("\n.rg:not(.on),.sb2:not(.on){color:#0B1B30!important;"
               ".rg:not(.on) em,.sb2:not(.on) em{color:#0B1B30;opacity:.8}\n")
 
 
+# REG_BORDER: облус чиптеринин чеги караңгы
+EXTRA_CSS += ("\n.regbar1 .rg:not(.on){border:1.5px solid #3A4E6B!important}\n")
+
+
 def _price(price, lang):
     """Баа. Келишим болсо, тандалган тилде жазылат."""
     if is_deal(price):
