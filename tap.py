@@ -802,10 +802,11 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
                 inner += _chips_row("Субкатегория", opts, sid, lang)
 
         # QUICKFLT: бөлүмгө жараша тез чыпкалар
-        _QF = {"vehicle": (("Марка", "Марка", _CAR_BRANDS),
-                           ("Куяр май", "Топливо", _CAR_FUEL)),
-               "property": (("Бөлмө", "Комнат", _HOME_ROOMS),)}
-        for _kt, _rt, vals in _QF.get(at or "", ()):
+        # QUICKFLT2: категория тандалганда гана чыгат
+        _QF = {("vehicle", "vehicles"): (("Марка", "Марка", _CAR_BRANDS),
+                                         ("Куяр май", "Топливо", _CAR_FUEL)),
+               ("property", "re_residential"): (("Бөлмө", "Комнат", _HOME_ROOMS),)}
+        for _kt, _rt, vals in _QF.get((at or "", cid or ""), ()):
             ttl = _rt if ru else _kt
             rows = []
             for v in vals:
