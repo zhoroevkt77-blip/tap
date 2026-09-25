@@ -350,6 +350,10 @@ EXTRA_CSS += ("\n.rg:not(.on),.sb2:not(.on){color:#0B1B30!important;"
 EXTRA_CSS += ("\n.regbar1 .rg:not(.on){border:1.5px solid #3A4E6B!important}\n")
 
 
+# TOPNAV_DARK: үстүңкү аймак, RU жана ылдыйкы меню караңгы
+EXTRA_CSS += chr(10)+'.pin{color:#0B1B30!important;opacity:1!important}.lgs .lg:not(.on){color:#0B1B30!important;opacity:1!important}.nav a{color:#0B1B30!important;opacity:1!important}.nav a span,.nav a small,.nav a b,.nav a em,.nav a div{color:#0B1B30!important;opacity:1!important}'
+
+
 def _price(price, lang):
     """Баа. Келишим болсо, тандалган тилде жазылат."""
     if is_deal(price):
