@@ -316,15 +316,22 @@ REALESTATE_BARGAIN = _opts([
     ("🔁 Алмашуу каралат / Возможен обмен", "Алмашуу каралат"),
 ])
 
+HOME_FLOOR = _opts([(x, x) for x in (
+    "1-кабат", "2-кабат", "3-кабат", "4-кабат", "5-кабат",
+    "6-9-кабат", "10+кабат",
+)])
+
 HOME_ROOMS = _opts([(x, x) for x in (
     "Студия", "1-бөлмө", "2-бөлмө", "3-бөлмө", "4-бөлмө", "5+бөлмө",
 )])
 
 CHAIN_HOME = [
-    ("homeArea", "📐 Аянты, бөлмөнүн саны жана кабаты? / Площадь, количество комнат и этаж?",
-     "Мис: 64 м², 3 бөлмө, 5/9-кабат / Например: 64 м², 3 комнаты, 5/9 этаж"),
+    ("homeArea", "📐 Аянты канча м²? / Площадь в м²?",
+     "Мис: 64 / Например: 64"),
     ("homeRooms", "🚪 Канча бөлмө? / Сколько комнат?",
      "", HOME_ROOMS),
+    ("homeFloor", "🏢 Канчанчы кабат? / На каком этаже?",
+     "", HOME_FLOOR),
     ("homeCondition", "🔨 Абалы жана ремонту кандай? / Состояние и ремонт?",
      "Мис: Евроремонт, эмерек менен / Например: Евроремонт, с мебелью"),
     ("homeDocs", "📄 Документтери жана сериясы? / Документы и серия?",
@@ -1350,6 +1357,11 @@ def advance(step, value, data=None):
                 "trade_realestate_sub", "trade_vehicle_sub", "trade_group_sub",
                 "trade_sub_select"):
         d["subcategory"] = value
+        _sb = str(value).split(" / ")[0].lower()
+        if (str(d.get("category") or "").startswith("re_")
+                and not any(w in _sb for w in ("батир", "гостинка", "студия",
+                                               "бөлмө", "таунхаус"))):
+            d["homeFloor"] = "—"   # HOME_FLOOR: үйдө кабат суралбайт
         return _after_subcategory(d), d
 
     if step == "trade_realestate_type":
@@ -1447,10 +1459,13 @@ def advance(step, value, data=None):
             if p:
                 d[p[0]] = value
                 if p[0] == _rch[-1][0]:
-                    _rm = d.get("homeRooms")
-                    d["title"] = "%s | %s%s" % (
-                        d.get("subcategory") or _cat_label(d.get("category")),
-                        d.get(_rch[0][0]), (", " + _rm) if _rm else "")
+                    _ar = str(d.get(_rch[0][0]) or "").strip()
+                    if _ar.replace(",", ".").replace(".", "").isdigit():
+                        _ar += " м²"
+                    _pt = [d.get("subcategory") or _cat_label(d.get("category")),
+                           d.get("homeRooms"), _ar, d.get("homeFloor")]
+                    d["title"] = " · ".join(
+                        str(x).strip() for x in _pt if x and str(x).strip() != "—")
                     return "trade_price", d
                 return "trade_title", d
 
