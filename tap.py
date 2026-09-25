@@ -487,7 +487,14 @@ def _web_photo(tok, raw):
         im.save(path, "JPEG", quality=85)
     except Exception as e:
         print("web_photo:", e, flush=True)
-        return {"ok": False, "err": "image"}
+        if raw[:3] != b"\xff\xd8\xff":   # WEB_PHOTO_RAW: PIL жок болсо JPEG түз сакталат
+            return {"ok": False, "err": "image"}
+        try:
+            with open(path, "wb") as fh:
+                fh.write(raw)
+        except Exception as e2:
+            print("web_photo save:", e2, flush=True)
+            return {"ok": False, "err": "image"}
     return {"ok": True, "name": name}
 
 
