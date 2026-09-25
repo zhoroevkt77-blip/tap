@@ -564,6 +564,33 @@ def _migrate_re_split():
         print("  Үй-жер көчүрүү катасы:", e, flush=True)
 
 
+def _migrate_veh_split():
+    """VEH_SPLIT: эски «vehicles» жарыялары түрлөргө бөлүнөт."""
+    try:
+        rows = query("SELECT id, subcat, title FROM listings WHERE cat_id=?",
+                     ("vehicles",), fetch="all") or []
+        if not rows:
+            return
+        import tap_catalog as _tc
+        m = {}
+        for t, subs in getattr(_tc, "VEHICLE_SUBS", {}).items():
+            for s in subs:
+                m[str(s).split(" / ")[0].strip().lower()] = "veh_" + t
+        body = {}
+        for s in getattr(_tc, "VEHICLE_BODY_TYPES", []):
+            body[str(s).split(" / ")[0].strip().lower()] = "veh_light"
+        n = 0
+        for r in rows:
+            g = (lambda k, i: r.get(k) if isinstance(r, dict) else r[i])
+            sc = str(g("subcat", 1) or "").split(" / ")[0].strip().lower()
+            new = m.get(sc) or body.get(sc) or "veh_light"
+            query("UPDATE listings SET cat_id=? WHERE id=?", (new, g("id", 0)))
+            n += 1
+        print("  Унаа бөлүндү: %d жарыя" % n, flush=True)
+    except Exception as e:
+        print("  Унаа көчүрүү катасы:", e, flush=True)
+
+
 def init_db():
     """Таблицаны түзөт. Кайра-кайра чакырса коопсуз."""
     os.makedirs(MEDIA, exist_ok=True)
@@ -574,6 +601,7 @@ def init_db():
     _migrate_malls()
     _migrate_vehicle()
     _migrate_re_split()
+    _migrate_veh_split()
     query("CREATE INDEX IF NOT EXISTS idx_active ON listings(is_active)")
     query("CREATE INDEX IF NOT EXISTS idx_cat ON listings(category)")
     # SPEED2: чыпка менен иргөө бир индекстен жүрсүн

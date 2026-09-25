@@ -10566,3 +10566,18 @@ for _t in REALESTATE_TYPES:
                     "subs": list(REALESTATE_SUBS.get(_t["id"], []))})
 if _re_new:
     PROPERTY_CATEGORIES[:] = _re_new
+
+
+# VEH_SPLIT: «Унаа» категориясы түрлөргө бөлүндү (Жеңил, Автобус, Жүк,
+# Мотоцикл, Спецтехника, Электр). Ички аттары (light/truck/...) сакталат.
+VEH_SPLIT = {}
+_veh_new = []
+for _t in VEHICLE_CATEGORIES:
+    _vid = "veh_" + _t["id"]
+    VEH_SPLIT[_vid] = _t["id"]
+    _veh_new.append({"id": _vid, "emoji": _t.get("emoji", "🚗"),
+                     "label": _t["label"],
+                     "subs": list(VEHICLE_SUBS.get(_t["id"], []))})
+if _veh_new:
+    VEHICLE_SALE_CATEGORIES[:] = _veh_new + [
+        c for c in VEHICLE_SALE_CATEGORIES if c.get("id") == "agro_machinery"]

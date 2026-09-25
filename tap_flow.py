@@ -841,7 +841,8 @@ def render(step, data=None):
         cat = d.get("category")
 
         if (at == "markets" and mt not in ("mall", "store", "livestock_market")
-                and not (mt == "car_market" and cat == "vehicles")
+                and not (mt == "car_market" and (cat == "vehicles"
+                                                 or str(cat).startswith("veh_")))
                 and d.get("marketStall") is None):
             return _view("Кайсы катар/өтмөк жана соода орду? / Ряд/проход и торговое место:",
                          input=True, placeholder="Мис: 3-катар, 45-орун / Например: 3-й ряд, место 45")
@@ -851,7 +852,7 @@ def render(step, data=None):
             if p:
                 return _view(p[1], input=True, placeholder=p[2])
 
-        if cat == "vehicles":
+        if cat == "vehicles" or str(cat).startswith("veh_"):   # VEH_SPLIT
             p = _chain_pending(CHAIN_VEHICLES, d)
             if p:
                 # Баскычтары бар кадамда да текст жазса болот
@@ -883,7 +884,7 @@ def render(step, data=None):
             if p:
                 return _view(p[1], input=True, placeholder=p[2])
 
-        if (at == "trade" and not str(cat).startswith("re_")
+        if (at == "trade" and not str(cat).startswith(("re_", "veh_"))
                 and cat not in ("vehicles", "animals", "realestate",
                                 "agro_machinery")):
             if d.get("tradeDelivery") is None:
@@ -1335,6 +1336,16 @@ def advance(step, value, data=None):
             return "trade_realestate_sub", d
         if value == "realestate":
             return "trade_realestate_type", d
+        if str(value).startswith("veh_"):   # VEH_SPLIT
+            _vc = str(value)[4:]
+            d["vehicleCategory"] = _vc
+            if _vc == "electric":
+                d.update(vehicleBody="", vehicleEngine="Электромобиль / Электромобиль")
+                return "trade_vehicle_sub", d
+            if _vc != "light":
+                d["vehicleBody"] = ""
+                return "trade_vehicle_engine", d
+            return "trade_vehicle_body", d
         if value == "vehicles":
             return "trade_vehicle_category", d
         if _has_choice(_trade_subs(value)):
@@ -1414,7 +1425,8 @@ def advance(step, value, data=None):
         cat = d.get("category")
 
         if (at == "markets" and mt not in ("mall", "store", "livestock_market")
-                and not (mt == "car_market" and cat == "vehicles")
+                and not (mt == "car_market" and (cat == "vehicles"
+                                                 or str(cat).startswith("veh_")))
                 and d.get("marketStall") is None):
             return go("trade_title", marketStall=value)
 
@@ -1428,7 +1440,7 @@ def advance(step, value, data=None):
                     return "trade_price", d
                 return "trade_title", d
 
-        if cat == "vehicles":
+        if cat == "vehicles" or str(cat).startswith("veh_"):   # VEH_SPLIT
             p = _chain_pending(CHAIN_VEHICLES, d)
             if p:
                 if p[0] == "vehicleBrand" and value in ("__china__", "__back__"):
@@ -1499,7 +1511,7 @@ def advance(step, value, data=None):
                     return "trade_price", d
                 return "trade_title", d
 
-        if (at == "trade" and not str(cat).startswith("re_")
+        if (at == "trade" and not str(cat).startswith(("re_", "veh_"))
                 and cat not in ("vehicles", "animals", "realestate",
                                 "agro_machinery")):
             if d.get("tradeDelivery") is None:
