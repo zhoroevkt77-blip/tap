@@ -767,16 +767,7 @@ def _chips_row(label, opts, cur, lang):
     out = ""
     for code, href, nm, n in live:
         out += _chip(href, nm, code == cur, n or 0, lang, short=False)
-    sel = ""   # LBLSEL: тандалганы аталыштын оң жагында
-    if cur:
-        for code, href, nm, _n in opts:
-            if code == cur:
-                sel = f'<span class="rgsel">{esc(nm)}</span>'
-                break
-    return ('<style>.rgsel{margin-left:8px;padding:3px 10px;border-radius:999px;'
-            'background:#152741;color:#fff;font-size:11.5px;font-weight:700;'
-            'letter-spacing:0;text-transform:none;white-space:nowrap}</style>'
-            f'<div class="rglb">{esc(label)}{sel}</div>'
+    return (f'<div class="rglb">{esc(label)}</div>'
             f'<nav class="regcat">{out}</nav>')
 
 
