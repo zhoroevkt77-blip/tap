@@ -705,6 +705,12 @@ main.wrap{animation:pageIn .26s ease-out both}
 /* CARD11B: белги ак тегеректин так ортосунда */
 .cats .cat.pic .pill::before{background:#fff var(--ic2) center/15px no-repeat!important}
 .cats .cat.pic .pill::after{content:none!important}
+
+/* TITLEBIG: жарыянын аталышы баадан чоң */
+.cb .t{font-size:16px!important;line-height:1.3!important;font-weight:700!important;
+ margin:0 0 6px!important}
+.cb .p{font-size:15px!important;font-weight:700!important;margin-bottom:4px!important}
+.cb .pd{font-size:13.5px!important;font-weight:600!important}
 """
 
 # /*DEEPSHADOW*/
