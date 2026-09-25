@@ -1251,11 +1251,7 @@ def advance(step, value, data=None):
             d.update(oblast="", district=None, locality=None, village=None)
             return _after_region(d), d
         d["oblast"] = value
-        # STRICT_DIST: бул бөлүмдөрдө шаар үчүн район милдеттүү (жарыя берүүдө)
-        if (_is_city(value) and d.get("action") == "post" and d.get("adType") in
-                ("property", "rental", "job", "markets", "malls")):
-            d.update(district=None, locality=None)
-            return "district_select", d
+        # CITY_SCOPE_ALWAYS: шаарда ар дайым «Бүт шаар / МАБ тандоо» экраны
         return ("city_scope_select" if _is_city(value) else "district_select"), d
 
     if step == "city_scope_select":
