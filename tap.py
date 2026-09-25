@@ -2307,9 +2307,9 @@ def add_page(lang="ky", task="post"):
                 "ошону тандаңыз.")
     else:
         head = "Разместить объявление" if ru else "Жарыя берүү"
-        lead = ("Объявление размещается через бота — выберите, где вам удобнее."
+        lead = ("Разместите объявление прямо на сайте или через бота."
                 if ru else
-                "Жарыя бот аркылуу коюлат — кайсынысы ыңгайлуу болсо, ошону тандаңыз.")
+                "Жарыяны ушул сайттан же бот аркылуу бере аласыз.")
     tg_t = "Перейти в Telegram-бот" if ru else "Telegram ботко өтүү"
     wa_t = "Перейти в WhatsApp-бот" if ru else "WhatsApp ботко өтүү"
     soon = "WhatsApp — скоро" if ru else "WhatsApp — жакында"
@@ -2328,6 +2328,12 @@ def add_page(lang="ky", task="post"):
                 "на сайте." if ru else
                 "Эки бот бир базада иштейт: жарыя ушул сайтта да чыгат.")
 
+    site_btn = ""   # WEB_POST_BTN: сайттан жарыя берүү баскычы
+    if not mine and not bal:
+        site_btn = ('<a class="btn" href="/post" style="background:#17304F;color:#fff">'
+                    '<span>%s</span></a><p class="flead" style="margin:6px 0 18px">%s</p>'
+                    % (("🌐 Разместить на сайте" if ru else "🌐 Сайттан жарыя берүү"),
+                       ("Или через бота:" if ru else "Же бот аркылуу:")))
     # WhatsApp'та баскыч жок — кабар талаасына даяр текст коёбуз
     wa_text = ("Менин балансым" if bal else
                "Менин жарыяларым" if mine else "Салам")
@@ -2342,6 +2348,7 @@ def add_page(lang="ky", task="post"):
     body = f"""<main class="wrap">
 <h1 class="ftitle">{esc(head)}</h1>
 <p class="flead">{esc(lead)}</p>
+{site_btn}
 <a class="btn tgbtn" href="https://t.me/{BOT}?start={task}">
 <span>{esc(tg_t)}</span></a>
 {wa}
