@@ -1067,6 +1067,31 @@ def handle_message(msg, st):
 
     if msg.get("contact"):
         text = msg["contact"].get("phone_number", "") or text
+        _wv = u.pop("web_verify", None)   # WEB_VERIFY: сайттан келген ырастоо
+        if _wv:
+            if str(msg["contact"].get("user_id") or "") != uid:
+                _res = "foreign"
+            else:
+                try:
+                    _res = core.web_verify_confirm(_wv, text, uid)
+                except Exception as _e:
+                    print("web_verify:", _e, flush=True)
+                    _res = "expired"
+                if _res == "ok":
+                    try:
+                        set_verified(uid, text)
+                    except Exception as _e:
+                        print("verify:", _e, flush=True)
+            _msgs = {
+                "ok": "✅ <b>Номериңиз ырасталды!</b>\nЭми сайтка кайтыңыз — бет өзү жаңырат.",
+                "mismatch": "❌ Сайтта жазылган номер Telegram номериңизге дал келбейт.\n"
+                            "Сайтка кайтып, Telegram катталган номерди жазыңыз.",
+                "expired": "⌛ Шилтеменин мөөнөтү бүттү. Сайтка кайтып, кайра баштаңыз.",
+                "foreign": "❌ Өз номериңизди «📱 Номеримди жөнөтүү» баскычы менен гана жөнөтүңүз.",
+            }
+            send(chat, _msgs[_res], {"remove_keyboard": True})
+            save_state(st)
+            return
         try:  # VERIFY_PHONE: башка бирөөнүн номери эмес, өзүнүкү гана
             if str(msg["contact"].get("user_id") or "") == uid and set_verified(uid, text):
                 send(chat, "✅ Номер подтверждён." if ulang(u) == "ru"
@@ -1113,6 +1138,17 @@ def handle_message(msg, st):
             else:
                 send(chat, "Жарыя табылган жок же ал сиздики.")
             payload = ""
+        if payload.startswith("v_") and len(payload) > 4:   # WEB_VERIFY
+            u["web_verify"] = payload[2:]
+            save_state(st)
+            kb = {"keyboard": [[{"text": "📱 Номеримди жөнөтүү",
+                                 "request_contact": True}]],
+                  "resize_keyboard": True, "one_time_keyboard": True}
+            send(chat, "🔐 <b>Сайттагы жарыя үчүн номер ырастоо</b>\n\n"
+                       "Төмөнкү «📱 Номеримди жөнөтүү» баскычын басыңыз.\n\n"
+                       "<i>Нажмите «📱 Номеримди жөнөтүү», чтобы подтвердить номер.</i>",
+                 kb)
+            return
         if payload.startswith("ref") and payload[3:].isdigit():
             try:
                 ok = core.link_referral(uid, payload[3:])

@@ -1568,3 +1568,69 @@ count = _cached(count)
 # VILLAGE_LEVEL: жаңы санактар да кэште турсун
 locality_counts = _cached(locality_counts)
 villages_in = _cached(villages_in)
+
+
+# WEB_VERIFY: сайттан номер ырастоо (Telegram аркылуу)
+_WV_READY = [False]
+WEB_VERIFY_TTL = 15 * 60   # шилтеме 15 мүнөт иштейт
+
+
+def _wv_init():
+    if _WV_READY[0]:
+        return
+    query("CREATE TABLE IF NOT EXISTS web_verify (token TEXT PRIMARY KEY, "
+          "phone TEXT, created INTEGER, verified INTEGER DEFAULT 0, tg_id TEXT)")
+    _WV_READY[0] = True
+
+
+def _wv_d9(p):
+    d = "".join(ch for ch in str(p or "") if ch.isdigit())
+    return d[-9:] if len(d) >= 9 else ""
+
+
+def _wv_get(r, k, i):
+    if not r:
+        return None
+    return r.get(k) if isinstance(r, dict) else r[i]
+
+
+def web_verify_start(phone):
+    """Сайт номер берди — жаңы токен кайтарат (же None)."""
+    import secrets, time as _tm
+    _wv_init()
+    d = _wv_d9(phone)
+    if not d:
+        return None
+    now = int(_tm.time())
+    query("DELETE FROM web_verify WHERE created<?", (now - 24 * 3600,))
+    tok = "".join(ch for ch in secrets.token_urlsafe(24) if ch.isalnum())[:24]
+    query("INSERT INTO web_verify (token, phone, created, verified) "
+          "VALUES (?, ?, ?, 0)", (tok, d, now))
+    return tok
+
+
+def web_verify_confirm(token, phone, tg_id):
+    """Бот номерди алды. Кайтарат: ok / mismatch / expired."""
+    import time as _tm
+    _wv_init()
+    r = query("SELECT phone, created FROM web_verify WHERE token=?",
+              (str(token or ""),), fetch="one")
+    if not r or int(_tm.time()) - int(_wv_get(r, "created", 1) or 0) > WEB_VERIFY_TTL:
+        return "expired"
+    if _wv_d9(phone) != _wv_get(r, "phone", 0):
+        return "mismatch"
+    query("UPDATE web_verify SET verified=1, tg_id=? WHERE token=?",
+          (str(tg_id), str(token)))
+    return "ok"
+
+
+def web_verify_status(token):
+    """Сайт сурайт: ырасталдыбы? {verified, phone, tg_id} же None."""
+    _wv_init()
+    r = query("SELECT phone, verified, tg_id FROM web_verify WHERE token=?",
+              (str(token or ""),), fetch="one")
+    if not r:
+        return None
+    return {"phone": _wv_get(r, "phone", 0),
+            "verified": str(_wv_get(r, "verified", 1) or "0") == "1",
+            "tg_id": _wv_get(r, "tg_id", 2)}
