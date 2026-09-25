@@ -1242,7 +1242,7 @@ def advance(step, value, data=None):
             # Тилди кайра тандоо — башка маалымат сакталбайт.
             return "language_select", {}
         if value == "myposts":
-            return go("my_posts_phone")
+            return go("my_posts", phone="")   # MYPOSTS_VERIFIED
         return go("type_select", action=value)
 
     # ── Биздин сайт жана Жардам ─────────────────────────────

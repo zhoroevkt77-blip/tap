@@ -1012,6 +1012,19 @@ def my_listings(tg_id, phone=None):
     """
     rows = query("SELECT * FROM listings WHERE tg_id=? ORDER BY id DESC",
                  (str(tg_id),), fetch="all") or []
+    if not phone:   # MYPOSTS_VERIFIED: ырасталган номерди колдонуу
+        for r in rows:
+            if str(r.get("verified") or "") == "1" and r.get("contact"):
+                phone = r["contact"]
+                break
+    if not phone:
+        try:
+            u = query("SELECT phone FROM users WHERE tg_id=?",
+                      (str(tg_id),), fetch="one")
+            if u:
+                phone = u.get("phone") if isinstance(u, dict) else u[0]
+        except Exception:
+            pass
     d = _digits(phone)[-9:]
     if len(d) == 9:
         extra = query("SELECT * FROM listings WHERE %s LIKE ?"
