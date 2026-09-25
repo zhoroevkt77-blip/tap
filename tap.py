@@ -417,6 +417,7 @@ def _wview(step, d, lang):
             "options": opts, "input": bool(v.get("input")),
             "placeholder": L(v.get("placeholder") or "", lang),
             "multi": bool(v.get("multi")), "photo": bool(v.get("photo")),
+            "video": bool(v.get("video")), "vmax": _WEB_VMAX,
             "photo_max": v.get("photo_max") or 10, "final": bool(v.get("final")),
             "done": step == "post_done"} if step != "post_done" else {
             "text": html.escape("Дээрлик даяр! Жарыянын аталышын жазып, «Жарыялоо» басыңыз."
@@ -498,6 +499,34 @@ def _web_photo(tok, raw):
     return {"ok": True, "name": name}
 
 
+try:
+    import rules as _wrules
+    _WEB_VMAX = int(getattr(_wrules, "VIDEO_MAX_MB", 20) or 20)
+except Exception:
+    _WEB_VMAX = 20
+_WVD_RE = _wre.compile(r"^web_[A-Za-z0-9]{8}_[a-z0-9]{10}\.mp4$")
+
+
+def _web_video(tok, raw):
+    st = _wverified(tok)
+    if not st:
+        return {"ok": False, "err": "verify"}
+    if not raw or len(raw) > _WEB_VMAX * 1024 * 1024:
+        return {"ok": False, "err": "vbig"}
+    if raw[4:8] != b"ftyp":          # mp4 / mov гана
+        return {"ok": False, "err": "vfmt"}
+    import secrets
+    os.makedirs(MEDIA, exist_ok=True)
+    name = "web_%s_%s.mp4" % (str(tok)[:8], secrets.token_hex(5))
+    try:
+        with open(os.path.join(MEDIA, name), "wb") as fh:
+            fh.write(raw)
+    except Exception as e:
+        print("web_video:", e, flush=True)
+        return {"ok": False, "err": "vfmt"}
+    return {"ok": True, "name": name}
+
+
 def _web_publish(d, st, b):
     uid = str(st["tg_id"])
     d = dict(d)
@@ -545,6 +574,15 @@ def _web_publish(d, st, b):
             core.set_photos(lid, saved)
         except Exception as e:
             print("web_publish set_photos:", e, flush=True)
+    vn = d.get("webVideo")
+    if isinstance(vn, str) and _WVD_RE.match(vn) and vn.startswith(pre):
+        src = os.path.join(MEDIA, vn)
+        if os.path.isfile(src):
+            try:
+                os.replace(src, os.path.join(MEDIA, "%d.mp4" % lid))
+                core.set_video(lid, "%d.mp4" % lid)
+            except Exception as e:
+                print("web_publish video:", e, flush=True)
     return {"ok": True, "id": lid, "url": "/e/%d" % lid}
 
 
@@ -581,6 +619,8 @@ function draw(){
     ph.forEach(function(n){h+='<img src="/media/'+esc(n)+'" alt="">';});
     if(ph.length<v.photo_max){h+='<label class="padd" aria-label="'+T('Сүрөт кошуу','Добавить фото')+'">+<input type="file" id="pf" accept="image/*" multiple hidden></label>';}
     h+='</div><div id="pst" class="phint"></div>';
+    if(v.video){h+='<div class="pvid">'+(S.data.webVideo?'<video src="/media/'+esc(S.data.webVideo)+'" controls playsinline></video><button class="pbtn pbtn2" id="pvx">'+T('Видеону алып салуу','Удалить видео')+'</button>'
+      :'<label class="pbtn pbtn2" style="cursor:pointer">'+T('🎬 Видео кошуу','🎬 Добавить видео')+' ('+T('максимум ','до ')+v.vmax+' MB)<input type="file" id="pv" accept="video/*" hidden></label>')+'<div id="pvs" class="phint"></div></div>';}
     h+='<button class="pbtn" id="pdone">'+T('Даяр','Готово')+' ('+ph.length+')</button>';
   } else {
     if(v.multi){h+='<div class="phint">'+T('Бир нечесин тандасаңыз болот.','Можно выбрать несколько.')+'</div>';}
@@ -599,6 +639,8 @@ function draw(){
   var md=document.getElementById('pmd'); if(md)md.onclick=function(){if(!S.picked.length){alert(T('Жок дегенде бирөөнү тандаңыз.','Выберите хотя бы один вариант.'));return;} next(S.picked.join(', '));};
   var nx=document.getElementById('pnx'); if(nx)nx.onclick=function(){var t=(document.getElementById('pi').value||'').trim(); if(!t){alert(T('Жооп жазыңыз.','Введите ответ.'));return;} next(t);};
   var pd=document.getElementById('pdone'); if(pd)pd.onclick=function(){next(String((S.data.webPhotos||[]).length));};
+  var pv=document.getElementById('pv'); if(pv)pv.onchange=function(){vupload(pv.files[0]);};
+  var pvx=document.getElementById('pvx'); if(pvx)pvx.onclick=function(){delete S.data.webVideo;draw();};
   var pf=document.getElementById('pf'); if(pf)pf.onchange=function(){upload(Array.prototype.slice.call(pf.files));};
   var go=document.getElementById('pgo'); if(go)go.onclick=function(){go.disabled=true;
     api({op:'publish',step:S.step,data:S.data,title:document.getElementById('pt').value}).then(function(j){
@@ -606,6 +648,15 @@ function draw(){
       box.innerHTML='<div class="pok">&#10003;</div><h2 style="text-align:center">'+T('Жарыяңыз жарыяланды!','Объявление опубликовано!')+'</h2><p style="text-align:center">№'+j.id+'</p><a class="pbtn" href="'+j.url+'">'+T('Жарыяны көрүү','Смотреть объявление')+'</a><a class="pbtn pbtn2" href="/post">'+T('Дагы жарыя берүү','Ещё объявление')+'</a>';
     }).catch(function(){go.disabled=false;err();});};
 }
+function vupload(f){if(!f)return;var st=document.getElementById('pvs');var mx=S.view.vmax*1024*1024;
+  if(f.size>mx){alert(T('Видео өтө чоң. Максимум ','Видео слишком большое. Максимум ')+S.view.vmax+' MB.');return;}
+  var x=new XMLHttpRequest();x.open('POST','/api/post/video?t='+encodeURIComponent(tok));
+  x.upload.onprogress=function(e){if(e.lengthComputable)st.textContent=T('Видео жүктөлүүдө… ','Загрузка видео… ')+Math.round(e.loaded/e.total*100)+'%';};
+  x.onload=function(){var j={};try{j=JSON.parse(x.responseText);}catch(e){}
+    if(j.ok){S.data.webVideo=j.name;draw();}else{st.textContent='';
+      alert(j.err==='vfmt'?T('Бул видео форматы колдоого алынбайт (MP4 керек).','Формат не поддерживается (нужен MP4).'):j.err==='verify'?T('Номерди кайра ырастаңыз.','Подтвердите номер снова.'):T('Видеону жүктөй албадык.','Не удалось загрузить видео.'));}};
+  x.onerror=function(){st.textContent='';alert(T('Байланыш катасы.','Ошибка связи.'));};
+  x.send(f);}
 function shrink(f){return new Promise(function(res){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){
   var m=1600,w=im.width,h=im.height,k=Math.min(1,m/Math.max(w,h));var c=document.createElement('canvas');c.width=Math.round(w*k);c.height=Math.round(h*k);
   c.getContext('2d').drawImage(im,0,0,c.width,c.height);c.toBlob(function(b){res(b||f);},'image/jpeg',0.85);};im.onerror=function(){res(f);};im.src=r.result;};r.readAsDataURL(f);});}
@@ -637,6 +688,7 @@ _POST_CSS = """<style>
 .pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .pgrid img,.padd{aspect-ratio:1;width:100%;object-fit:cover;border-radius:12px}
 .padd{display:flex;align-items:center;justify-content:center;border:2px dashed #3A4E6B;font-size:30px;color:#17304F;cursor:pointer;box-sizing:border-box}
+.pvid{margin-top:12px}.pvid video{width:100%;max-height:260px;border-radius:12px;background:#000}
 .pok{width:84px;height:84px;margin:30px auto 10px;border-radius:42px;background:#2E9E5B;color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center}
 </style>"""
 
@@ -2641,14 +2693,17 @@ class H(BaseHTTPRequestHandler):
             admin.report(self)
             return
         
-        if u.path in ("/api/post", "/api/post/photo"):   # WEB_POST
+        if u.path in ("/api/post", "/api/post/photo", "/api/post/video"):   # WEB_POST WEB_VIDEO
             try:
                 n = int(self.headers.get("Content-Length") or 0)
-                if n > 8 * 1024 * 1024:
+                if n > ((_WEB_VMAX + 2) if u.path.endswith("/video") else 8) * 1024 * 1024:
                     _json_out(self, {"ok": False, "err": "big"})
                     return
                 raw = self.rfile.read(n) if n else b""
-                if u.path == "/api/post/photo":
+                if u.path == "/api/post/video":
+                    qs = urllib.parse.parse_qs(u.query)
+                    _json_out(self, _web_video(qs.get("t", [""])[0], raw))
+                elif u.path == "/api/post/photo":
                     qs = urllib.parse.parse_qs(u.query)
                     _json_out(self, _web_photo(qs.get("t", [""])[0], raw))
                 else:
