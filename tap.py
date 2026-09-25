@@ -752,7 +752,8 @@ def cat_tiles(at, cid, ob, lang):
 _CAT_CHIPS_CSS = ('<style>.regcat{display:flex;gap:8px;overflow-x:auto;'
                   'scrollbar-width:none;padding:5px 14px 6px;margin:0}'  # CHIP_TIGHT
                   '.regcat::-webkit-scrollbar{display:none}'
-                  '.regcat .rg{flex:none;padding:8px 14px;font-size:13.5px}'
+                  '.regcat .rg{flex:none;padding:7px 10px;font-size:13px;''letter-spacing:-.2px}'  # CHIP_NARROW
+                  '.regcat{gap:6px}'
                   '.rglb{padding-top:6px}'   # CHIP_SPACE
                   '</style>')
 
