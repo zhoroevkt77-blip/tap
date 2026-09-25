@@ -10581,3 +10581,14 @@ for _t in VEHICLE_CATEGORIES:
 if _veh_new:
     VEHICLE_SALE_CATEGORIES[:] = _veh_new + [
         c for c in VEHICLE_SALE_CATEGORIES if c.get("id") == "agro_machinery"]
+
+
+# TAXI_CATS: такси категориялары (сайттагы чиптер үчүн)
+TAXI_CATEGORIES = [
+    {"id": "taxi_to_bsk", "emoji": "➡️",
+     "label": "Бишкекке бараткандар / Едущие в Бишкек", "subs": []},
+    {"id": "taxi_from_bsk", "emoji": "⬅️",
+     "label": "Бишкектен кайткандар / Едущие из Бишкека", "subs": []},
+    {"id": "taxi_inter", "emoji": "🔁",
+     "label": "Район/шаар аралык / Межрайонные и междугородние", "subs": []},
+]

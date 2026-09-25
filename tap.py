@@ -23,6 +23,7 @@ from tap_catalog import (TRADE_CATEGORIES, PROPERTY_CATEGORIES,
                          DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES,
                          MALLS_TYPES,
                          WHOLESALE_CATEGORIES, CARGO_CATEGORIES, JOBSEEK_CATEGORIES,
+                         TAXI_CATEGORIES,
                          OBLASTS, get_districts, get_localities, get_villages,
                          ru_name)
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
@@ -80,6 +81,7 @@ _CAT_LISTS = {
     "wholesale": WHOLESALE_CATEGORIES,
     "cargo":     CARGO_CATEGORIES,
     "jobseek":   JOBSEEK_CATEGORIES,
+    "taxi":      TAXI_CATEGORIES,   # TAXI_CATS
 }
 
 

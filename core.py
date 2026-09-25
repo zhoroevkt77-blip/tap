@@ -602,6 +602,7 @@ def init_db():
     _migrate_vehicle()
     _migrate_re_split()
     _migrate_veh_split()
+    _migrate_taxi_cats()
     query("CREATE INDEX IF NOT EXISTS idx_active ON listings(is_active)")
     query("CREATE INDEX IF NOT EXISTS idx_cat ON listings(category)")
     # SPEED2: чыпка менен иргөө бир индекстен жүрсүн
@@ -683,8 +684,49 @@ def expiry_from(duration, days=None):
             + timedelta(days=int(days))).strftime("%Y-%m-%d %H:%M:%S")
 
 
+# TAXI_CATS: такси жарыясынын багыты
+def taxi_cat(title, description="", oblast=""):
+    import re as _re
+    t = str(title or "").lower()
+    txt = t + " " + str(description or "").lower()
+    parts = _re.split(r"\s*(?:→|->|—|–|⇒|>)\s*|\s+-\s+", t, maxsplit=1)
+    if len(parts) == 2:
+        a, b = parts
+        if "бишкек" in b:
+            return "taxi_to_bsk"
+        if "бишкек" in a:
+            return "taxi_from_bsk"
+        return "taxi_inter"
+    if "бишкекке" in txt or "в бишкек" in txt:
+        return "taxi_to_bsk"
+    if "бишкектен" in txt or "из бишкек" in txt:
+        return "taxi_from_bsk"
+    if "бишкек" in str(oblast or "").lower():
+        return "taxi_from_bsk"
+    return "taxi_inter"
+
+
+def _migrate_taxi_cats():
+    try:
+        rows = query("SELECT id, title, description, oblast FROM listings "
+                     "WHERE ad_type=? AND (cat_id IS NULL OR cat_id NOT LIKE ?)",
+                     ("taxi", "taxi_%"), fetch="all") or []
+        for r in rows:
+            g = (lambda k, i: r.get(k) if isinstance(r, dict) else r[i])
+            query("UPDATE listings SET cat_id=? WHERE id=?",
+                  (taxi_cat(g("title", 1), g("description", 2), g("oblast", 3)),
+                   g("id", 0)))
+        if rows:
+            print("  Такси бөлүндү: %d жарыя" % len(rows), flush=True)
+    except Exception as e:
+        print("  Такси көчүрүү катасы:", e, flush=True)
+
+
 def add_listing(d, tg_id, tg_name):
     """Жаңы жарыя кошот, номерин кайтарат."""
+    if d.get("ad_type") == "taxi" and not str(d.get("cat_id") or "").startswith("taxi_"):
+        d = dict(d, cat_id=taxi_cat(d.get("title"), d.get("description"),
+                                    d.get("oblast")))   # TAXI_CATS
     # Издөө талаасына категориянын, бөлүмдүн аттары да кирет —
     # «телефон» деп издегенде «Смартфондор» табылсын.
     stext = mkstext(
