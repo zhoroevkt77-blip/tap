@@ -376,7 +376,9 @@ def _json_out(h, obj):
 import re as _wre
 import tap_flow as _tf
 
-WEB_SECTIONS = ("trade",)          # азырынча Соода-сатык гана
+WEB_SECTIONS = ("trade", "wholesale", "property", "vehicle", "service",   # WEB_ALLSEC
+                "rental", "delivery", "cargo", "jobseek", "job",
+                "markets", "malls", "taxi")
 _WEB_HOME = ("main_menu", "home", "tap_home")
 
 
@@ -453,8 +455,9 @@ def _web_post(b, lang):
     step = str(b.get("step") or "")
     if op == "next":
         step, d = _tf.advance(step, str(b.get("value") or ""), d)
-        if step == "post_whatsapp":          # номер ырасталган — өзү толтурулат
-            step, d = _tf.advance(step, "+996" + st["phone"], d)
+        for _i in range(2):                  # номер ырасталган — өзү толтурулат
+            if step in ("post_whatsapp", "taxi_phone"):
+                step, d = _tf.advance(step, "+996" + st["phone"], d)
         if step in _WEB_HOME or step == "language_select":
             return {"ok": True, "restart": True}
         return {"ok": True, "step": step, "data": d, "view": _wview(step, d, lang)}
@@ -531,6 +534,8 @@ def _web_publish(d, st, b):
     uid = str(st["tg_id"])
     d = dict(d)
     d["phone"] = "+996" + st["phone"]
+    if d.get("adType") == "taxi":
+        d["taxiPhone"] = d["phone"]
     t = str(b.get("title") or "").strip()[:120]
     if t:
         d["title"] = t
@@ -603,12 +608,23 @@ function err(e){
 }
 function set(j){ if(!j.ok){err(j.err);return;} if(j.restart){start();return;}
   S.step=j.step;S.data=j.data;S.view=j.view;S.picked=[];draw();window.scrollTo(0,0);}
-function start(){S.hist=[];api({op:'start',section:'trade'}).then(set).catch(function(){err();});}
+var SECS=[['trade','Соода-сатык','Купля-продажа'],['wholesale','Соода-сатык (дүң)','Оптовая торговля'],
+  ['property','Мүлк сатуу','Недвижимость'],['vehicle','Унаа сатуу','Транспорт'],['service','Кызмат көрсөтүү','Услуги'],
+  ['rental','Ижарага берүү','Аренда'],['delivery','Жеткирүү','Доставка'],['cargo','Жүк ташуу','Грузоперевозки'],
+  ['jobseek','Жумуш издөө','Ищу работу'],['job','Жумуш берүү','Вакансии'],['markets','Базарлар','Рынки'],
+  ['malls','Соода борборлору','Торговые центры'],['taxi','Такси','Такси']];
+function secName(){var a=(S.data||{}).adType;for(var i=0;i<SECS.length;i++){if(SECS[i][0]===a)return T(SECS[i][1],SECS[i][2]);}return '';}
+function start(){S.hist=[];S.data=null;
+  var h='<div class="pq">'+T('Кандай жарыя бересиз?','Какое объявление подаёте?')+'</div><div class="popts">';
+  SECS.forEach(function(x){h+='<button class="popt" data-s="'+x[0]+'">'+esc(T(x[1],x[2]))+'</button>';});
+  box.innerHTML=h+'</div>';
+  box.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(){
+    api({op:'start',section:b.getAttribute('data-s')}).then(set).catch(function(){err();});};});}
 function next(v){S.hist.push({step:S.step,data:JSON.parse(JSON.stringify(S.data))});
   api({op:'next',step:S.step,data:S.data,value:v}).then(set).catch(function(){err();});}
 function draw(){
   var v=S.view,h='';
-  h+='<div class="ptop">'+(S.hist.length?'<button class="pback" id="pb" aria-label="'+T('Артка','Назад')+'">&#8592;</button>':'')+'<div class="psec">'+T('Соода-сатык','Купля-продажа')+'</div></div>';
+  h+='<div class="ptop"><button class="pback" id="pb" aria-label="'+T('Артка','Назад')+'">&#8592;</button><div class="psec">'+esc(secName())+'</div></div>';
   h+='<div class="pq">'+v.text+'</div>';
   if(v.done){
     h+='<label class="plab" for="pt">'+T('Жарыянын аталышы (милдеттүү эмес)','Заголовок (необязательно)')+'</label><input id="pt" class="pin" maxlength="120">';
@@ -631,7 +647,7 @@ function draw(){
     if(v.input){h+='<textarea id="pi" class="pin" rows="3" placeholder="'+esc(v.placeholder)+'"></textarea><button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>';}
   }
   box.innerHTML=h;
-  var pb=document.getElementById('pb'); if(pb)pb.onclick=function(){var x=S.hist.pop();if(!x)return;
+  var pb=document.getElementById('pb'); if(pb)pb.onclick=function(){var x=S.hist.pop();if(!x){start();return;}
     S.step=x.step;S.data=x.data;api({op:'view',step:x.step,data:x.data}).then(function(j){if(j.ok){S.view=j.view;S.picked=[];draw();}else err(j.err);});};
   box.querySelectorAll('.popt').forEach(function(b){b.onclick=function(){var o=v.options[+b.getAttribute('data-i')];
     if(v.multi){var k=S.picked.indexOf(o.value);if(k>=0)S.picked.splice(k,1);else S.picked.push(o.value);draw();}
