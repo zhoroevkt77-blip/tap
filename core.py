@@ -703,7 +703,8 @@ def taxi_air_sub(title, description="", oblast=""):
         to = "аэропорт" in parts[1]
     else:
         to = not ("аэропорттон" in x or "из аэропорт" in x)
-    return "%s %s" % (city, "аэропортко бараткандар" if to
+    return "%s %s" % ({"Бишкек": "Манас"}.get(city, city),   # TAXI_MANAS
+                      "аэропортко бараткандар" if to
                       else "аэропорттон кайткандар")
 
 
@@ -732,6 +733,9 @@ def taxi_cat(title, description="", oblast=""):
 
 def _migrate_taxi_cats():
     try:
+        for _o, _n in (('Бишкек аэропортко бараткандар', 'Манас аэропортко бараткандар'), ('Бишкек аэропорттон кайткандар', 'Манас аэропорттон кайткандар')):   # TAXI_MANAS
+            query("UPDATE listings SET sub_id=? WHERE ad_type=? AND sub_id=?",
+                  (_n, "taxi", _o))
         rows = query("SELECT id, title, description, oblast FROM listings "
                      "WHERE ad_type=? AND (cat_id IS NULL OR cat_id<>?)",
                      ("taxi", "taxi_airport"), fetch="all") or []   # TAXI_AIR
