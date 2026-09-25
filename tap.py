@@ -372,6 +372,277 @@ def _json_out(h, obj):
     h.wfile.write(data)
 
 
+# WEB_POST: сайттан жарыя берүү ─────────────────────────────
+import re as _wre
+import tap_flow as _tf
+
+WEB_SECTIONS = ("trade",)          # азырынча Соода-сатык гана
+_WEB_HOME = ("main_menu", "home", "tap_home")
+
+
+def _wlead(line):
+    i = 0
+    while i < len(line) and (ord(line[i]) >= 0x2000 or line[i] == " "):
+        i += 1
+    return line[:i]
+
+
+def _wloc(text, lang):
+    """«кыргызча / орусча» → бир тил, HTML."""
+    out = []
+    for line in str(text or "").split("\n"):
+        pk = L(line, lang)
+        hd = _wlead(line)
+        if hd.strip() and not pk.startswith(hd.strip()[:1]):
+            pk = hd + pk
+        pk = html.escape(pk)
+        if pk.count("*") % 2 == 0:
+            parts = pk.split("*")
+            pk = "".join(("<b>%s</b>" % x) if i % 2 else x for i, x in enumerate(parts))
+        else:
+            pk = pk.replace("*", "")
+        out.append(pk)
+    return "<br>".join(out)
+
+
+def _wview(step, d, lang):
+    v = _tf.render(step, d)
+    opts = []
+    for o in v.get("options") or []:
+        lab = o["label"] if v.get("localized") else L(o["label"], lang)
+        if o["value"] in _WEB_HOME or str(lab).lstrip().startswith("🏠"):
+            continue
+        opts.append({"label": lab, "value": o["value"]})
+    return {"text": _wloc(v["text"], lang) if not v.get("localized") else html.escape(v["text"]).replace("\n", "<br>"),
+            "options": opts, "input": bool(v.get("input")),
+            "placeholder": L(v.get("placeholder") or "", lang),
+            "multi": bool(v.get("multi")), "photo": bool(v.get("photo")),
+            "photo_max": v.get("photo_max") or 10, "final": bool(v.get("final")),
+            "done": step == "post_done"} if step != "post_done" else {
+            "text": html.escape("Дээрлик даяр! Жарыянын аталышын жазып, «Жарыялоо» басыңыз."
+                                if lang != "ru" else
+                                "Почти готово! Напишите заголовок и нажмите «Опубликовать»."),
+            "options": [], "input": False, "placeholder": "", "multi": False,
+            "photo": False, "photo_max": 10, "final": True, "done": True}
+
+
+def _wverified(tok):
+    try:
+        st = core.web_verify_status(tok)
+    except Exception:
+        st = None
+    return st if (st and st["verified"] and st.get("tg_id")) else None
+
+
+def _web_post(b, lang):
+    op = b.get("op")
+    st = _wverified(b.get("token"))
+    if not st:
+        return {"ok": False, "err": "verify"}
+    if op == "start":
+        sec = b.get("section") or "trade"
+        if sec not in WEB_SECTIONS:
+            return {"ok": False, "err": "section"}
+        step, d = _tf.advance("type_select", sec,
+                              {"uiLanguage": lang, "action": "post"})
+        return {"ok": True, "step": step, "data": d, "view": _wview(step, d, lang)}
+    d = b.get("data") or {}
+    if not isinstance(d, dict) or d.get("adType") not in WEB_SECTIONS:
+        return {"ok": False, "err": "section"}
+    step = str(b.get("step") or "")
+    if op == "next":
+        step, d = _tf.advance(step, str(b.get("value") or ""), d)
+        if step == "post_whatsapp":          # номер ырасталган — өзү толтурулат
+            step, d = _tf.advance(step, "+996" + st["phone"], d)
+        if step in _WEB_HOME or step == "language_select":
+            return {"ok": True, "restart": True}
+        return {"ok": True, "step": step, "data": d, "view": _wview(step, d, lang)}
+    if op == "view":
+        return {"ok": True, "step": step, "data": d, "view": _wview(step, d, lang)}
+    if op == "publish":
+        if step != "post_done":
+            return {"ok": False, "err": "step"}
+        return _web_publish(d, st, b)
+    return {"ok": False, "err": "op"}
+
+
+_WPH_RE = _wre.compile(r"^web_[A-Za-z0-9]{8}_[a-z0-9]{10}\.jpg$")
+
+
+def _web_photo(tok, raw):
+    st = _wverified(tok)
+    if not st:
+        return {"ok": False, "err": "verify"}
+    if not raw or len(raw) > 8 * 1024 * 1024:
+        return {"ok": False, "err": "size"}
+    import secrets, io
+    name = "web_%s_%s.jpg" % (str(tok)[:8], secrets.token_hex(5))
+    path = os.path.join(MEDIA, name)
+    os.makedirs(MEDIA, exist_ok=True)
+    try:
+        from PIL import Image, ImageOps
+        im = Image.open(io.BytesIO(raw))
+        im = ImageOps.exif_transpose(im).convert("RGB")
+        im.thumbnail((1600, 1600))
+        im.save(path, "JPEG", quality=85)
+    except Exception as e:
+        print("web_photo:", e, flush=True)
+        return {"ok": False, "err": "image"}
+    return {"ok": True, "name": name}
+
+
+def _web_publish(d, st, b):
+    uid = str(st["tg_id"])
+    d = dict(d)
+    d["phone"] = "+996" + st["phone"]
+    t = str(b.get("title") or "").strip()[:120]
+    if t:
+        d["title"] = t
+    try:
+        import rules
+        ok, _bu, _bl = rules.spend_post(uid)
+        if not ok:
+            return {"ok": False, "err": "limit"}
+        level, hits = rules.check_text(d.get("title"), d.get("postComment"),
+                                       d.get("subcategory"), d.get("description"))
+        if level in ("hard", "swear"):
+            return {"ok": False, "err": "bad", "words": hits[:3]}
+    except ImportError:
+        pass
+    row = bridge.to_listing(d)
+    if not row.get("title"):
+        row["title"] = "Жарыя"
+    lid = core.add_listing(row, uid, str(d.get("personName") or "")[:60])
+    for fn in (lambda: core.remember_phone(uid, row.get("contact")),
+               lambda: core.log_event("post", lid, uid, "site"),
+               lambda: core.query("UPDATE listings SET verified=1 WHERE id=?", (lid,))):
+        try:
+            fn()
+        except Exception as e:
+            print("web_publish:", e, flush=True)
+    saved = []
+    pre = "web_%s_" % str(b.get("token") or "")[:8]
+    for i, name in enumerate([x for x in (d.get("webPhotos") or [])
+                              if isinstance(x, str)][:10], 1):
+        src = os.path.join(MEDIA, name)
+        if not (_WPH_RE.match(name) and name.startswith(pre) and os.path.isfile(src)):
+            continue
+        dst_name = "%d.jpg" % lid if not saved else "%d_%d.jpg" % (lid, len(saved) + 1)
+        try:
+            os.replace(src, os.path.join(MEDIA, dst_name))
+            saved.append(dst_name)
+        except Exception as e:
+            print("web_publish photo:", e, flush=True)
+    if saved:
+        try:
+            core.set_photos(lid, saved)
+        except Exception as e:
+            print("web_publish set_photos:", e, flush=True)
+    return {"ok": True, "id": lid, "url": "/e/%d" % lid}
+
+
+_POST_JS = r"""
+(function(){
+var LANG=document.documentElement.getAttribute('data-lang')||'ky';
+function T(k,r){return LANG==='ru'?r:k;}
+var tok=null; try{tok=localStorage.getItem('tap_vok');}catch(e){}
+var S={step:null,data:null,view:null,hist:[],picked:[]};
+var box=document.getElementById('pbox');
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function api(body){body.token=tok;return fetch('/api/post',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json();});}
+function need(){box.innerHTML='<p style="line-height:1.45">'+T('Жарыя берүү үчүн адегенде номериңизди ырастаңыз.','Сначала подтвердите номер телефона.')+'</p><a class="pbtn" href="/verify?next=post">'+T('Номерди ырастоо','Подтвердить номер')+'</a>';}
+function err(e){
+  if(e==='verify'){try{localStorage.removeItem('tap_vok');}catch(x){} tok=null; need(); return;}
+  var m={limit:T('Бүгүнкү жарыя чегине жеттиңиз.','Достигнут дневной лимит объявлений.'),bad:T('Жарыяда тыюу салынган сөздөр бар.','В объявлении есть запрещённые слова.'),image:T('Сүрөттү окуй албадык.','Не удалось прочитать фото.')};
+  alert(m[e]||T('Ката чыкты. Кайра аракет кылыңыз.','Ошибка. Попробуйте снова.'));
+}
+function set(j){ if(!j.ok){err(j.err);return;} if(j.restart){start();return;}
+  S.step=j.step;S.data=j.data;S.view=j.view;S.picked=[];draw();window.scrollTo(0,0);}
+function start(){S.hist=[];api({op:'start',section:'trade'}).then(set).catch(function(){err();});}
+function next(v){S.hist.push({step:S.step,data:JSON.parse(JSON.stringify(S.data))});
+  api({op:'next',step:S.step,data:S.data,value:v}).then(set).catch(function(){err();});}
+function draw(){
+  var v=S.view,h='';
+  h+='<div class="ptop">'+(S.hist.length?'<button class="pback" id="pb" aria-label="'+T('Артка','Назад')+'">&#8592;</button>':'')+'<div class="psec">'+T('Соода-сатык','Купля-продажа')+'</div></div>';
+  h+='<div class="pq">'+v.text+'</div>';
+  if(v.done){
+    h+='<label class="plab" for="pt">'+T('Жарыянын аталышы (милдеттүү эмес)','Заголовок (необязательно)')+'</label><input id="pt" class="pin" maxlength="120">';
+    h+='<button class="pbtn" id="pgo">'+T('Жарыялоо','Опубликовать')+'</button>';
+  } else if(v.photo){
+    var ph=S.data.webPhotos||[];
+    h+='<div class="pgrid">';
+    ph.forEach(function(n){h+='<img src="/media/'+esc(n)+'" alt="">';});
+    if(ph.length<v.photo_max){h+='<label class="padd" aria-label="'+T('Сүрөт кошуу','Добавить фото')+'">+<input type="file" id="pf" accept="image/*" multiple hidden></label>';}
+    h+='</div><div id="pst" class="phint"></div>';
+    h+='<button class="pbtn" id="pdone">'+T('Даяр','Готово')+' ('+ph.length+')</button>';
+  } else {
+    if(v.multi){h+='<div class="phint">'+T('Бир нечесин тандасаңыз болот.','Можно выбрать несколько.')+'</div>';}
+    h+='<div class="popts">';
+    v.options.forEach(function(o,i){h+='<button class="popt'+(S.picked.indexOf(o.value)>=0?' on':'')+'" data-i="'+i+'">'+esc(o.label)+'</button>';});
+    h+='</div>';
+    if(v.multi){h+='<button class="pbtn" id="pmd">'+T('Даяр','Готово')+'</button>';}
+    if(v.input){h+='<textarea id="pi" class="pin" rows="3" placeholder="'+esc(v.placeholder)+'"></textarea><button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>';}
+  }
+  box.innerHTML=h;
+  var pb=document.getElementById('pb'); if(pb)pb.onclick=function(){var x=S.hist.pop();if(!x)return;
+    S.step=x.step;S.data=x.data;api({op:'view',step:x.step,data:x.data}).then(function(j){if(j.ok){S.view=j.view;S.picked=[];draw();}else err(j.err);});};
+  box.querySelectorAll('.popt').forEach(function(b){b.onclick=function(){var o=v.options[+b.getAttribute('data-i')];
+    if(v.multi){var k=S.picked.indexOf(o.value);if(k>=0)S.picked.splice(k,1);else S.picked.push(o.value);draw();}
+    else next(o.value);};});
+  var md=document.getElementById('pmd'); if(md)md.onclick=function(){if(!S.picked.length){alert(T('Жок дегенде бирөөнү тандаңыз.','Выберите хотя бы один вариант.'));return;} next(S.picked.join(', '));};
+  var nx=document.getElementById('pnx'); if(nx)nx.onclick=function(){var t=(document.getElementById('pi').value||'').trim(); if(!t){alert(T('Жооп жазыңыз.','Введите ответ.'));return;} next(t);};
+  var pd=document.getElementById('pdone'); if(pd)pd.onclick=function(){next(String((S.data.webPhotos||[]).length));};
+  var pf=document.getElementById('pf'); if(pf)pf.onchange=function(){upload(Array.prototype.slice.call(pf.files));};
+  var go=document.getElementById('pgo'); if(go)go.onclick=function(){go.disabled=true;
+    api({op:'publish',step:S.step,data:S.data,title:document.getElementById('pt').value}).then(function(j){
+      if(!j.ok){go.disabled=false;err(j.err);return;}
+      box.innerHTML='<div class="pok">&#10003;</div><h2 style="text-align:center">'+T('Жарыяңыз жарыяланды!','Объявление опубликовано!')+'</h2><p style="text-align:center">№'+j.id+'</p><a class="pbtn" href="'+j.url+'">'+T('Жарыяны көрүү','Смотреть объявление')+'</a><a class="pbtn pbtn2" href="/post">'+T('Дагы жарыя берүү','Ещё объявление')+'</a>';
+    }).catch(function(){go.disabled=false;err();});};
+}
+function shrink(f){return new Promise(function(res){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){
+  var m=1600,w=im.width,h=im.height,k=Math.min(1,m/Math.max(w,h));var c=document.createElement('canvas');c.width=Math.round(w*k);c.height=Math.round(h*k);
+  c.getContext('2d').drawImage(im,0,0,c.width,c.height);c.toBlob(function(b){res(b||f);},'image/jpeg',0.85);};im.onerror=function(){res(f);};im.src=r.result;};r.readAsDataURL(f);});}
+function upload(files){var ph=S.data.webPhotos=S.data.webPhotos||[];var max=S.view.photo_max;var st=document.getElementById('pst');
+  var q=files.slice(0,Math.max(0,max-ph.length));var i=0;
+  function one(){if(i>=q.length){draw();return;} st.textContent=T('Жүктөлүүдө… ','Загрузка… ')+(i+1)+'/'+q.length;
+    shrink(q[i]).then(function(b){return fetch('/api/post/photo?t='+encodeURIComponent(tok),{method:'POST',headers:{'Content-Type':'image/jpeg'},body:b});})
+    .then(function(r){return r.json();}).then(function(j){if(j.ok)ph.push(j.name);else err(j.err);i++;one();}).catch(function(){i++;one();});}
+  one();}
+if(!tok){need();}else{start();}
+})();
+"""
+
+_POST_CSS = """<style>
+.pwrap{max-width:520px;margin:0 auto;padding:16px 16px 140px}
+.ptop{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.pback{width:44px;height:44px;border-radius:22px;border:1.5px solid #3A4E6B;background:#fff;font-size:20px;color:#0B1B30}
+.psec{font-weight:800;color:#3A4E6B}
+.pq{font-size:19px;font-weight:700;line-height:1.4;margin:6px 0 14px;color:#0B1B30}
+.popts{display:flex;flex-direction:column;gap:8px}
+.popt{min-height:50px;padding:10px 14px;border-radius:14px;border:1.5px solid #3A4E6B;background:#fff;color:#0B1B30;font-size:16px;font-weight:700;text-align:left}
+.popt.on{background:#17304F;color:#fff}
+.pbtn{display:block;width:100%;box-sizing:border-box;margin-top:14px;padding:16px;border:0;border-radius:14px;background:#17304F;color:#fff!important;font-size:17px;font-weight:800;text-align:center;text-decoration:none}
+.pbtn2{background:#fff;color:#17304F!important;border:1.5px solid #3A4E6B}
+.pbtn:disabled{opacity:.6}
+.pin{display:block;width:100%;box-sizing:border-box;margin-top:12px;padding:12px 14px;border-radius:12px;border:1.5px solid #9AA8BA;font-size:16px;font-family:inherit}
+.plab{display:block;margin-top:8px;font-weight:800}
+.phint{font-size:14px;color:#3A4E6B;margin:8px 0;font-weight:600}
+.pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.pgrid img,.padd{aspect-ratio:1;width:100%;object-fit:cover;border-radius:12px}
+.padd{display:flex;align-items:center;justify-content:center;border:2px dashed #3A4E6B;font-size:30px;color:#17304F;cursor:pointer;box-sizing:border-box}
+.pok{width:84px;height:84px;margin:30px auto 10px;border-radius:42px;background:#2E9E5B;color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center}
+</style>"""
+
+
+def post_page(lang="ky"):
+    ru = lang == "ru"
+    body = ('<main class="pwrap" data-lang="%s"><h1 style="font-size:24px;margin:0 0 12px">%s</h1>'
+            '<div id="pbox"></div></main>%s<script>document.documentElement.setAttribute("data-lang",%s);%s</script>'
+            % (lang, "Подать объявление" if ru else "Жарыя берүү", _POST_CSS,
+               json.dumps(lang), _POST_JS))
+    return page(body, title=("Подать объявление" if ru else "Жарыя берүү"), lang=lang)
+
+
 def verify_page(lang="ky"):
     ru = lang == "ru"
     t = (lambda k, r: r if ru else k)
@@ -391,7 +662,7 @@ def verify_page(lang="ky"):
 {t("Telegram ачылды. Ботто «📱 Номеримди жөнөтүү» баскычын басып, ушул бетке кайтыңыз.", "Откройте Telegram, нажмите «📱 Номеримди жөнөтүү» и вернитесь сюда.")}
 <div style="margin-top:10px"><a id="vlink" href="#" target="_blank" rel="noopener">{t("Telegram ачылбаса, бул жерди басыңыз", "Если Telegram не открылся — нажмите здесь")}</a></div>
 </div>
-<div id="vf3" style="display:none;padding:16px;border-radius:14px;background:#E3F5EA;color:#155C33;font-weight:800;font-size:17px">✅ {t("Номериңиз ырасталды!", "Номер подтверждён!")}</div>
+<div id="vf3" style="display:none;padding:16px;border-radius:14px;background:#E3F5EA;color:#155C33;font-weight:800;font-size:17px">✅ {t("Номериңиз ырасталды!", "Номер подтверждён!")}<div style="margin-top:12px"><a href="/post" style="color:#155C33">{t("Жарыя берүү →", "Подать объявление →")}</a></div></div>
 </main>
 <script>
 (function(){{
@@ -402,7 +673,7 @@ def verify_page(lang="ky"):
     fetch('/api/verify/status?t='+encodeURIComponent(tok)).then(function(r){{return r.json();}})
     .then(function(j){{
       if(j.verified){{clearInterval(timer);$('vf2').style.display='none';$('vf3').style.display='block';
-        try{{localStorage.removeItem('tap_vtok');}}catch(e){{}}}}
+        try{{localStorage.removeItem('tap_vtok');localStorage.setItem('tap_vok',tok);}}catch(e){{}}if(location.search.indexOf('next=post')>=0){{location.href='/post';}}}}
     }}).catch(function(){{}});
   }}
   function wait(link){{
@@ -2363,6 +2634,24 @@ class H(BaseHTTPRequestHandler):
             admin.report(self)
             return
         
+        if u.path in ("/api/post", "/api/post/photo"):   # WEB_POST
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                if n > 8 * 1024 * 1024:
+                    _json_out(self, {"ok": False, "err": "big"})
+                    return
+                raw = self.rfile.read(n) if n else b""
+                if u.path == "/api/post/photo":
+                    qs = urllib.parse.parse_qs(u.query)
+                    _json_out(self, _web_photo(qs.get("t", [""])[0], raw))
+                else:
+                    body = json.loads(raw.decode("utf-8")) if raw else {}
+                    _json_out(self, _web_post(body, _lang(self)))
+            except Exception as e:
+                print("web_post:", e, flush=True)
+                _json_out(self, {"ok": False, "err": "server"})
+            return
+
         if u.path != "/wa":
             self._send("not found", 404)
             return
@@ -2421,6 +2710,9 @@ class H(BaseHTTPRequestHandler):
             return
         if u.path == "/verify":
             self._send(verify_page(lang))
+            return
+        if u.path == "/post":   # WEB_POST
+            self._send(post_page(lang))
             return
 
         if u.path == "/admin" or u.path.startswith("/admin/"):  #ADM1
