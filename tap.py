@@ -812,7 +812,24 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
         for _kt, _rt, vals in _QF.get(_key, ()):
             ttl = _rt if ru else _kt
             rows = []
+            _bc = {}
+            if _kt == "Марка":   # BRAND_TITLE
+                try:
+                    for _r in core.find(None, limit=500, ad_type=at,
+                                        cat_id=cid or None, sub_id=sid or None,
+                                        oblast=ob or None, district=di or None,
+                                        locality=vi or None, village=vv or None):
+                        _b = _brand_of(_r)
+                        if _b:
+                            _bc[_b] = _bc.get(_b, 0) + 1
+                except Exception:
+                    pass
             for v in vals:
+                if _kt == "Марка":
+                    n = _bc.get(v, 0)
+                    if n:
+                        rows.append((v, n))
+                    continue
                 try:
                     n = core.count(q=v, ad_type=at, cat_id=cid or None,
                                    sub_id=sid or None, oblast=ob or None,
@@ -943,6 +960,36 @@ _CAR_BRANDS = ("Toyota", "Mercedes-Benz", "Honda", "Hyundai", "Kia",
                "Lexus", "BMW", "Nissan", "Daewoo", "Lada (ВАЗ)", "Audi",
                "Volkswagen", "Mitsubishi", "Chevrolet", "Opel", "Subaru",
                "Mazda", "Ford", "Chery", "Changan", "Haval", "BYD", "Geely")
+
+
+# BRAND_TITLE: марка аталыштын башынан аныкталат (текст издөө эмес)
+def _brand_keys(v):
+    v = v.lower()
+    ks = {v, v.split(" (")[0], v.split("-")[0]}
+    if v.startswith("lada"):
+        ks |= {"ваз", "лада"}
+    if v.startswith("mercedes"):
+        ks |= {"мерседес"}
+    return tuple(k for k in ks if k)
+
+
+def _brand_of(r):
+    try:
+        t = (bridge.show_title(r) or "").lower().strip()
+    except Exception:
+        t = (r.get("title") or "").lower().strip()
+    for v in _CAR_BRANDS:
+        if t.startswith(_brand_keys(v)):
+            return v
+    return None
+
+
+def _brand_rows(v, **flt):
+    try:
+        rows = core.find(None, limit=500, **flt)
+    except Exception:
+        return []
+    return [r for r in rows if _brand_of(r) == v]
 
 
 def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
@@ -1163,6 +1210,10 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
     rows = core.find(q, limit=60, ad_type=at, cat_id=cid, sub_id=sid,
                      oblast=ob, district=di, locality=vi, village=vv,
                      sort=sort)
+    if at == "vehicle" and q in _CAR_BRANDS:   # BRAND_TITLE
+        rows = _brand_rows(q, ad_type=at, cat_id=cid, sub_id=sid,
+                           oblast=ob, district=di, locality=vi,
+                           village=vv, sort=sort)[:60]
     body = ((cat_tiles(at, cid, ob, lang) if at and not q else "")
             + _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort, vv))
 
