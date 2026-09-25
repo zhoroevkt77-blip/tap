@@ -773,6 +773,10 @@ def verify_page(lang="ky"):
     return page(body, title=t("Номер ырастоо", "Подтверждение номера"), lang=lang)
 
 
+# CARD_GRID: жарыялар эки мамычалуу плитка (сүрөт, баа, аталыш, жер)
+EXTRA_CSS += chr(10) + '.g{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px 12px!important}.g .c,.srow .c{display:flex!important;flex-direction:column!important;padding:0!important;background:transparent!important;box-shadow:none!important;border:0!important;min-width:0}.srow .c{flex:0 0 46%!important;max-width:46%!important}.g .c .ph,.srow .c .ph{position:relative;width:100%!important;height:auto!important;aspect-ratio:1/1;flex:none!important;border-radius:16px!important;overflow:hidden}.g .c .ph img,.srow .c .ph img{width:100%!important;height:100%!important;object-fit:cover}.g .c .cb,.srow .c .cb{padding:8px 4px 0!important;min-width:0}.g .c .p,.srow .c .p{font-size:17px!important;font-weight:800!important;margin:0 0 2px!important}.g .c .t,.srow .c .t{font-size:14.5px!important;font-weight:500!important;line-height:1.3!important;margin:0!important;display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.g .c .rgl,.srow .c .rgl{font-size:13.5px!important;color:#5A6B82!important;margin-top:3px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.g .c .sbt,.g .c .m,.srow .c .sbt,.srow .c .m{display:none!important}'
+
+
 def _price(price, lang):
     """Баа. Келишим болсо, тандалган тилде жазылат."""
     if is_deal(price):
