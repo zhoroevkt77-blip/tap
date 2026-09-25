@@ -906,7 +906,23 @@ def _sections_strip(link, at, lang, ob=None):
                      f'<span class="lb">{esc(section_name(code, lang))}</span>')
             cls = f"cat{on}"
         cats += f'<a href="{link(at=code, cid=None)}" class="{cls}">{inner}</a>'
-    return f'<nav class="cats">{cats}</nav>'
+    nav = f'<nav class="cats">{cats}</nav>'
+    if not at:   # SECFOLD: башкы бетте баары көрүнөт
+        return nav
+    _t = ("Все разделы" if lang == "ru" else "Бардык бөлүмдөр")
+    _c = len(SECTIONS) + 1
+    return ('<style>.secfold{margin:10px 12px 2px}'
+            '.secfold>summary{list-style:none;cursor:pointer;'
+            'display:flex;align-items:center;justify-content:center;gap:8px;'
+            'padding:11px 14px;border-radius:20px;font-weight:700;font-size:14px;'
+            'background:var(--card,#F7FAFF);border:1.5px solid var(--mist,#E3E8F0);'
+            'box-shadow:0 4px 12px rgba(16,24,40,.18)}'
+            '.secfold>summary::-webkit-details-marker{display:none}'
+            '.secfold>summary i{font-style:normal;opacity:.6;font-weight:600}'
+            '.secfold[open]>summary{margin-bottom:2px}'
+            '.secfold .cats{padding-top:4px}</style>'
+            f'<details class="secfold"><summary>🗂 {esc(_t)}'
+            f'<i>{_c}</i> ▾</summary>{nav}</details>')
 
 
 def _obq(ob):
