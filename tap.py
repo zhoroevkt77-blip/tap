@@ -340,6 +340,12 @@ _ABBR_CSS = """<style>
 </style>"""
 
 
+# CHIP_DARK: тандалбаган чиптердин жазуусу караңгы
+EXTRA_CSS += ("\n.rg:not(.on),.sb2:not(.on){color:#0B1B30!important;"
+              "font-weight:700}"
+              ".rg:not(.on) em,.sb2:not(.on) em{color:#0B1B30;opacity:.8}\n")
+
+
 def _price(price, lang):
     """Баа. Келишим болсо, тандалган тилде жазылат."""
     if is_deal(price):
