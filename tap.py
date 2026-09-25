@@ -396,7 +396,7 @@ _EMPTY = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
 def header(q="", at=None, reg=None, lang="ky"):
     hidden = f'<input type="hidden" name="at" value="{esc(at)}">' if at else ""
     return f"""<header class="top"><div class="wrap">
-<div class="tin"><a href="/" class="logo"><img class="lgi" src="/pwa/icon-192.png?v={appicon.VERSION}" alt=""><span>ТАП!</span></a><style>.logo .lgi{width:30px;height:30px;border-radius:9px;margin-right:7px;display:block;object-fit:cover}</style>
+<div class="tin"><a href="/" class="logo"><img class="lgi" src="/pwa/icon-192.png?v={appicon.VERSION}" alt=""><span>ТАП!</span></a><style>.logo .lgi{{width:30px;height:30px;border-radius:9px;margin-right:7px;display:block;object-fit:cover}}</style>
 <span class="pin"><b>&#9679;</b>{esc(_short_place(_place_name(reg, lang)) if reg else T("all_kg", lang))}</span>
 {_lang_switch(lang)}</div>
 <form class="s" action="/">{hidden}
