@@ -23,7 +23,7 @@ from tap_catalog import (TRADE_CATEGORIES, PROPERTY_CATEGORIES,
                          DELIVERY_CATEGORIES, JOB_CATEGORIES, MARKETS_TYPES,
                          MALLS_TYPES,
                          WHOLESALE_CATEGORIES, CARGO_CATEGORIES, JOBSEEK_CATEGORIES,
-                         TAXI_CATEGORIES,
+                         TAXI_CATEGORIES, TAXI_AIRPORT_SUBS,
                          OBLASTS, get_districts, get_localities, get_villages,
                          ru_name)
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
@@ -813,7 +813,12 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
                                    locality=vi)
             whole = "Вся категория" if ru else "Бүт категория"
             opts = [(None, link(sid=None), whole, None)]
-            for code, n in sorted(sc.items(), key=lambda x: (-x[1], x[0])):
+            if at == "taxi" and cid == "taxi_airport":   # TAXI_AIR
+                sc = {k: sc.get(k, 0) for k in TAXI_AIRPORT_SUBS}
+                _items = list(sc.items())
+            else:
+                _items = sorted(sc.items(), key=lambda x: (-x[1], x[0]))
+            for code, n in _items:
                 opts.append((code, link(sid=code), _ky(code, lang), n))
             if len(opts) > 1:
                 inner += _chips_row("Субкатегория", opts, sid, lang)

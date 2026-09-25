@@ -685,8 +685,32 @@ def expiry_from(duration, days=None):
 
 
 # TAXI_CATS: такси жарыясынын багыты
+def taxi_air_sub(title, description="", oblast=""):
+    """TAXI_AIR: аэропорт жарыясы болсо — субкатегориясы, болбосо None."""
+    import re as _re
+    t = str(title or "").lower()
+    x = t + " " + str(description or "").lower()
+    if "аэропорт" not in x:
+        return None
+    if "бишкек" in x or "манас аэропорт" in x or "аэропорт манас" in x:
+        city = "Бишкек"
+    elif _re.search(r"(?<![а-яёөүң])ош(?![а-яёөүң])", x):
+        city = "Ош"
+    else:
+        city = "Ош" if "ош" in str(oblast or "").lower() else "Бишкек"
+    parts = _re.split(r"\s*(?:→|->|—|–|⇒|>)\s*|\s+-\s+", t, maxsplit=1)
+    if len(parts) == 2 and ("аэропорт" in parts[0]) != ("аэропорт" in parts[1]):
+        to = "аэропорт" in parts[1]
+    else:
+        to = not ("аэропорттон" in x or "из аэропорт" in x)
+    return "%s %s" % (city, "аэропортко бараткандар" if to
+                      else "аэропорттон кайткандар")
+
+
 def taxi_cat(title, description="", oblast=""):
     import re as _re
+    if taxi_air_sub(title, description, oblast):   # TAXI_AIR
+        return "taxi_airport"
     t = str(title or "").lower()
     txt = t + " " + str(description or "").lower()
     parts = _re.split(r"\s*(?:→|->|—|–|⇒|>)\s*|\s+-\s+", t, maxsplit=1)
@@ -709,13 +733,23 @@ def taxi_cat(title, description="", oblast=""):
 def _migrate_taxi_cats():
     try:
         rows = query("SELECT id, title, description, oblast FROM listings "
-                     "WHERE ad_type=? AND (cat_id IS NULL OR cat_id NOT LIKE ?)",
-                     ("taxi", "taxi_%"), fetch="all") or []
+                     "WHERE ad_type=? AND (cat_id IS NULL OR cat_id<>?)",
+                     ("taxi", "taxi_airport"), fetch="all") or []   # TAXI_AIR
+        n_air = 0
         for r in rows:
             g = (lambda k, i: r.get(k) if isinstance(r, dict) else r[i])
-            query("UPDATE listings SET cat_id=? WHERE id=?",
-                  (taxi_cat(g("title", 1), g("description", 2), g("oblast", 3)),
-                   g("id", 0)))
+            tt, ds, ob = g("title", 1), g("description", 2), g("oblast", 3)
+            sub = taxi_air_sub(tt, ds, ob)
+            if sub:
+                query("UPDATE listings SET cat_id=?, sub_id=? WHERE id=?",
+                      ("taxi_airport", sub, g("id", 0)))
+                n_air += 1
+            else:
+                query("UPDATE listings SET cat_id=? WHERE id=?",
+                      (taxi_cat(tt, ds, ob), g("id", 0)))
+        if n_air:
+            print("  Аэропортко өттү: %d жарыя" % n_air, flush=True)
+        rows = []
         if rows:
             print("  Такси бөлүндү: %d жарыя" % len(rows), flush=True)
     except Exception as e:
@@ -727,6 +761,9 @@ def add_listing(d, tg_id, tg_name):
     if d.get("ad_type") == "taxi" and not str(d.get("cat_id") or "").startswith("taxi_"):
         d = dict(d, cat_id=taxi_cat(d.get("title"), d.get("description"),
                                     d.get("oblast")))   # TAXI_CATS
+    if d.get("ad_type") == "taxi" and d.get("cat_id") == "taxi_airport":
+        d = dict(d, sub_id=taxi_air_sub(d.get("title"), d.get("description"),
+                                        d.get("oblast")))   # TAXI_AIR
     # Издөө талаасына категориянын, бөлүмдүн аттары да кирет —
     # «телефон» деп издегенде «Смартфондор» табылсын.
     stext = mkstext(
