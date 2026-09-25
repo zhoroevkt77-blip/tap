@@ -1021,7 +1021,26 @@ def render(step, data=None):
                       "Кайсы багыт боюнча издейсиз? / По какому направлению ищете?"),
                      _opts([("Облустардын район/шаарларынан Бишкекке жана кайтуу",
                              "bishkek"),
-                            ("Район/шаар аралык", "local")]))
+                            ("Район/шаар аралык", "local"),
+                            ("✈️ Манас аэропортко барып-кайтуу", "air_manas"),
+                            ("✈️ Ош аэропортко барып-кайтуу", "air_osh")]))   # TAXI_AIR_BOT
+
+    if step == "taxi_air_dir":   # TAXI_AIR_BOT
+        ap = "Манас" if d.get("taxiMode") == "air_manas" else "Ош"
+        return _view("✈️ %s аэропорту\nБагытты тандаңыз: / Выберите направление:" % ap,
+                     _opts([("✈️ %s аэропортко барам" % ap, "to_air"),
+                            ("✈️ %s аэропорттон кайтам" % ap, "from_air")]))
+
+    if step == "taxi_air_oblast":
+        q = ("Кайсы облустан чыгасыз?" if d.get("taxiAirDir") == "to_air"
+             else "Кайсы облуска барасыз?")
+        return _view("🗺 " + q, _from_list(TX_OBLASTS))
+
+    if step == "taxi_air_place":
+        ob = d.get("taxiAirOblast")
+        q = ("Кайсы райондон/шаардан чыгасыз?" if d.get("taxiAirDir") == "to_air"
+             else "Кайсы районго/шаарга барасыз?")
+        return _view("📍 %s\n%s" % (ob, q), _from_list(TX_DISTRICTS.get(ob, [])))
 
     if step == "taxi_dir":
         return _view("Багытты тандаңыз: / Выберите направление:",
@@ -1635,7 +1654,31 @@ def advance(step, value, data=None):
 
     if step == "taxi_mode":
         d["taxiMode"] = value
+        if value in ("air_manas", "air_osh"):   # TAXI_AIR_BOT
+            return "taxi_air_dir", d
         return ("taxi_lo_oblast" if value == "local" else "taxi_dir"), d
+
+    if step == "taxi_air_dir":   # TAXI_AIR_BOT
+        ap = ("Манас" if d.get("taxiMode") == "air_manas" else "Ош") + " аэропорту"
+        d["taxiAirDir"] = value
+        if value == "to_air":
+            d["taxiTo"] = ap
+            d.pop("taxiFrom", None)
+        else:
+            d["taxiFrom"] = ap
+            d.pop("taxiTo", None)
+        return "taxi_air_oblast", d
+
+    if step == "taxi_air_oblast":
+        return go("taxi_air_place", taxiAirOblast=value,
+                  taxiLoOblast=value, taxiRegion=value)
+
+    if step == "taxi_air_place":
+        if d.get("taxiAirDir") == "to_air":
+            d["taxiFrom"] = value
+        else:
+            d["taxiTo"] = value
+        return _taxi_first_step(d), d
 
     if step == "taxi_dir":
         d["taxiDir"] = value

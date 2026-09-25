@@ -692,14 +692,22 @@ def taxi_air_sub(title, description="", oblast=""):
     x = t + " " + str(description or "").lower()
     if "аэропорт" not in x:
         return None
-    if "бишкек" in x or "манас аэропорт" in x or "аэропорт манас" in x:
+    if "ош аэропорт" in x:   # TAXI_AIR_BOT
+        city = "Ош"
+    elif "бишкек" in x or "манас аэропорт" in x or "аэропорт манас" in x:
         city = "Бишкек"
     elif _re.search(r"(?<![а-яёөүң])ош(?![а-яёөүң])", x):
         city = "Ош"
     else:
         city = "Ош" if "ош" in str(oblast or "").lower() else "Бишкек"
     parts = _re.split(r"\s*(?:→|->|—|–|⇒|>)\s*|\s+-\s+", t, maxsplit=1)
-    if len(parts) == 2 and ("аэропорт" in parts[0]) != ("аэропорт" in parts[1]):
+    _mf = _re.search(r"аэропорт\w*\s*(?:→|->)", x)   # TAXI_AIR_BOT
+    _mt = _re.search(r"(?:→|->)[^\n→]*аэропорт", x)
+    if _mf and not _mt:
+        to = False
+    elif _mt and not _mf:
+        to = True
+    elif len(parts) == 2 and ("аэропорт" in parts[0]) != ("аэропорт" in parts[1]):
         to = "аэропорт" in parts[1]
     else:
         to = not ("аэропорттон" in x or "из аэропорт" in x)
