@@ -245,6 +245,16 @@ def _msg_post(h, uid, q):
 
 
 #BC1
+def _kg(ts, n=16):   # KG_TIME: базадагы UTC убакыт → Бишкек убактысы (UTC+6)
+    from datetime import datetime, timedelta
+    t = str(ts or "")
+    try:
+        return (datetime.strptime(t[:19], "%Y-%m-%d %H:%M:%S")
+                + timedelta(hours=6)).strftime("%Y-%m-%d %H:%M:%S")[:n]
+    except Exception:
+        return t[:n]
+
+
 BC = {"run": False, "done": 0, "fail": 0, "total": 0, "at": ""}
 
 
@@ -266,7 +276,7 @@ def _targets(who):
 
 
 def _bc_run(ids, txt):
-    BC.update(run=True, done=0, fail=0, total=len(ids), at=core.now_str()[:16])
+    BC.update(run=True, done=0, fail=0, total=len(ids), at=_kg(core.now_str()))
     for t in ids:
         ok, _e = _tg_send(t, txt)
         if ok:
@@ -625,12 +635,12 @@ def _log_page(q):
            "<input name='lid' value='" + E(lid) + "' placeholder='Жарыянын №'>"
            " <button>Издөө</button></form>"
            "<p style='color:#667085;font-size:13px'>Сактоо мөөнөтү: "
-           + str(getattr(core, "AUDIT_DAYS", 180)) + " күн. Убакыт — UTC.</p>"
+           + str(getattr(core, "AUDIT_DAYS", 180)) + " күн. Убакыт — Бишкек (UTC+6).</p>"
            "<table><tr><th>Убакыт</th><th>Аракет</th><th>№</th>"
            "<th>Ким</th><th>Кайдан</th><th>IP</th><th>Эскертүү</th></tr>")
     for r in rows:
         g = lambda k, i: E(str(_g(r, k, i) or ""))
-        out += ("<tr><td>" + g("at", 1) + "</td><td>" + g("kind", 2) + "</td><td>"
+        out += ("<tr><td>" + E(_kg(_g(r, "at", 1), 19)) + "</td><td>" + g("kind", 2) + "</td><td>"
                 + g("lid", 3) + "</td><td>" + g("tg_id", 4) + "</td><td>"
                 + g("src", 5) + "</td><td>" + g("ip", 6) + "</td><td>"
                 + g("note", 8) + "</td></tr>")
@@ -737,7 +747,7 @@ def _card(r, k, back, now, mod=False):
         st + _src_badge(lid) + wn + "</div>"
         "<div class='am'>" + E(str(r.get("price") or "-")) + " · " + E(cat) +
         " · 👁 " + str(r.get("views") or 0) + "</div>"
-        "<div class='am'>Коюлду: " + E(str(r.get("created_at") or "")[:16]) +
+        "<div class='am'>Коюлду: " + E(_kg(r.get("created_at"))) +
         " · Бүтөт: " + E(exp[:10]) + "</div>"
         "<div class='am'>👤 " + E(str(r.get("tg_name") or "-")) + " · 📞 " +
         E(str(r.get("contact") or "-")) + "</div>" + why +
