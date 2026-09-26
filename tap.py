@@ -625,7 +625,7 @@ function next(v){S.hist.push({step:S.step,data:JSON.parse(JSON.stringify(S.data)
   api({op:'next',step:S.step,data:S.data,value:v}).then(set).catch(function(){err();});}
 function draw(){
   var v=S.view,h='';
-  h+='<div class="ptop"><button class="pback" id="pb" aria-label="'+T('Артка','Назад')+'">&#8592;</button><div class="psec">'+((S.data&&S.data.adType)?'<img src="/si/'+S.data.adType+'.jpg?v='+SIV+'" alt="">':'')+esc(secName())+'</div></div>';
+  h+='<div class="ptop"><button class="pback" id="pb" aria-label="'+T('Артка','Назад')+'"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#17304F" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="psec">'+((S.data&&S.data.adType)?'<img src="/si/'+S.data.adType+'.jpg?v='+SIV+'" alt="">':'')+esc(secName())+'</div></div>';
   h+='<div class="pq">'+v.text+'</div>';
   if(v.done){
     h+='<label class="plab" for="pt">'+T('Жарыянын аталышы (милдеттүү эмес)','Заголовок (необязательно)')+'</label><input id="pt" class="pin" maxlength="120">';
@@ -687,10 +687,10 @@ if(!tok){need();}else{start();}
 })();
 """
 
-_POST_CSS = """<style>
+_POST_CSS = """<style>/* PBACK4 */
 .pwrap{max-width:520px;margin:0 auto;padding:16px 16px 140px}
 .ptop{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.pback{width:44px;height:44px;border-radius:22px;border:1.5px solid #3A4E6B;background:#fff;font-size:20px;color:#0B1B30}
+.pback{width:52px;height:52px;flex:none;border-radius:14px;border:2px solid #17304F;background:#E6EDF6;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 .psec{font-weight:800;color:#3A4E6B}
 .pq{font-size:19px;font-weight:700;line-height:1.4;margin:6px 0 14px;color:#0B1B30}
 .popts{display:flex;flex-direction:column;gap:8px}
