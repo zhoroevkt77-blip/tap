@@ -616,10 +616,9 @@ var SECS=[['trade','Соода-сатык','Купля-продажа'],['wholes
 var SIV=(document.querySelector('.pwrap')||document.body).getAttribute('data-siv')||'1';   // POST_SECIMG
 function secName(){var a=(S.data||{}).adType;for(var i=0;i<SECS.length;i++){if(SECS[i][0]===a)return T(SECS[i][1],SECS[i][2]);}return '';}
 function start(){S.hist=[];S.data=null;
-  var h='<div class="pq">'+T('Кандай жарыя бересиз?','Какое объявление подаёте?')+'</div><div class="psecg">';
-  SECS.forEach(function(x){h+='<button class="psc" data-s="'+x[0]+'"><img src="/si/'+x[0]+'.jpg?v='+SIV+'" alt="" loading="lazy"><span>'+esc(T(x[1],x[2]))+'</span></button>';});
-  box.innerHTML=h+'</div>';
-  box.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(){
+  var tp=document.getElementById('psecs');
+  box.innerHTML='<div class="pq">'+T('Кандай жарыя бересиз?','Какое объявление подаёте?')+'</div>'+(tp?tp.innerHTML:'');
+  box.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(e){if(e)e.preventDefault();
     api({op:'start',section:b.getAttribute('data-s')}).then(set).catch(function(){err();});};});}
 function next(v){S.hist.push({step:S.step,data:JSON.parse(JSON.stringify(S.data))});
   api({op:'next',step:S.step,data:S.data,value:v}).then(set).catch(function(){err();});}
@@ -683,7 +682,8 @@ function upload(files){var ph=S.data.webPhotos=S.data.webPhotos||[];var max=S.vi
     shrink(q[i]).then(function(b){return fetch('/api/post/photo?t='+encodeURIComponent(tok),{method:'POST',headers:{'Content-Type':'image/jpeg'},body:b});})
     .then(function(r){return r.json();}).then(function(j){if(j.ok)ph.push(j.name);else err(j.err);i++;one();}).catch(function(){i++;one();});}
   one();}
-if(!tok){need();}else{start();}
+if(!tok){need();}else{var q0=(location.search.match(/[?&]s=([a-z]+)/)||[])[1];
+  if(q0){api({op:'start',section:q0}).then(set).catch(function(){err();});}else{start();}}
 })();
 """
 
@@ -717,12 +717,29 @@ _POST_CSS = """<style>/* PBACK4 */
 </style>"""
 
 
+def _post_sec_tiles(lang):   # POST_HOMETILES: башкы беттеги бөлүм такталары
+    out = ""
+    for code, ic, _nm in SECTIONS:
+        nm = esc(section_name(code, lang))
+        if secimg.has(code):
+            inner = ('<span class="picw"><img class="pic" src="/si/%s.jpg?v=%s" alt="%s" '
+                     'loading="lazy"></span><span class="pill">%s</span>'
+                     % (code, secimg.VERSION, nm, nm))
+            cls = "cat pic s-" + code
+        else:
+            inner = '<span class="ic">%s</span><span class="lb">%s</span>' % (ic, nm)
+            cls = "cat"
+        out += '<a href="/post?s=%s" data-s="%s" class="%s">%s</a>' % (code, code, cls, inner)
+    return '<nav class="cats">%s</nav>' % out
+
+
 def post_page(lang="ky"):
     ru = lang == "ru"
     body = ('<main class="pwrap" data-lang="%s" data-siv="%s"><h1 style="font-size:24px;margin:0 0 12px">%s</h1>'
             '<div id="pbox"></div></main>%s<script>document.documentElement.setAttribute("data-lang",%s);%s</script>'
             % (lang, esc(str(secimg.VERSION)), "Подать объявление" if ru else "Жарыя берүү", _POST_CSS,
                json.dumps(lang), _POST_JS))
+    body = body.replace('<div id="pbox"></div>', '<template id="psecs">' + _post_sec_tiles(lang) + '</template><div id="pbox"></div>', 1)
     return page(body, title=("Подать объявление" if ru else "Жарыя берүү"), lang=lang)
 
 
