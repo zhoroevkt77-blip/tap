@@ -693,9 +693,9 @@ _POST_CSS = """<style>/* PBACK4 */
 .pback{width:52px;height:52px;flex:none;border-radius:14px;border:2px solid #17304F;background:#E6EDF6;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 .psec{font-weight:800;color:#3A4E6B}
 .pq{font-size:19px;font-weight:700;line-height:1.4;margin:6px 0 14px;color:#0B1B30}
-.popts{display:flex;flex-direction:column;gap:8px}
-.popt{min-height:50px;padding:10px 14px;border-radius:14px;border:1.5px solid #3A4E6B;background:#fff;color:#0B1B30;font-size:16px;font-weight:700;text-align:left}
-.popt.on{background:#17304F;color:#fff}
+.popts{display:flex;flex-direction:column;gap:10px}/* POPT_PILL */
+.popt{min-height:52px;padding:12px 22px;border-radius:999px;border:1.5px solid #3A4E6B;background:#fff;color:#0B1B30;font-size:16px;font-weight:700;text-align:left;box-shadow:0 5px 14px rgba(23,48,79,.24);margin-bottom:4px}
+.popt.on{background:#17304F;color:#fff;box-shadow:0 4px 0 #2E9E5B,0 7px 16px rgba(23,48,79,.30)}
 .pbtn{display:block;width:100%;box-sizing:border-box;margin-top:14px;padding:16px;border:0;border-radius:14px;background:#17304F;color:#fff!important;font-size:17px;font-weight:800;text-align:center;text-decoration:none}
 .pbtn2{background:#fff;color:#17304F!important;border:1.5px solid #3A4E6B}
 .pbtn:disabled{opacity:.6}
