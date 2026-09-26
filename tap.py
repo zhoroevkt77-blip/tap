@@ -628,7 +628,7 @@ function draw(){
   h+='<div class="ptop"><button class="pback" id="pb" aria-label="'+T('Артка','Назад')+'"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#17304F" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="psec">'+((S.data&&S.data.adType)?'<img src="/si/'+S.data.adType+'.jpg?v='+SIV+'" alt="">':'')+esc(secName())+'</div></div>';
   h+='<div class="pq">'+v.text+'</div>';
   if(v.done){
-    h+='<label class="plab" for="pt">'+T('Жарыянын аталышы (милдеттүү эмес)','Заголовок (необязательно)')+'</label><input id="pt" class="pin" maxlength="120">';
+    h+='<label class="plab" for="pt">'+T('Жарыянын аталышы (милдеттүү эмес)','Заголовок (необязательно)')+'</label><input id="pt" class="pfld" maxlength="120">';
     h+='<button class="pbtn" id="pgo">'+T('Жарыялоо','Опубликовать')+'</button>';
   } else if(v.photo){
     var ph=S.data.webPhotos||[];
@@ -645,7 +645,7 @@ function draw(){
     v.options.forEach(function(o,i){h+='<button class="popt'+(S.picked.indexOf(o.value)>=0?' on':'')+(String(o.label).length>22?' pw':'')+'" data-i="'+i+'">'+esc(o.label)+'</button>';});
     h+='</div>';
     if(v.multi){h+='<button class="pbtn" id="pmd">'+T('Даяр','Готово')+'</button>';}
-    if(v.input){h+='<textarea id="pi" class="pin" rows="3" placeholder="'+esc(v.placeholder)+'"></textarea><button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>';}
+    if(v.input){h+='<textarea id="pi" class="pfld" rows="5" placeholder="'+esc(v.placeholder)+'"></textarea><button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>';}
   }
   box.innerHTML=h;
   var pb=document.getElementById('pb'); if(pb)pb.onclick=function(){var x=S.hist.pop();if(!x){start();return;}
@@ -701,7 +701,7 @@ _POST_CSS = """<style>/* PBACK4 */
 .pbtn{display:block;width:100%;box-sizing:border-box;margin-top:14px;padding:16px;border:0;border-radius:14px;background:#17304F;color:#fff!important;font-size:17px;font-weight:800;text-align:center;text-decoration:none}
 .pbtn2{background:#fff;color:#17304F!important;border:1.5px solid #3A4E6B}
 .pbtn:disabled{opacity:.6}
-.pin{display:block;width:100%;box-sizing:border-box;margin-top:12px;padding:12px 14px;border-radius:12px;border:1.5px solid #9AA8BA;font-size:16px;font-family:inherit}
+.pfld{display:block;width:100%!important;max-width:none!important;box-sizing:border-box;margin-top:12px;padding:14px 16px;border-radius:16px;border:1.5px solid #3A4E6B;background:#fff;color:#0B1B30;font-size:17px;font-family:inherit;line-height:1.4;min-height:56px}/* PFLD */textarea.pfld{min-height:140px;resize:vertical}.pfld:focus{outline:none;border-color:#17304F;box-shadow:0 0 0 3px rgba(46,158,91,.35)}
 .plab{display:block;margin-top:8px;font-weight:800}
 .phint{font-size:14px;color:#3A4E6B;margin:8px 0;font-weight:600}
 .pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
