@@ -1239,9 +1239,12 @@ def use_bonus_post(tg_id):
 
 def posted_today(tg_id):
     """Бүгүн ушул колдонуучу канча жарыя койду."""
-    day = now_str()[:10]
+    # KG_DAYLIMIT: сутка Бишкек убактысы боюнча (00:00, UTC+6) жаңырат
+    k = datetime.now(timezone.utc) + timedelta(hours=6)
+    start = (k.replace(hour=0, minute=0, second=0, microsecond=0)
+             - timedelta(hours=6)).strftime("%Y-%m-%d %H:%M:%S")
     r = query("SELECT COUNT(*) AS n FROM listings WHERE tg_id=?"
-              " AND created_at>=?", (str(tg_id), day + " 00:00:00"), fetch="one")
+              " AND created_at>=?", (str(tg_id), start), fetch="one")
     return (r or {}).get("n", 0)
 
 
