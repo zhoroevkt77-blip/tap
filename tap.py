@@ -613,10 +613,11 @@ var SECS=[['trade','Соода-сатык','Купля-продажа'],['wholes
   ['rental','Ижарага берүү','Аренда'],['delivery','Жеткирүү','Доставка'],['cargo','Жүк ташуу','Грузоперевозки'],
   ['jobseek','Жумуш издөө','Ищу работу'],['job','Жумуш берүү','Вакансии'],['markets','Базарлар','Рынки'],
   ['malls','Соода борборлору','Торговые центры'],['taxi','Такси','Такси']];
+var SIV=(document.querySelector('.pwrap')||document.body).getAttribute('data-siv')||'1';   // POST_SECIMG
 function secName(){var a=(S.data||{}).adType;for(var i=0;i<SECS.length;i++){if(SECS[i][0]===a)return T(SECS[i][1],SECS[i][2]);}return '';}
 function start(){S.hist=[];S.data=null;
-  var h='<div class="pq">'+T('Кандай жарыя бересиз?','Какое объявление подаёте?')+'</div><div class="popts">';
-  SECS.forEach(function(x){h+='<button class="popt" data-s="'+x[0]+'">'+esc(T(x[1],x[2]))+'</button>';});
+  var h='<div class="pq">'+T('Кандай жарыя бересиз?','Какое объявление подаёте?')+'</div><div class="psecg">';
+  SECS.forEach(function(x){h+='<button class="psc" data-s="'+x[0]+'"><img src="/si/'+x[0]+'.jpg?v='+SIV+'" alt="" loading="lazy"><span>'+esc(T(x[1],x[2]))+'</span></button>';});
   box.innerHTML=h+'</div>';
   box.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(){
     api({op:'start',section:b.getAttribute('data-s')}).then(set).catch(function(){err();});};});}
@@ -624,7 +625,7 @@ function next(v){S.hist.push({step:S.step,data:JSON.parse(JSON.stringify(S.data)
   api({op:'next',step:S.step,data:S.data,value:v}).then(set).catch(function(){err();});}
 function draw(){
   var v=S.view,h='';
-  h+='<div class="ptop"><button class="pback" id="pb" aria-label="'+T('Артка','Назад')+'">&#8592;</button><div class="psec">'+esc(secName())+'</div></div>';
+  h+='<div class="ptop"><button class="pback" id="pb" aria-label="'+T('Артка','Назад')+'">&#8592;</button><div class="psec">'+((S.data&&S.data.adType)?'<img src="/si/'+S.data.adType+'.jpg?v='+SIV+'" alt="">':'')+esc(secName())+'</div></div>';
   h+='<div class="pq">'+v.text+'</div>';
   if(v.done){
     h+='<label class="plab" for="pt">'+T('Жарыянын аталышы (милдеттүү эмес)','Заголовок (необязательно)')+'</label><input id="pt" class="pin" maxlength="120">';
@@ -705,15 +706,20 @@ _POST_CSS = """<style>
 .pgrid img,.padd{aspect-ratio:1;width:100%;object-fit:cover;border-radius:12px}
 .padd{display:flex;align-items:center;justify-content:center;border:2px dashed #3A4E6B;font-size:30px;color:#17304F;cursor:pointer;box-sizing:border-box}
 .pvid{margin-top:12px}.pvid video{width:100%;max-height:260px;border-radius:12px;background:#000}
+.psecg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.psc{display:flex;flex-direction:column;padding:0;border:1.5px solid #C9D2DE;border-radius:16px;background:#fff;overflow:hidden;cursor:pointer}
+.psc img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover}
+.psc span{padding:8px 4px 10px;font-size:13.5px;font-weight:800;line-height:1.2;color:#0B1B30;text-align:center}
+.psec{display:flex;align-items:center;gap:8px}.psec img{width:34px;height:34px;border-radius:9px;object-fit:cover}
 .pok{width:84px;height:84px;margin:30px auto 10px;border-radius:42px;background:#2E9E5B;color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center}
 </style>"""
 
 
 def post_page(lang="ky"):
     ru = lang == "ru"
-    body = ('<main class="pwrap" data-lang="%s"><h1 style="font-size:24px;margin:0 0 12px">%s</h1>'
+    body = ('<main class="pwrap" data-lang="%s" data-siv="%s"><h1 style="font-size:24px;margin:0 0 12px">%s</h1>'
             '<div id="pbox"></div></main>%s<script>document.documentElement.setAttribute("data-lang",%s);%s</script>'
-            % (lang, "Подать объявление" if ru else "Жарыя берүү", _POST_CSS,
+            % (lang, esc(str(secimg.VERSION)), "Подать объявление" if ru else "Жарыя берүү", _POST_CSS,
                json.dumps(lang), _POST_JS))
     return page(body, title=("Подать объявление" if ru else "Жарыя берүү"), lang=lang)
 
