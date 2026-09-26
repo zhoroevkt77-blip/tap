@@ -733,6 +733,102 @@ def _post_sec_tiles(lang):   # POST_HOMETILES: башкы беттеги бөл�
     return '<nav class="cats">%s</nav>' % out
 
 
+# WEB_BAL: балансты сайтта көрсөтүү
+def _web_balance(tok):
+    st = _wverified(tok)
+    if not st:
+        return {"ok": False, "err": "verify"}
+    uid = str(st["tg_id"])
+    try:
+        import rules
+        b = dict(rules.balance(uid, "+996" + st["phone"]))
+    except Exception as e:
+        print("web_balance:", e, flush=True)
+        return {"ok": False, "err": "server"}
+    out = {"ok": True, "phone": "+996 " + st["phone"],
+           "ref": "https://t.me/%s?start=ref%s" % (BOT, uid)}
+    for k in ("used", "limit", "left", "bonus", "friends", "active", "soon"):
+        try:
+            out[k] = int(b.get(k) or 0)
+        except Exception:
+            out[k] = 0
+    try:
+        out["r1"], out["r2"], out["r3"] = (core.REF_FIRST_BONUS,
+                                          core.REF_NEXT_BONUS, core.REF_JOIN_BONUS)
+    except Exception:
+        out["r1"] = out["r2"] = out["r3"] = 0
+    return out
+
+
+_BAL_JS = r"""
+(function(){
+var LANG=document.documentElement.getAttribute('data-lang')||'ky';
+function T(k,r){return LANG==='ru'?r:k;}
+var box=document.getElementById('bbox');
+var tok=null; try{tok=localStorage.getItem('tap_vok');}catch(e){}
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function need(){box.innerHTML='<p style="line-height:1.45">'+T('Балансты көрүү үчүн номериңизди ырастаңыз.','Чтобы увидеть баланс, подтвердите номер.')+'</p><a class="bbtn" href="/verify?next=bal">'+T('Номерди ырастоо','Подтвердить номер')+'</a>';}
+function row(ic,lb,val){return '<div class="brow"><span class="bic">'+ic+'</span><span class="blb">'+lb+'</span><b>'+val+'</b></div>';}
+function show(j){
+  var pc=j.limit?Math.min(100,Math.round(j.used/j.limit*100)):0;
+  var h='<div class="bph">'+esc(j.phone)+' · '+T('ырасталган','подтверждён')+'</div>';
+  h+='<div class="bcard"><div class="bttl">'+T('Бүгүн коюлду','Сегодня размещено')+'</div>'
+    +'<div class="bbig">'+j.used+' <span>/ '+j.limit+'</span></div>'
+    +'<div class="bbar"><i style="width:'+pc+'%"></i></div>'
+    +'<div class="bsub">'+T('Калды: ','Осталось: ')+'<b>'+j.left+'</b> '+T('жарыя','объявл.')+' · '+T('чек ар күнү жаңырат','лимит обновляется ежедневно')+'</div></div>';
+  h+='<div class="bcard">'
+    +row('🎁',T('Бонус жарыя','Бонусные объявления'),j.bonus)
+    +row('👥',T('Чакырган досторуңуз','Приглашено друзей'),j.friends)
+    +row('📋',T('Активдүү жарыяларыңыз','Активные объявления'),j.active)
+    +row('⏳',T('3 күндө бүтөт','Истекает через 3 дня'),j.soon)+'</div>';
+  h+='<div class="bcard"><div class="bttl">'+T('Дос чакырып, бонус алыңыз','Приглашайте друзей — получайте бонусы')+'</div>'
+    +'<div class="bsub" style="margin:6px 0 10px">'+T('Досуңуз биринчи жарыясын койгондо: 1-дос үчүн +','Когда друг разместит первое объявление: за 1-го друга +')+j.r1+', '
+    +T('ар кийинкиси үчүн +','за каждого следующего +')+j.r2+', '+T('досуңузга +','другу +')+j.r3+'.</div>'
+    +'<div class="bref">'+esc(j.ref)+'</div>'
+    +'<button class="bbtn" id="bcp">'+T('Шилтемени көчүрүү','Скопировать ссылку')+'</button>'
+    +'<a class="bbtn bbtn2" target="_blank" rel="noopener" href="https://t.me/share/url?url='+encodeURIComponent(j.ref)+'">'+T('Telegram аркылуу бөлүшүү','Поделиться в Telegram')+'</a>'
+    +'<a class="bbtn bbtn2" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent(j.ref)+'">'+T('WhatsApp аркылуу бөлүшүү','Поделиться в WhatsApp')+'</a></div>';
+  box.innerHTML=h;
+  var cp=document.getElementById('bcp'); if(cp)cp.onclick=function(){
+    try{navigator.clipboard.writeText(j.ref).then(function(){cp.textContent=T('Көчүрүлдү ✓','Скопировано ✓');});}catch(e){}};
+}
+if(!tok){need();return;}
+fetch('/api/balance?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){
+  if(j.ok){show(j);}else if(j.err==='verify'){try{localStorage.removeItem('tap_vok');}catch(e){} need();}
+  else{box.innerHTML='<p>'+T('Ката чыкты. Кийинчерээк кайра аракет кылыңыз.','Ошибка. Попробуйте позже.')+'</p>';}
+}).catch(function(){box.innerHTML='<p>'+T('Байланыш катасы.','Ошибка связи.')+'</p>';});
+})();
+"""
+
+_BAL_CSS = """<style>
+.bwrap{max-width:520px;margin:0 auto;padding:16px 16px 140px}
+.bph{font-weight:700;color:#3A4E6B;margin:0 0 12px}
+.bcard{background:#fff;border:1.5px solid #C9D2DE;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 5px 14px rgba(23,48,79,.14)}
+.bttl{font-weight:800;font-size:16px;color:#0B1B30}
+.bbig{font-size:34px;font-weight:800;color:#17304F;margin:6px 0}.bbig span{font-size:20px;color:#3A4E6B}
+.bbar{height:10px;border-radius:5px;background:#E3E8EF;overflow:hidden}.bbar i{display:block;height:10px;background:#2E9E5B;border-radius:5px}
+.bsub{font-size:14px;color:#2A3A52;line-height:1.45;margin-top:8px}
+.brow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #E3E8EF;font-size:16px}
+.brow:last-child{border-bottom:0}.bic{width:28px;text-align:center}.blb{flex:1}.brow b{font-size:18px;color:#17304F}
+.bref{padding:10px 12px;border-radius:12px;background:#EEF2F7;font-size:14px;word-break:break-all;color:#0B1B30}
+.bbtn{display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:15px;border:0;border-radius:14px;background:#17304F;color:#fff!important;font-size:16px;font-weight:800;text-align:center;text-decoration:none;cursor:pointer;font-family:inherit}
+.bbtn2{background:#fff;color:#17304F!important;border:1.5px solid #3A4E6B}
+</style>"""
+
+
+def balance_page(lang="ky"):
+    ru = lang == "ru"
+    ttl = "Мой баланс" if ru else "Менин балансым"
+    body = ('<main class="bwrap"><h1 style="font-size:24px;margin:0 0 8px">' + ttl + '</h1>'
+            '<div id="bbox"></div>'
+            '<p style="margin-top:18px;font-size:14px"><a href="https://t.me/' + BOT
+            + '?start=balance">' + ("Открыть в Telegram-боте" if ru else "Telegram ботто ачуу")
+            + '</a></p></main>' + _BAL_CSS
+            + '<script>document.documentElement.setAttribute("data-lang",'
+            + json.dumps(lang) + ');' + _BAL_JS + '</script>')
+    return page(body, title=ttl, lang=lang)
+
+
 def post_page(lang="ky"):
     ru = lang == "ru"
     body = ('<main class="pwrap" data-lang="%s" data-siv="%s"><h1 style="font-size:24px;margin:0 0 12px">%s</h1>'
@@ -773,7 +869,7 @@ def verify_page(lang="ky"):
     fetch('/api/verify/status?t='+encodeURIComponent(tok)).then(function(r){{return r.json();}})
     .then(function(j){{
       if(j.verified){{clearInterval(timer);$('vf2').style.display='none';$('vf3').style.display='block';
-        try{{localStorage.removeItem('tap_vtok');localStorage.setItem('tap_vok',tok);}}catch(e){{}}if(location.search.indexOf('next=post')>=0){{location.href='/post';}}}}
+        try{{localStorage.removeItem('tap_vtok');localStorage.setItem('tap_vok',tok);}}catch(e){{}}var nx=(location.search.match(/next=([a-z]+)/)||[])[1];if(nx==='post'||nx==='bal'){{location.href='/'+nx;}}}}
     }}).catch(function(){{}});
   }}
   function wait(link){{
@@ -2826,6 +2922,9 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/verify":
             self._send(verify_page(lang))
             return
+        if u.path == "/api/balance":   # WEB_BAL
+            _json_out(self, _web_balance(qs.get("t", [""])[0]))
+            return
         if u.path == "/post":   # WEB_POST
             self._send(post_page(lang))
             return
@@ -2861,8 +2960,8 @@ class H(BaseHTTPRequestHandler):
             self._send(add_page(lang))
             return
 
-        if u.path == "/bal":
-            return self._send(add_page(lang, "balance"))
+        if u.path == "/bal":   # WEB_BAL
+            return self._send(balance_page(lang))
 
         if u.path == "/my":
             self._send(add_page(lang, "my"))
