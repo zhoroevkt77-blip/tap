@@ -708,10 +708,10 @@ _POST_CSS = """<style>/* PBACK4 */
 .pgrid img,.padd{aspect-ratio:1;width:100%;object-fit:cover;border-radius:12px}
 .padd{display:flex;align-items:center;justify-content:center;border:2px dashed #3A4E6B;font-size:30px;color:#17304F;cursor:pointer;box-sizing:border-box}
 .pvid{margin-top:12px}.pvid video{width:100%;max-height:260px;border-radius:12px;background:#000}
-.psecg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.psc{display:flex;flex-direction:column;padding:0;border:1.5px solid #C9D2DE;border-radius:16px;background:#fff;overflow:hidden;cursor:pointer}
-.psc img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover}
-.psc span{padding:8px 4px 10px;font-size:13.5px;font-weight:800;line-height:1.2;color:#0B1B30;text-align:center}
+.psecg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}/* PSEC_COMPACT */
+.psc{display:flex;flex-direction:column;padding:0;border:1.5px solid #C9D2DE;border-radius:14px;background:#fff;overflow:hidden;cursor:pointer;min-width:0}
+.psc img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+.psc span{padding:5px 2px 7px;font-size:12px;font-weight:800;line-height:1.15;color:#0B1B30;text-align:center;overflow-wrap:anywhere}
 .psec{display:flex;align-items:center;gap:8px}.psec img{width:34px;height:34px;border-radius:9px;object-fit:cover}
 .pok{width:84px;height:84px;margin:30px auto 10px;border-radius:42px;background:#2E9E5B;color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center}
 </style>"""
