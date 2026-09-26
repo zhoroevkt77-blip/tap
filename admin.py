@@ -553,15 +553,21 @@ def _page(title, body, tab="", msg=""):
 def _stats():
     now = core.now_str()
     day = now[:10] + "%"
+    # KG_DAY: «бүгүн» — Бишкек убактысы боюнча (UTC+6), базада UTC
+    from datetime import datetime as _dt, timedelta as _td
+    _k0 = (_dt.strptime(now[:19], "%Y-%m-%d %H:%M:%S") + _td(hours=6)).replace(
+        hour=0, minute=0, second=0) - _td(hours=6)
+    d0, d1 = (_k0.strftime("%Y-%m-%d %H:%M:%S"),
+              (_k0 + _td(days=1)).strftime("%Y-%m-%d %H:%M:%S"))
     tiles = [
         ("Жалпы жарыя", _n("SELECT COUNT(*) AS n FROM listings")),
         ("Активдүү", _n("SELECT COUNT(*) AS n FROM listings WHERE " + ACT, (now,))),
-        ("Бүгүн коюлду", _n("SELECT COUNT(*) AS n FROM listings WHERE created_at LIKE ?", (day,))),
+        ("Бүгүн коюлду", _n("SELECT COUNT(*) AS n FROM listings WHERE created_at>=? AND created_at<?", (d0, d1))),
         ("Мөөнөтү бүткөн", _n("SELECT COUNT(*) AS n FROM listings WHERE NOT (" + ACT + ")", (now,))),
         ("⚠️ Шектүү", _n("SELECT COUNT(*) AS n FROM listings WHERE " + FLG)),
         ("Жалпы көрүү", _n("SELECT COALESCE(SUM(views),0) AS n FROM listings")),
         ("Колдонуучулар", _n("SELECT COUNT(*) AS n FROM users")),
-        ("Бүгүн кошулду", _n("SELECT COUNT(*) AS n FROM users WHERE created_at LIKE ?", (day,))),
+        ("Бүгүн кошулду", _n("SELECT COUNT(*) AS n FROM users WHERE created_at>=? AND created_at<?", (d0, d1))),
         ("⛔ Бандалган", _n("SELECT COUNT(*) AS n FROM bans")),
     ]
     links = {  #TILELINK
