@@ -539,6 +539,7 @@ def _web_publish(d, st, b):
     t = str(b.get("title") or "").strip()[:120]
     if t:
         d["title"] = t
+    hits = []
     try:
         import rules
         ok, _bu, _bl = rules.spend_post(uid)
@@ -588,6 +589,12 @@ def _web_publish(d, st, b):
                 core.set_video(lid, "%d.mp4" % lid)
             except Exception as e:
                 print("web_publish video:", e, flush=True)
+    try:
+        import threading
+        threading.Thread(target=_web_notify_admins, args=(lid, dict(row), uid, list(hits or [])),
+                         daemon=True).start()
+    except Exception as e:
+        print("web_notify:", e, flush=True)
     return {"ok": True, "id": lid, "url": "/e/%d" % lid}
 
 
@@ -779,8 +786,8 @@ function show(j){
   h+='<div class="bcard">'
     +row('🎁',T('Бонус жарыя','Бонусные объявления'),j.bonus)
     +row('👥',T('Чакырган досторуңуз','Приглашено друзей'),j.friends)
-    +row('📋',T('Активдүү жарыяларыңыз','Активные объявления'),j.active)
-    +row('⏳',T('3 күндө бүтөт','Истекает через 3 дня'),j.soon)+'</div>';
+    +'<a class="blink" href="/my">'+row('📋',T('Активдүү жарыяларыңыз','Активные объявления'),j.active+' ›')+'</a>'
+    +'<a class="blink" href="/my?f=soon">'+row('⏳',T('3 күндө бүтөт','Истекает через 3 дня'),j.soon+' ›')+'</a></div>';
   h+='<div class="bcard"><div class="bttl">'+T('Дос чакырып, бонус алыңыз','Приглашайте друзей — получайте бонусы')+'</div>'
     +'<div class="bsub" style="margin:6px 0 10px">'+T('Досуңуз биринчи жарыясын койгондо: 1-дос үчүн +','Когда друг разместит первое объявление: за 1-го друга +')+j.r1+', '
     +T('ар кийинкиси үчүн +','за каждого следующего +')+j.r2+', '+T('досуңузга +','другу +')+j.r3+'.</div>'
@@ -802,6 +809,7 @@ fetch('/api/balance?t='+encodeURIComponent(tok)).then(function(r){return r.json(
 
 _BAL_CSS = """<style>
 .bwrap{max-width:520px;margin:0 auto;padding:16px 16px 140px}
+.blink{display:block;color:inherit!important;text-decoration:none}
 .bph{font-weight:700;color:#3A4E6B;margin:0 0 12px}
 .bcard{background:#fff;border:1.5px solid #C9D2DE;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 5px 14px rgba(23,48,79,.14)}
 .bttl{font-weight:800;font-size:16px;color:#0B1B30}
@@ -826,6 +834,147 @@ def balance_page(lang="ky"):
             + '</a></p></main>' + _BAL_CSS
             + '<script>document.documentElement.setAttribute("data-lang",'
             + json.dumps(lang) + ');' + _BAL_JS + '</script>')
+    return page(body, title=ttl, lang=lang)
+
+
+# WEB_MY: Менин жарыяларым жана админге кабар
+def _web_notify_admins(lid, row, uid, hits):
+    tok = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    if not tok:
+        try:
+            tf = os.path.join(core.BASE, "token.txt")
+            if os.path.exists(tf):
+                tok = open(tf, encoding="utf-8").read().strip()
+        except Exception:
+            tok = ""
+    admins = [x.strip() for x in (os.environ.get("ADMIN_IDS") or "").replace(" ", "").split(",")
+              if x.strip()]
+    if not tok or not admins:
+        print("web_notify: TELEGRAM_BOT_TOKEN же ADMIN_IDS жок", flush=True)
+        return
+    site = (os.environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
+    e = html.escape
+    warn = ("⚠️ <b>Текшериңиз:</b> %s\n\n" % e(", ".join(str(h) for h in hits[:5]))) if hits else ""
+    txt = (warn + "🆕 <b>Жаңы жарыя (сайттан)</b> №%d\n\n📦 %s\n💰 %s\n📍 %s\n☎️ %s\n👤 id %s\n"
+           '🌐 <a href="%s/e/%d">Сайттан көрүү</a>'
+           % (lid, e(str(row.get("title") or "")), e(_price(row.get("price"), "ky")),
+              e(str(row.get("region") or row.get("oblast") or "—")),
+              e(str(row.get("contact") or "—")), e(uid), site, lid))
+    kb = json.dumps({"inline_keyboard": [[{"text": "❌ Өчүрүү", "callback_data": "adel:%d" % lid}]]})
+    import urllib.request
+    for a in admins:
+        data = urllib.parse.urlencode({"chat_id": a, "text": txt, "parse_mode": "HTML",
+                                       "disable_web_page_preview": "true",
+                                       "reply_markup": kb}).encode()
+        try:
+            urllib.request.urlopen("https://api.telegram.org/bot%s/sendMessage" % tok,
+                                   data=data, timeout=15).read()
+        except Exception as ex:
+            print("web_notify:", ex, flush=True)
+
+
+def _web_my_list(tok, f, lang):
+    st = _wverified(tok)
+    if not st:
+        return {"ok": False, "err": "verify"}
+    rows = core.my_listings(st["tg_id"], "+996" + st["phone"]) or []
+    out = []
+    for r in rows[:150]:
+        dl = core.days_left(r.get("expires_at"))
+        act = str(r.get("is_active")) == "1"
+        if f == "soon" and not (act and dl is not None and dl <= 3):
+            continue
+        try:
+            ttl = bridge.show_title(r) or r.get("title") or "Жарыя"
+        except Exception:
+            ttl = r.get("title") or "Жарыя"
+        out.append({"id": r["id"], "title": L(ttl, lang), "price": _price(r.get("price"), lang),
+                    "photo": r.get("photo") or "", "active": act, "days": dl})
+    return {"ok": True, "items": out}
+
+
+def _web_my_act(b):
+    st = _wverified(b.get("token"))
+    if not st:
+        return {"ok": False, "err": "verify"}
+    try:
+        lid = int(b.get("id"))
+    except Exception:
+        return {"ok": False, "err": "id"}
+    ph = "+996" + st["phone"]
+    if b.get("op") == "revive":
+        ok = core.revive(lid, st["tg_id"], phone=ph)
+    elif b.get("op") == "close":
+        ok = core.deactivate(lid, st["tg_id"], ph)
+    else:
+        return {"ok": False, "err": "op"}
+    return {"ok": bool(ok), "err": None if ok else "owner"}
+
+
+_MY_JS = r"""
+(function(){
+var LANG=document.documentElement.getAttribute('data-lang')||'ky';
+function T(k,r){return LANG==='ru'?r:k;}
+var box=document.getElementById('mbox');
+var F=(location.search.match(/[?&]f=([a-z]+)/)||[])[1]||'';
+var tok=null; try{tok=localStorage.getItem('tap_vok');}catch(e){}
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function need(){box.innerHTML='<p style="line-height:1.45">'+T('Жарыяларыңызды көрүү үчүн номериңизди ырастаңыз.','Чтобы увидеть объявления, подтвердите номер.')+'</p><a class="mbtn" href="/verify?next=my">'+T('Номерди ырастоо','Подтвердить номер')+'</a>';}
+function st(it){if(!it.active)return '<span class="mst off">'+T('Жабык','Закрыто')+'</span>';
+  if(it.days==null)return '<span class="mst">'+T('Активдүү','Активно')+'</span>';
+  var w=it.days<=3?' warn':'';return '<span class="mst'+w+'">'+T('Активдүү · ','Активно · ')+Math.max(0,it.days)+T(' күн калды',' дн. осталось')+'</span>';}
+function load(){
+  fetch('/api/my?t='+encodeURIComponent(tok)+'&f='+F).then(function(r){return r.json();}).then(function(j){
+    if(!j.ok){if(j.err==='verify'){try{localStorage.removeItem('tap_vok');}catch(e){} need();}else{box.innerHTML='<p>'+T('Ката чыкты.','Ошибка.')+'</p>';}return;}
+    var h='<div class="mtabs"><a href="/my"'+(F?'':' class="on"')+'>'+T('Баары','Все')+'</a><a href="/my?f=soon"'+(F==='soon'?' class="on"':'')+'>'+T('3 күндө бүтөт','Истекают')+'</a></div>';
+    if(!j.items.length){h+='<p class="mempty">'+(F?T('Жакында мөөнөтү бүтө турган жарыя жок.','Нет объявлений, которые скоро истекают.'):T('Азырынча жарыяңыз жок.','У вас пока нет объявлений.'))+'</p><a class="mbtn" href="/post">'+T('Жарыя берүү','Подать объявление')+'</a>';}
+    j.items.forEach(function(it){
+      h+='<div class="mit"><a class="mimg" href="/e/'+it.id+'">'+(it.photo?'<img src="/media/'+esc(it.photo)+'" alt="" loading="lazy">':'')+'</a>'
+        +'<div class="minf"><a class="mttl" href="/e/'+it.id+'">'+esc(it.title)+'</a><div class="mpr">'+esc(it.price)+'</div>'+st(it)
+        +'<div class="mact"><button data-op="revive" data-id="'+it.id+'">'+(it.active?T('🔄 Узартуу','🔄 Продлить'):T('🔄 Кайра жандыруу','🔄 Возобновить'))+'</button>'
+        +(it.active?'<button class="mx" data-op="close" data-id="'+it.id+'">'+T('Жабуу','Закрыть')+'</button>':'')+'</div></div></div>';});
+    box.innerHTML=h;
+    box.querySelectorAll('[data-op]').forEach(function(b){b.onclick=function(){
+      var op=b.getAttribute('data-op');
+      if(op==='close'&&!confirm(T('Жарыяны жабасызбы?','Закрыть объявление?')))return;
+      b.disabled=true;
+      fetch('/api/my',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,op:op,id:+b.getAttribute('data-id')})})
+      .then(function(r){return r.json();}).then(function(x){if(!x.ok){alert(T('Ката чыкты.','Ошибка.'));b.disabled=false;return;} load();})
+      .catch(function(){b.disabled=false;alert(T('Байланыш катасы.','Ошибка связи.'));});};});
+  }).catch(function(){box.innerHTML='<p>'+T('Байланыш катасы.','Ошибка связи.')+'</p>';});}
+if(!tok){need();}else{load();}
+})();
+"""
+
+_MY_CSS = """<style>
+.mwrap{max-width:560px;margin:0 auto;padding:16px 16px 140px}
+.mtabs{display:flex;gap:8px;margin:0 0 14px}
+.mtabs a{padding:10px 16px;border-radius:999px;border:1.5px solid #3A4E6B;color:#0B1B30;text-decoration:none;font-weight:700;background:#fff}
+.mtabs a.on{background:#17304F;color:#fff}
+.mit{display:flex;gap:12px;padding:12px;margin-bottom:12px;background:#fff;border:1.5px solid #C9D2DE;border-radius:18px;box-shadow:0 5px 14px rgba(23,48,79,.12)}
+.mimg{flex:none;width:92px;height:92px;border-radius:14px;overflow:hidden;background:#E3E8EF}
+.mimg img{width:100%;height:100%;object-fit:cover}
+.minf{flex:1;min-width:0}
+.mttl{display:block;font-weight:800;color:#0B1B30;text-decoration:none;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.mpr{font-weight:800;color:#17304F;margin:4px 0}
+.mst{display:inline-block;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;background:#E3F5EA;color:#155C33}
+.mst.warn{background:#FFF1D6;color:#7A4B00}.mst.off{background:#E3E8EF;color:#3A4E6B}
+.mact{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.mact button{padding:9px 14px;border-radius:12px;border:0;background:#17304F;color:#fff;font-weight:800;font-family:inherit;font-size:14px;cursor:pointer}
+.mact button.mx{background:#fff;color:#8A1C1C;border:1.5px solid #8A1C1C}
+.mact button:disabled{opacity:.6}
+.mempty{color:#2A3A52}
+.mbtn{display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:15px;border-radius:14px;background:#17304F;color:#fff!important;font-weight:800;text-align:center;text-decoration:none}
+</style>"""
+
+
+def my_page(lang="ky"):
+    ru = lang == "ru"
+    ttl = "Мои объявления" if ru else "Менин жарыяларым"
+    body = ('<main class="mwrap"><h1 style="font-size:24px;margin:0 0 12px">' + ttl + '</h1>'
+            '<div id="mbox"></div></main>' + _MY_CSS
+            + '<script>document.documentElement.setAttribute("data-lang",'
+            + json.dumps(lang) + ');' + _MY_JS + '</script>')
     return page(body, title=ttl, lang=lang)
 
 
@@ -869,7 +1018,7 @@ def verify_page(lang="ky"):
     fetch('/api/verify/status?t='+encodeURIComponent(tok)).then(function(r){{return r.json();}})
     .then(function(j){{
       if(j.verified){{clearInterval(timer);$('vf2').style.display='none';$('vf3').style.display='block';
-        try{{localStorage.removeItem('tap_vtok');localStorage.setItem('tap_vok',tok);}}catch(e){{}}var nx=(location.search.match(/next=([a-z]+)/)||[])[1];if(nx==='post'||nx==='bal'){{location.href='/'+nx;}}}}
+        try{{localStorage.removeItem('tap_vtok');localStorage.setItem('tap_vok',tok);}}catch(e){{}}var nx=(location.search.match(/next=([a-z]+)/)||[])[1];if(nx==='post'||nx==='bal'||nx==='my'){{location.href='/'+nx;}}}}
     }}).catch(function(){{}});
   }}
   function wait(link){{
@@ -2842,6 +2991,16 @@ class H(BaseHTTPRequestHandler):
             admin.report(self)
             return
         
+        if u.path == "/api/my":   # WEB_MY
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(n).decode("utf-8")) if 0 < n < 10000 else {}
+                _json_out(self, _web_my_act(body))
+            except Exception as e:
+                print("web_my:", e, flush=True)
+                _json_out(self, {"ok": False, "err": "server"})
+            return
+
         if u.path in ("/api/post", "/api/post/photo", "/api/post/video"):   # WEB_POST WEB_VIDEO
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -2922,6 +3081,10 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/verify":
             self._send(verify_page(lang))
             return
+        if u.path == "/api/my":   # WEB_MY
+            _json_out(self, _web_my_list(qs.get("t", [""])[0],
+                                         qs.get("f", [""])[0], lang))
+            return
         if u.path == "/api/balance":   # WEB_BAL
             _json_out(self, _web_balance(qs.get("t", [""])[0]))
             return
@@ -2963,8 +3126,8 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/bal":   # WEB_BAL
             return self._send(balance_page(lang))
 
-        if u.path == "/my":
-            self._send(add_page(lang, "my"))
+        if u.path == "/my":   # WEB_MY
+            self._send(my_page(lang))
             return
 
         if u.path == "/me":
