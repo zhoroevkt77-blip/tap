@@ -510,8 +510,9 @@ CSS = (
     ".b{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;margin-left:4px}"
     ".b.ac{background:#E6F4EC;color:#1F5E3C}.b.ex{background:#F1F4F9;color:#5A6982}"
     ".b.w{background:#FAEEDA;color:#854F0B}.b.bn{background:#FCEBEB;color:#A32D2D}"
-    ".ab{display:flex;gap:8px;margin-top:10px}"
-    ".ab a{flex:1;text-align:center;padding:8px 6px;border-radius:10px;font-size:14px;"
+    ".ab{display:flex;gap:6px;margin-top:10px}"
+    ".b.sw{background:#E6EEFA;color:#17365C}.b.st{background:#E3F2FB;color:#0F5A86}.b.sa{background:#E4F6EA;color:#1F6B3C}"
+    ".ab a{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;padding:9px 2px;border-radius:10px;font-size:13px;"
     "text-decoration:none;border:1.5px solid #9AA8BF;color:#17365C}"
     ".ab a.del{border-color:#E24B4A;color:#A32D2D}"
     ".ab a.okb{border-color:#1F7A4D;color:#1F5E3C}"
@@ -687,6 +688,24 @@ def _do(h, uid, q):
     h._go(back + sep + "m=" + quote(msg), None)
 
 
+def _src_badge(lid):   # SRC_BADGE: жарыя кайдан берилгени
+    try:
+        r = core.query("SELECT src FROM events WHERE kind=? AND lid=? LIMIT 1",
+                       ("post", lid), fetch="one")
+    except Exception:
+        return ""
+    if not r:
+        return ""
+    v = str((r.get("src") if isinstance(r, dict) else r[0]) or "").lower()
+    if v == "site":
+        return "<span class='b sw'>🌐 Сайт</span>"
+    if v in ("whatsapp", "wa"):
+        return "<span class='b sa'>💬 WhatsApp</span>"
+    if v == "telegram":
+        return "<span class='b st'>✈️ Telegram</span>"
+    return ""
+
+
 def _card(r, k, back, now, mod=False):
     import bridge
     lid = r.get("id")
@@ -705,17 +724,17 @@ def _card(r, k, back, now, mod=False):
 
     def act(a):
         return E("/admin/do?" + urlencode({"a": a, "id": lid, "k": k, "back": back}))
-    btn = "<a href='/e/" + str(lid) + "' target='_blank'>Карап көрүү</a>"
+    btn = "<a href='/e/" + str(lid) + "' target='_blank'>👁 Көрүү</a>"
     btn += "<a href='" + E("/admin/msg?" + urlencode({"id": lid, "back": back})) + "'>✉️ Жазуу</a>"  #MSG1
     if mod:
         btn += "<a class='okb' href='" + act("ok") + "'>✅ Калтыр</a>"
     else:
         btn += "<a href='" + act("ext") + "'>+7 күн</a>"
     btn += ("<a class='del' href='" + act("del") + "' onclick=\"return confirm('№" +
-            str(lid) + " өчүрүлсүнбү?')\">Өчүрүү</a>")
+            str(lid) + " өчүрүлсүнбү?')\">🗑 Өчүрүү</a>")
     return (
         "<div class='ad'><div class='ah'>№" + str(lid) + " · " + E(str(title)) +
-        st + wn + "</div>"
+        st + _src_badge(lid) + wn + "</div>"
         "<div class='am'>" + E(str(r.get("price") or "-")) + " · " + E(cat) +
         " · 👁 " + str(r.get("views") or 0) + "</div>"
         "<div class='am'>Коюлду: " + E(str(r.get("created_at") or "")[:16]) +
