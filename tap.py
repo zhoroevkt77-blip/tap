@@ -3364,6 +3364,14 @@ class Server(ThreadingMixIn, HTTPServer):
     """Бир эле убакта бир нече суроону иштетет."""
     daemon_threads = True
 
+    def handle_error(self, request, client_address):   # QUIET_PIPE
+        """Колдонуучу бетти жаап койсо чыккан зыянсыз каталарды логго жазбайт."""
+        import sys as _s
+        if isinstance(_s.exc_info()[1], (BrokenPipeError, ConnectionResetError,
+                                         ConnectionAbortedError, TimeoutError)):
+            return
+        super().handle_error(request, client_address)
+
 
 if __name__ == "__main__":
     core.init_db()
