@@ -675,7 +675,7 @@ function draw(){
   box.querySelectorAll('.popt').forEach(function(b){b.onclick=function(){var o=v.options[+b.getAttribute('data-i')];
     if(v.multi){var k=S.picked.indexOf(o.value);if(k>=0)S.picked.splice(k,1);else S.picked.push(o.value);draw();}
     else{b.classList.add('tap');next(o.value);}};});   // POPT_TAP
-  var md=document.getElementById('pmd'); if(md)md.onclick=function(){if(!S.picked.length){alert(T('Жок дегенде бирөөнү тандаңыз.','Выберите хотя бы один вариант.'));return;} next(S.picked.join(', '));};
+  var md=document.getElementById('pmd'); if(md)md.onclick=function(){if(!S.picked.length){alert(T('Жок дегенде бирөөнү тандаңыз.','Выберите хотя бы один вариант.'));return;} var ex=((document.getElementById('pi')||{}).value||'').trim();next(S.picked.concat(ex?[ex]:[]).join(', '));};   /* LANDMULTI */
   var pi0=document.getElementById('pi'); if(pi0&&pi0.tagName==='INPUT')pi0.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();var b=document.getElementById('pnx');if(b)b.click();}};
   var nx=document.getElementById('pnx'); if(nx)nx.onclick=function(){var t=(document.getElementById('pi').value||'').trim(); if(!t){alert(T('Жооп жазыңыз.','Введите ответ.'));return;} next(t);};
   var pd=document.getElementById('pdone'); if(pd)pd.onclick=function(){next(String((S.data.webPhotos||[]).length));};
