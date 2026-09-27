@@ -284,6 +284,35 @@ VEHICLE_FUEL = _opts([(x, x) for x in (
     "Бензин", "Дизель", "Газ", "Электр", "Гибрид", "Плагин-гибрид",
 )])
 
+# HELP_CHIPS: колдонуучуга жазууга жардам берген баскычтар
+def _o(*xs):
+    return _opts([(x, x) for x in xs])
+
+NUMERIC_KEYS = {"vehicleYear", "vehicleMileage", "vehicleEngVol", "homeArea",
+                "wsMinOrder", "cargoCapacity"}
+UNIT_SUFFIX = {"vehicleMileage": " км", "cargoCapacity": " тонна", "vehicleEngVol": " л"}
+
+VEH_ENGVOL = _o("1.0–1.4", "1.5", "1.6", "1.8", "2.0", "2.4", "2.5", "3.0", "3.5+")
+VEH_GEARBOX = _o("Автомат", "Механика", "Вариатор", "Робот")
+VEH_WHEEL = _o("Сол руль", "Оң руль")
+VEH_DRIVE = _o("Алдыңкы привод", "Арткы привод", "Толук привод (4WD)")
+VEH_CRASH = _o("Кырсыксыз", "Кырсык болгон, оңдолгон")
+VEH_PAINT = _o("Краскасы өзүнүкү", "Жарым-жартылай боёлгон", "Толук боёлгон")
+VEH_OWNERS = _o("1-ээси", "2-ээси", "3 жана андан көп ээси")
+HOME_COND = _o("Евроремонт", "Жакшы ремонт", "Орточо", "Ремонт керек", "Кара курулуш (ПСО)")
+DELIVERY_OPTS = _o("Жеткирүү бар", "Шаар ичинде гана", "Облустарга карго менен",
+                   "Жок, өзү алып кетет", "Келишим боюнча")
+CARGO_ROUTE = _o("Шаар ичинде", "Облустар аралык", "Бүт Кыргызстан", "Эл аралык")
+CARGO_CAP = _o("0.5 тоннага чейин", "1.5 тонна", "3 тонна", "5 тонна", "10 тонна", "20+ тонна")
+CARGO_BODY = _o("Тент", "Борттуу", "Фургон", "Рефрижератор", "Самосвал", "Контейнер", "Эвакуатор")
+SEEK_EXP = _o("Тажрыйбасыз", "1 жылга чейин", "1–3 жыл", "3–5 жыл", "5 жылдан ашык")
+SEEK_SCHED = _o("Толук күн", "Жарым күн", "Сменалык", "Вахта", "Каалаган график")
+SEEK_EDU = _o("Орто", "Орто-атайын", "Жогорку", "Студент", "Мааниси жок")
+RENT_PERIOD = _o("Саатына", "Күнүнө", "Жумасына", "Айына", "Келишим боюнча")
+RENT_DEPOSIT = _o("Депозит жок", "1 айлык депозит", "Келишим боюнча")
+BAZAAR_DELIVERY = _o("Бардык облустарга карго менен", "Шаар ичинде гана", "Жок", "Келишим боюнча")
+
+
 CHAIN_VEHICLES = [
     ("vehicleBrand", "🚘 Маркасын тандаңыз, же өзүңүз жазыңыз / "
      "Выберите марку или впишите свою",
@@ -291,15 +320,19 @@ CHAIN_VEHICLES = [
     ("vehicleModel", "🚗 Үлгүсү (модели)? / Модель?",
      "Мис: CR-V / Например: CR-V"),
     ("vehicleYear", "📅 Чыккан жылы? / Год выпуска?",
-     "Мис: 2015-жылкы / Например: 2015 года"),
-    ("vehicleMileage", "🛣 Пробеги канча? / Какой пробег?",
-     "Мис: 115 000 км / Например: 115 000 км"),
-    ("vehicleTransRoul", "🕹 Кыймылдаткычтын көлөмү, коробкасы, руулу жана приводу? / Объём двигателя, коробка, руль и привод?",
-     "Мис: 2.0, автомат, оң рул, толук привод / Например: 2.0, автомат, правый руль, полный привод"),
+     "Мис: 2015 / Например: 2015"),
+    ("vehicleMileage", "🛣 Пробеги канча км? / Какой пробег (км)?",
+     "Мис: 115000 / Например: 115000"),
+    ("vehicleEngVol", "🔧 Кыймылдаткычтын көлөмү? / Объём двигателя?",
+     "Же өзүңүз жазыңыз, мис: 2.2 / Или впишите, например: 2.2", VEH_ENGVOL),
+    ("vehicleGearbox", "⚙️ Коробкасы кандай? / Коробка передач?", "", VEH_GEARBOX),
+    ("vehicleWheel", "🎯 Руль кайсы жакта? / Где руль?", "", VEH_WHEEL),
+    ("vehicleDrive", "🚙 Приводу кандай? / Привод?", "", VEH_DRIVE),
     ("vehicleFuel", "⛽ Куяр майы кандай? / На чём ездит?",
      "", VEHICLE_FUEL),
-    ("vehicleHistory", "🎨 Кырсык, краска жана ээлеринин саны? / ДТП, покраска и число владельцев?",
-     "Мис: Кырсыксыз, краскасы өзүнүкү, 2-ээси / Например: Без ДТП, родная краска, 2-й владелец"),
+    ("vehicleCrash", "💥 Кырсыкка кабылганбы? / Было ли ДТП?", "", VEH_CRASH),
+    ("vehiclePaint", "🎨 Краскасы кандай? / Покраска?", "", VEH_PAINT),
+    ("vehicleOwners", "👤 Канчанчы ээси? / Какой по счёту владелец?", "", VEH_OWNERS),
     ("vehicleBargain", "💵 Баа боюнча шарт кандай? / Условия по цене?",
      "", VEHICLE_BARGAIN),
     ("vehicleCondition", "🛠 Абалы, документтери жана комплектациясы? / Состояние, документы и комплектация?",
@@ -333,7 +366,7 @@ CHAIN_HOME = [
     ("homeFloor", "🏢 Канчанчы кабат? / На каком этаже?",
      "", HOME_FLOOR),
     ("homeCondition", "🔨 Абалы жана ремонту кандай? / Состояние и ремонт?",
-     "Мис: Евроремонт, эмерек менен / Например: Евроремонт, с мебелью"),
+     "Же өзүңүз жазыңыз / Или впишите свой", HOME_COND),
     ("homeDocs", "📄 Документтери жана сериясы? / Документы и серия?",
      "Мис: Кызыл китеп, 105-серия / Например: Красная книга, 105 серия"),
     ("homeArea2", "🏫 Айланасында эмнелер бар? / Что рядом?",
@@ -394,7 +427,7 @@ CHAIN_BAZAAR = [
     ("bazaarPrice", "💰 Баасы кандай (чекене жана дүң)? / Цена (розница и опт)?",
      "Мис: Чекене 1500 сом, дүң 900 сом / Например: Розница 1500, опт 900"),
     ("bazaarDelivery", "🚚 Башка облустарга/өлкөлөргө жеткирүү (карго) барбы? / Есть ли доставка (карго)?",
-     "Мис: Бардык облустарга карго менен / Например: Во все области через карго"),
+     "Же өзүңүз жазыңыз / Или впишите свой", BAZAAR_DELIVERY),
 ]
 
 CHAIN_MALL = [
@@ -420,10 +453,11 @@ CHAIN_STORE = [
 ]
 
 CHAIN_RENTAL = [
+    ("rentalPeriod", "📅 Кандай мөөнөткө бересиз? / На какой срок сдаёте?", "", RENT_PERIOD),
     ("rentalCharacteristics", "🛋️ Негизги мүнөздөмөлөрү жана шарттары кандай? / Основные характеристики и условия?",
-     "Мис: 2 бөлмө, 4-кабат, эмерекдүү / Например: 2 комнаты, 4 этаж, с мебелью"),
-    ("rentalDeposit", "💰 Депозит (залог) барбы? Канча? / Есть ли депозит? Сколько?",
-     "Мис: 1 айлык депозит милдеттүү / Например: Депозит за 1 месяц"),
+     "Мис: абалы жакшы, жеткирүү бар / 2 бөлмө, эмерек менен"),
+    ("rentalDeposit", "💰 Депозит (залог) барбы? / Есть ли депозит?",
+     "Же өзүңүз жазыңыз / Или впишите свой", RENT_DEPOSIT),
 ]
 
 CHAIN_JOB = [
@@ -445,27 +479,24 @@ CHAIN_WHOLESALE = [
     ("wsMinOrder", "📦 Эң аз буйрутма канча? / Минимальный заказ?",
      "Мис: 5 / Например: 5"),
     ("wsDelivery", "🚚 Жеткирүү барбы? / Есть ли доставка?",
-     "Мис: Өзү алып кетет / Например: Самовывоз"),
+     "Же өзүңүз жазыңыз / Или впишите свой", DELIVERY_OPTS),
 ]
 
 # Жүк ташуу: багыт, көтөрүмү, кузов
 CHAIN_CARGO = [
     ("cargoRoute", "🗺️ Багыт кайсы? / Маршрут?",
-     "Мис: Шаар ичинде / Например: По городу"),
+     "Же өзүңүз жазыңыз / Или впишите свой", CARGO_ROUTE),
     ("cargoCapacity", "🏋️ Жүк көтөрүмү канча? / Грузоподъёмность?",
-     "Мис: 3 тонна / Например: 3 тонны"),
+     "Же тоннасын жазыңыз, мис: 2 / Или впишите тонны", CARGO_CAP),
     ("cargoBody", "🚚 Кузовдун түрү кандай? / Тип кузова?",
-     "Мис: Тент / Например: Тент"),
+     "Же өзүңүз жазыңыз / Или впишите свой", CARGO_BODY),
 ]
 
 # Жумуш издөө: стажы, графиги, билими
 CHAIN_JOBSEEK = [
-    ("seekExp", "🧰 Стажыңыз канча? / Ваш опыт работы?",
-     "Мис: 3 жыл / Например: 3 года"),
-    ("seekSchedule", "🕒 Кандай график ыңгайлуу? / Какой график удобен?",
-     "Мис: Толук күн / Например: Полный день"),
-    ("seekEdu", "🎓 Билимиңиз кандай? / Ваше образование?",
-     "Мис: Жогорку / Например: Высшее"),
+    ("seekExp", "🧰 Стажыңыз канча? / Ваш опыт работы?", "", SEEK_EXP),
+    ("seekSchedule", "🕒 Кандай график ыңгайлуу? / Какой график удобен?", "", SEEK_SCHED),
+    ("seekEdu", "🎓 Билимиңиз кандай? / Ваше образование?", "", SEEK_EDU),
 ]
 
 TRADE_WHOLESALE_OPTS = _opts([
@@ -540,6 +571,31 @@ def norm_phone(raw):
     if len(d) == 9 and not d.startswith("0"):
         return "+996" + d
     return None
+
+
+def _cview(p, opts=None, text=None):
+    v = _view(text or p[1], opts if opts is not None else (p[3] if len(p) > 3 else None),
+              input=True, placeholder=p[2])
+    if p[0] in NUMERIC_KEYS:
+        v["numeric"] = True
+    return v
+
+
+def _unitize(key, value):
+    suf = UNIT_SUFFIX.get(key)
+    v = str(value).strip()
+    if suf and v.replace(",", "").replace(".", "").replace(" ", "").isdigit():
+        return v + suf
+    return value
+
+
+def _veh_prefill(d):
+    """Кыймылдаткычтын түрү мурун тандалган — куяр майды кайра сурабайбыз."""
+    eng = str(d.get("vehicleEngine") or "").split(" / ")[0].strip()
+    if d.get("vehicleFuel") is None and eng:
+        d["vehicleFuel"] = "Электр" if eng.startswith("Электр") else eng
+    if eng.startswith("Электр") and d.get("vehicleEngVol") is None:
+        d["vehicleEngVol"] = "Электр"
 
 
 def _chain_pending(chain, data):
@@ -872,16 +928,17 @@ def render(step, data=None):
         if cat == "animals":
             p = _chain_pending(CHAIN_ANIMALS, d)
             if p:
-                return _view(p[1], input=True, placeholder=p[2])
+                return _cview(p)
 
         if cat == "vehicles" or str(cat).startswith("veh_"):   # VEH_SPLIT
+            _veh_prefill(d)
             p = _chain_pending(CHAIN_VEHICLES, d)
             if p:
                 # Баскычтары бар кадамда да текст жазса болот
                 opts = p[3] if len(p) > 3 else None
                 if p[0] == "vehicleBrand" and d.get("_china"):
                     opts = CHINA_BRANDS
-                return _view(p[1], opts, input=True, placeholder=p[2])
+                return _cview(p, opts=opts)
 
         if cat == "realestate" or str(cat).startswith("re_"):   # RE_SPLIT
             _rch = REALESTATE_CHAINS.get(
@@ -889,28 +946,29 @@ def render(step, data=None):
             p = _chain_pending(_rch, d)
             if p:
                 opts = p[3] if len(p) > 3 else None
-                return _view(p[1], opts, input=True, placeholder=p[2])
+                return _cview(p, opts=opts)
 
         if at == "markets" and mt == "bazaar":
             p = _chain_pending(CHAIN_BAZAAR, d)
             if p:
-                return _view(p[1], input=True, placeholder=p[2])
+                return _cview(p)
 
         if at in ("markets", "malls") and mt == "mall":
             p = _chain_pending(CHAIN_MALL, d)
             if p:
-                return _view(p[1], input=True, placeholder=p[2])
+                return _cview(p)
 
         if at in ("markets", "malls") and mt == "store":
             p = _chain_pending(CHAIN_STORE, d)
             if p:
-                return _view(p[1], input=True, placeholder=p[2])
+                return _cview(p)
 
         if (at == "trade" and not str(cat).startswith(("re_", "veh_"))
                 and cat not in ("vehicles", "animals", "realestate",
                                 "agro_machinery")):
             if d.get("tradeDelivery") is None:
-                return _view(CHAIN_TRADE_TAIL_TEXT[0], input=True, placeholder=CHAIN_TRADE_TAIL_TEXT[1])
+                return _view(CHAIN_TRADE_TAIL_TEXT[0], DELIVERY_OPTS, input=True,
+                             placeholder="Же өзүңүз жазыңыз / Или впишите свой")
 
         return _view("Жарыянын аталышын жазыңыз / Введите название объявления:",
                      input=True, placeholder="Мис: Жаңы кийимдер / Например: Новая одежда")
@@ -937,11 +995,11 @@ def render(step, data=None):
         if at == "rental":
             p = _chain_pending(CHAIN_RENTAL, d)
             if p:
-                return _view(p[1], input=True, placeholder=p[2])
+                return _cview(p)
         if at == "job":
             p = _chain_pending(CHAIN_JOB, d)
             if p:
-                return _view(p[1], input=True, placeholder=p[2])
+                return _cview(p)
         for _at, _chain in (("wholesale", CHAIN_WHOLESALE),
                             ("cargo", CHAIN_CARGO),
                             ("jobseek", CHAIN_JOBSEEK)):
@@ -954,8 +1012,7 @@ def render(step, data=None):
                                   input=True, placeholder=p[2])
                         v["numeric"] = True
                         return v
-                    return _view(p[1], p[3] if len(p) > 3 else None,
-                                 input=True, placeholder=p[2])
+                    return _cview(p)
         return _view("Сиздин атыңыз же компанияңыздын аты кандай? / Ваше имя или название компании? 👤",
                      input=True, placeholder="Мис: Айбек / Например: Айбек")
 
@@ -971,9 +1028,10 @@ def render(step, data=None):
         return _view(text, [{"label": p["label"], "value": p["value"]} for p in presets])
 
     if step == "post_price_custom":
-        return _view("Айлыкты жазыңыз / Введите зарплату:" if at == "job"
+        _jb = at in ("job", "jobseek")   # HELP_CHIPS
+        return _view("Айлыкты жазыңыз / Введите зарплату:" if _jb
                      else "Баасын жазыңыз / Введите цену:",
-                     input=True, placeholder="Мис: 25 000 сом" if at == "job" else "Мис: 1 500 сом")
+                     input=True, placeholder="Мис: 25 000 сом" if _jb else "Мис: 1 500 сом")
 
     if step == "post_calltime":
         return _view("📞 Сизге качан чалса болот? / Когда вам можно звонить?",
@@ -1461,7 +1519,8 @@ def advance(step, value, data=None):
         # «Башка» сыяктуу категорияларда тагыраак тандоо жок —
         # бош экранды көрсөтпөй, кийинки кадамга өтөбүз
         if not _has_choice(get_subs_for_category(at, value)):
-            d.update(subcategory="", title="")
+            _lb = _cat_label(value)
+            d.update(subcategory="", title=_lb if _lb != value else "Башка / Другое")
             return _after_subcategory(d), d
         return "subcategory_select", d
 
@@ -1494,6 +1553,7 @@ def advance(step, value, data=None):
                 return "trade_title", d
 
         if cat == "vehicles" or str(cat).startswith("veh_"):   # VEH_SPLIT
+            _veh_prefill(d)
             p = _chain_pending(CHAIN_VEHICLES, d)
             if p:
                 if p[0] == "vehicleBrand" and value in ("__china__", "__back__"):
@@ -1504,7 +1564,14 @@ def advance(step, value, data=None):
                         d.pop("_china", None)
                     return "trade_title", d
                 d.pop("_china", None)
-                d[p[0]] = value
+                d[p[0]] = _unitize(p[0], value)
+                if p[0] == "vehicleDrive":
+                    d["vehicleTransRoul"] = ", ".join(str(d.get(k) or "") for k in (
+                        "vehicleEngVol", "vehicleGearbox", "vehicleWheel", "vehicleDrive")
+                        if d.get(k) and d.get(k) != "Электр")
+                if p[0] == "vehicleOwners":
+                    d["vehicleHistory"] = ", ".join(str(d.get(k) or "") for k in (
+                        "vehicleCrash", "vehiclePaint", "vehicleOwners") if d.get(k))
                 if p[0] == "vehicleCondition":
                     d["title"] = "%s %s, %s-ж., %s | %s, %s" % (
                         d.get("vehicleBrand"), d.get("vehicleModel"),
@@ -1581,6 +1648,9 @@ def advance(step, value, data=None):
         return go("trade_photo", price=value, tradeBargain="")
 
     if step == "trade_price_custom":
+        if any(d.get(k) for k in ("vehicleBargain", "homeBargain", "landBargain",
+                                  "comBargain", "garBargain")):   # HELP_CHIPS
+            return go("trade_photo", price=value, tradeBargain="")
         return go("trade_bargain", price=value)
 
     if step == "trade_bargain":
@@ -1597,8 +1667,8 @@ def advance(step, value, data=None):
             if p:
                 d[p[0]] = value
                 if p[0] == "rentalDeposit":
-                    d["title"] = "%s | %s | Депозит: %s" % (
-                        d.get("title"), d.get("rentalCharacteristics"), value)
+                    d["title"] = "%s | %s | %s | Депозит: %s" % (
+                        d.get("title"), d.get("rentalPeriod"), d.get("rentalCharacteristics"), value)
                 return "post_name", d
         if at == "job":
             p = _chain_pending(CHAIN_JOB, d)
@@ -1618,12 +1688,15 @@ def advance(step, value, data=None):
                         _v = str(value).strip()
                         if _v.replace(",", "").replace(".", "").replace(" ", "").isdigit():
                             value = "%s %s" % (_v, d["wsUnit"])
+                    value = _unitize(p[0], value)
                     d[p[0]] = value
                     if p[0] == _last:
                         d["title"] = " | ".join(
                             [str(d.get(it[0]) or "") for it in _chain[:-1] if it[0] != "wsUnit"]
                             + [str(value)])
                         base = d.get("subcategory") or _cat_label(d.get("category"))
+                        if base == d.get("category"):
+                            base = "Башка / Другое"
                         d["title"] = f"{base} | {d['title']}"
                     return "post_name", d
         d["personName"] = value
