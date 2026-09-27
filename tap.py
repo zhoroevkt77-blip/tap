@@ -2205,15 +2205,15 @@ function tapShare(b){
 
 _BLUR_CSS = """<style>/* GBLUR */
 .gsl{position:relative;overflow:hidden;border-radius:14px;aspect-ratio:4/5;max-height:72vh;width:100%;background:#1B2330}
-.gsl>i{position:absolute;inset:-30px;background-size:cover;background-position:center;filter:blur(26px) brightness(.85);transform:scale(1.15)}
-.gsl>img{position:relative;display:block;width:100%!important;height:100%!important;max-height:none!important;object-fit:contain!important;border-radius:0!important;background:transparent!important}
+.gsl>.gbg{display:block!important;position:absolute!important;inset:-30px!important;width:auto!important;height:auto!important;opacity:1!important;visibility:visible!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;filter:blur(26px) brightness(.85);transform:scale(1.15);z-index:0}/* GBLUR2 */
+.gsl>img{position:relative!important;z-index:1;display:block;width:100%!important;height:100%!important;max-height:none!important;object-fit:contain!important;border-radius:0!important;background:transparent!important}
 .pgal .gsl{flex:0 0 100%;scroll-snap-align:center}
 </style>"""
 
 
 def _gsl(name, lazy=False):
     u = "/media/" + esc(name)
-    return ('<div class="gsl"><i style="background-image:url(\'%s\')"></i>'
+    return ('<div class="gsl"><div class="gbg" style="background-image:url(\'%s\')"></div>'
             '<img src="%s" alt=""%s></div>' % (u, u, ' loading="lazy"' if lazy else ""))
 
 
