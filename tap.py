@@ -609,6 +609,10 @@ function T(k,r){return LANG==='ru'?r:k;}
 var tok=null; try{tok=localStorage.getItem('tap_vok');}catch(e){}
 var S={step:null,data:null,view:null,hist:[],picked:[]};
 var box=document.getElementById('pbox');
+var DK='tap_draft';   // DRAFT1
+function dsave(){try{if(S.step&&S.data)localStorage.setItem(DK,JSON.stringify({t:tok,step:S.step,data:S.data,hist:S.hist,picked:S.picked,inp:S.inp||'',ts:Date.now()}));}catch(e){}}
+function dclr(){try{localStorage.removeItem(DK);}catch(e){}}
+function dget(){try{var d=JSON.parse(localStorage.getItem(DK)||'null');if(d&&d.t===tok&&d.step&&d.data&&Date.now()-d.ts<7*864e5)return d;}catch(e){}return null;}
 function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function api(body){body.token=tok;return fetch('/api/post',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json();});}
 function need(){box.innerHTML='<p style="line-height:1.45">'+T('Жарыя берүү үчүн адегенде номериңизди ырастаңыз.','Сначала подтвердите номер телефона.')+'</p><a class="pbtn" href="/verify?next=post">'+T('Номерди ырастоо','Подтвердить номер')+'</a>';}
@@ -626,12 +630,12 @@ var SECS=[['trade','Соода-сатык','Купля-продажа'],['wholes
   ['malls','Соода борборлору','Торговые центры'],['taxi','Такси','Такси']];
 var SIV=(document.querySelector('.pwrap')||document.body).getAttribute('data-siv')||'1';   // POST_SECIMG
 function secName(){var a=(S.data||{}).adType;for(var i=0;i<SECS.length;i++){if(SECS[i][0]===a)return T(SECS[i][1],SECS[i][2]);}return '';}
-function start(){S.hist=[];S.data=null;
+function start(){S.hist=[];S.data=null;S.rest=false;S.inp='';dclr();
   var tp=document.getElementById('psecs');
   box.innerHTML='<div class="pq">'+T('Кандай жарыя бересиз?','Какое объявление подаёте?')+'</div>'+(tp?tp.innerHTML:'');
   box.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(e){if(e)e.preventDefault();b.classList.add('tap');
     api({op:'start',section:b.getAttribute('data-s')}).then(set).catch(function(){err();});};});}
-function next(v){S.hist.push({step:S.step,data:JSON.parse(JSON.stringify(S.data))});
+function next(v){S.inp='';S.rest=false;S.hist.push({step:S.step,data:JSON.parse(JSON.stringify(S.data))});
   api({op:'next',step:S.step,data:S.data,value:v}).then(set).catch(function(){err();});}
 function draw(){
   var v=S.view,h='';
@@ -660,9 +664,12 @@ function draw(){
       :'<input id="pi" class="pfld" autocomplete="off" enterkeyhint="next"'+(v.numeric?' inputmode="decimal"':'')+' placeholder="'+esc(v.placeholder)+'">')
       +'<button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>';}
   }
-  box.innerHTML=h;
+  if(S.rest)h='<div class="pdraft">'+T('📝 Мурунку долбооруңуз калыбына келди.','📝 Ваш черновик восстановлен.')+' <button id="pdx">'+T('Башынан баштоо','Начать заново')+'</button></div>'+h;
+  box.innerHTML=h;dsave();
+  var pdx=document.getElementById('pdx'); if(pdx)pdx.onclick=function(){if(confirm(T('Долбоорду өчүрүп, башынан баштайсызбы?','Удалить черновик и начать заново?')))start();};
+  var pi1=document.getElementById('pi'); if(pi1){if(S.inp)pi1.value=S.inp;pi1.oninput=function(){S.inp=pi1.value;dsave();};}
   var pb=document.getElementById('pb'); if(pb)pb.onclick=function(){pb.classList.add('tap');   /* TAP_ALL */var x=S.hist.pop();if(!x){start();return;}
-    S.step=x.step;S.data=x.data;api({op:'view',step:x.step,data:x.data}).then(function(j){if(j.ok){S.view=j.view;S.picked=[];draw();}else err(j.err);});};
+    S.inp='';S.rest=false;S.step=x.step;S.data=x.data;api({op:'view',step:x.step,data:x.data}).then(function(j){if(j.ok){S.view=j.view;S.picked=[];draw();}else err(j.err);});};
   box.querySelectorAll('.popt').forEach(function(b){b.onclick=function(){var o=v.options[+b.getAttribute('data-i')];
     if(v.multi){var k=S.picked.indexOf(o.value);if(k>=0)S.picked.splice(k,1);else S.picked.push(o.value);draw();}
     else{b.classList.add('tap');next(o.value);}};});   // POPT_TAP
@@ -675,7 +682,7 @@ function draw(){
   var pf=document.getElementById('pf'); if(pf)pf.onchange=function(){upload(Array.prototype.slice.call(pf.files));};
   var go=document.getElementById('pgo'); if(go)go.onclick=function(){go.disabled=true;
     api({op:'publish',step:S.step,data:S.data,title:document.getElementById('pt').value}).then(function(j){
-      if(!j.ok){go.disabled=false;err(j.err);return;}
+      if(!j.ok){go.disabled=false;err(j.err);return;}dclr();
       box.innerHTML='<div class="pok">&#10003;</div><h2 style="text-align:center">'+T('Жарыяңыз жарыяланды!','Объявление опубликовано!')+'</h2><p style="text-align:center">№'+j.id+'</p><a class="pbtn" href="'+j.url+'">'+T('Жарыяны көрүү','Смотреть объявление')+'</a><a class="pbtn pbtn2" href="/post">'+T('Дагы жарыя берүү','Ещё объявление')+'</a>';
     }).catch(function(){go.disabled=false;err();});};
 }
@@ -698,7 +705,11 @@ function upload(files){var ph=S.data.webPhotos=S.data.webPhotos||[];var max=S.vi
     .then(function(r){return r.json();}).then(function(j){if(j.ok)ph.push(j.name);else err(j.err);i++;one();}).catch(function(){i++;one();});}
   one();}
 if(!tok){need();}else{var q0=(location.search.match(/[?&]s=([a-z]+)/)||[])[1];
-  if(q0){api({op:'start',section:q0}).then(set).catch(function(){err();});}else{start();}}
+  var dr=dget();
+  if(dr&&(!q0||q0===(dr.data||{}).adType)){S.step=dr.step;S.data=dr.data;S.hist=dr.hist||[];
+    api({op:'view',step:dr.step,data:dr.data}).then(function(j){if(!j.ok){if(j.err==='verify'){err('verify');return;}start();return;}
+      S.view=j.view;S.picked=dr.picked||[];S.inp=dr.inp||'';S.rest=true;draw();}).catch(function(){err();});}
+  else if(q0){api({op:'start',section:q0}).then(set).catch(function(){err();});}else{start();}}
 })();
 """
 
@@ -731,6 +742,7 @@ _POST_CSS = """<style>/* PBACK4 */
 .popts .popt{min-height:42px!important;padding:8px 12px!important;font-size:15px!important;line-height:1.2!important}/* POPT_THIN */
 .popts .popt{-webkit-tap-highlight-color:transparent;transition:background .12s,color .12s}.popts .popt:active,.popts .popt.tap{background:#17304F!important;color:#fff!important;border-color:#17304F!important;box-shadow:0 4px 0 #2E9E5B,0 7px 16px rgba(23,48,79,.30)!important}
 #pbox .cat{-webkit-tap-highlight-color:transparent}#pbox .cat:active,#pbox .cat.tap{box-shadow:0 4px 0 #2E9E5B,0 7px 16px rgba(23,48,79,.30)!important;outline:3px solid #17304F;outline-offset:-3px}#pbox .cat:active .pill,#pbox .cat.tap .pill,#pbox .cat.tap .lb{background:#17304F!important;color:#fff!important}.pback{-webkit-tap-highlight-color:transparent}.pback:active,.pback.tap{background:#17304F!important;border-color:#17304F!important;box-shadow:0 4px 0 #2E9E5B}.pback:active svg,.pback.tap svg{stroke:#fff}
+.pdraft{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:12px;background:#E3F5EA;color:#155C33;font-size:14px;font-weight:700}.pdraft button{border:1.5px solid #155C33;background:#fff;color:#155C33;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:800}/* DRAFT1 */
 .pok{width:84px;height:84px;margin:30px auto 10px;border-radius:42px;background:#2E9E5B;color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center}
 </style>"""
 
