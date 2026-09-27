@@ -430,7 +430,29 @@ def _wview(step, d, lang):
                                 if lang != "ru" else
                                 "Почти готово! Напишите заголовок и нажмите «Опубликовать»."),
             "options": [], "input": False, "placeholder": "", "multi": False,
-            "photo": False, "photo_max": 10, "final": True, "done": True}
+            "photo": False, "photo_max": 10, "final": True, "done": True, **_wpreview(d, lang)}
+
+
+def _wpreview(d, lang):   # PPREVIEW: жарыя сайтта кандай көрүнөрү
+    try:
+        dd = dict(d)
+        r = dict(bridge.to_listing(dd))
+        if dd.get("adType") == "taxi" and dd.get("taxiRole") in ("driver", "passenger"):
+            r["taxi_role"] = dd["taxiRole"]
+        ph = [x for x in (dd.get("webPhotos") or []) if isinstance(x, str)
+              and _WPH_RE.match(x) and os.path.isfile(os.path.join(MEDIA, x))][:10]
+        r.update(id=0, views=0, created_at=core.now_str(), contact="",
+                 photo=ph[0] if ph else "", photos=json.dumps(ph) if ph else "",
+                 video=dd.get("webVideo") or "")
+        if not r.get("title"):
+            r["title"] = "Жарыя"
+        auto = str(L(bridge.show_title(r), lang) or "")
+        cap = "Так будет выглядеть ваше объявление" if lang == "ru" else "Жарыяңыз сайтта ушундай көрүнөт"
+        return {"preview": '<div class="pprev"><div class="pplab">' + cap + '</div><div class="g">' + card(r, lang) + '</div></div>',
+                "atitle": auto}
+    except Exception as e:
+        print("wpreview:", e, flush=True)
+        return {"preview": "", "atitle": ""}
 
 
 def _wverified(tok):
@@ -638,15 +660,15 @@ function start(){S.hist=[];S.data=null;S.rest=false;S.inp='';S.trail=[];dclr();
   box.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(e){if(e)e.preventDefault();b.classList.add('tap');
     api({op:'start',section:b.getAttribute('data-s')}).then(set).catch(function(){err();});};});}
 function next(v,lab){S.inp='';S.rest=false;S.hist.push({step:S.step,data:JSON.parse(JSON.stringify(S.data)),trail:(S.trail||[]).slice()});   /* PTRAIL */
-  S.trail=(S.trail||[]).concat(lab?[String(lab)]:[]);
+  S.trail=(S.trail||[]).concat(lab&&!/^\s*✅/.test(String(lab))?[String(lab)]:[]);
   api({op:'next',step:S.step,data:S.data,value:v}).then(set).catch(function(){err();});}
 function draw(){
   var v=S.view,h='';
   h+='<div class="ptop"><button class="pback" id="pb" aria-label="'+T('Артка','Назад')+'"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#17304F" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="psec">'+((S.data&&S.data.adType)?'<img src="/si/'+S.data.adType+'.jpg?v='+SIV+'" alt="">':'')+esc(secName())+'</div></div>';
-  if(S.trail&&S.trail.length){h+='<div class="ptrail">'+S.trail.map(function(x){x=String(x);return '<span>'+esc(x.length>32?x.slice(0,31)+'…':x)+'</span>';}).join('')+'</div>';}
+  if(!v.done&&S.trail&&S.trail.length){h+='<div class="ptrail">'+S.trail.map(function(x,k){x=String(x);return '<span data-k="'+k+'">'+esc(x.length>32?x.slice(0,31)+'…':x)+'</span>';}).join('')+'</div>';}
   h+='<div class="pq">'+v.text+'</div>';
   if(v.done){
-    h+='<label class="plab" for="pt">'+T('Жарыянын аталышы (милдеттүү эмес)','Заголовок (необязательно)')+'</label><input id="pt" class="pfld" maxlength="120">';
+    h+='<label class="plab" for="pt">'+T('Жарыянын аталышы (милдеттүү эмес)','Заголовок (необязательно)')+'</label><input id="pt" class="pfld" maxlength="120" placeholder="'+esc(v.atitle||'')+'">'+(v.preview||'')+'';
     h+='<button class="pbtn" id="pgo">'+T('Жарыялоо','Опубликовать')+'</button>';
   } else if(v.photo){
     var ph=S.data.webPhotos||[];
@@ -684,6 +706,11 @@ function draw(){
   var pv=document.getElementById('pv'); if(pv)pv.onchange=function(){vupload(pv.files[0]);};
   var pvx=document.getElementById('pvx'); if(pvx)pvx.onclick=function(){delete S.data.webVideo;draw();};
   var pf=document.getElementById('pf'); if(pf)pf.onchange=function(){upload(Array.prototype.slice.call(pf.files));};
+  var pt1=document.getElementById('pt'); if(pt1)pt1.oninput=function(){var t=box.querySelector('.pprev .t');if(t)t.textContent=pt1.value.trim()||v.atitle||'';};   /* PPREVIEW */
+  box.querySelectorAll('.ptrail span').forEach(function(sp){sp.onclick=function(){var i=+sp.getAttribute('data-k'),j=-1;
+    for(var q=0;q<S.hist.length;q++){var a=(S.hist[q].trail||[]).length,b2=q+1<S.hist.length?(S.hist[q+1].trail||[]).length:(S.trail||[]).length;if(a===i&&b2>i){j=q;break;}}
+    if(j<0)return; sp.classList.add('tap'); var x=S.hist[j]; S.hist=S.hist.slice(0,j);
+    S.inp='';S.rest=false;S.trail=x.trail||[];S.step=x.step;S.data=x.data;api({op:'view',step:x.step,data:x.data}).then(function(j2){if(j2.ok){S.view=j2.view;S.picked=[];draw();}else err(j2.err);});};});
   var go=document.getElementById('pgo'); if(go)go.onclick=function(){go.disabled=true;
     api({op:'publish',step:S.step,data:S.data,title:document.getElementById('pt').value}).then(function(j){
       if(!j.ok){go.disabled=false;err(j.err);return;}dclr();
@@ -746,7 +773,8 @@ _POST_CSS = """<style>/* PBACK4 */
 .popts .popt{min-height:42px!important;padding:8px 12px!important;font-size:15px!important;line-height:1.2!important}/* POPT_THIN */
 .popts .popt{-webkit-tap-highlight-color:transparent;transition:background .12s,color .12s}.popts .popt:active,.popts .popt.tap{background:#17304F!important;color:#fff!important;border-color:#17304F!important;box-shadow:0 4px 0 #2E9E5B,0 7px 16px rgba(23,48,79,.30)!important}
 #pbox .cat{-webkit-tap-highlight-color:transparent}#pbox .cat:active,#pbox .cat.tap{box-shadow:0 4px 0 #2E9E5B,0 7px 16px rgba(23,48,79,.30)!important;outline:3px solid #17304F;outline-offset:-3px}#pbox .cat:active .pill,#pbox .cat.tap .pill,#pbox .cat.tap .lb{background:#17304F!important;color:#fff!important}.pback{-webkit-tap-highlight-color:transparent}.pback:active,.pback.tap{background:#17304F!important;border-color:#17304F!important;box-shadow:0 4px 0 #2E9E5B}.pback:active svg,.pback.tap svg{stroke:#fff}
-.ptrail{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.ptrail span{padding:4px 10px;border-radius:999px;background:#E6EDF6;color:#17304F;font-size:13px;font-weight:700;line-height:1.3}/* PTRAIL */
+.ptrail{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.pprev{margin:14px 0 4px}.pplab{font-size:14px;font-weight:800;color:#5A6B82;margin:0 0 8px}.pprev .g{pointer-events:none}.ptrail span{cursor:pointer}/* PPREVIEW */
+.ptrail span{padding:4px 10px;border-radius:999px;background:#E6EDF6;color:#17304F;font-size:13px;font-weight:700;line-height:1.3}/* PTRAIL */
 .pdraft{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:12px;background:#E3F5EA;color:#155C33;font-size:14px;font-weight:700}.pdraft button{border:1.5px solid #155C33;background:#fff;color:#155C33;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:800}/* DRAFT1 */
 .pok{width:84px;height:84px;margin:30px auto 10px;border-radius:42px;background:#2E9E5B;color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center}
 </style>"""
