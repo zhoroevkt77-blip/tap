@@ -724,6 +724,7 @@ _POST_CSS = """<style>/* PBACK4 */
 .psc img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
 .psc span{padding:5px 2px 7px;font-size:12px;font-weight:800;line-height:1.15;color:#0B1B30;text-align:center;overflow-wrap:anywhere}
 .psec{display:flex;align-items:center;gap:8px}.psec img{width:34px;height:34px;border-radius:9px;object-fit:cover}
+.popts .popt{min-height:42px!important;padding:8px 12px!important;font-size:15px!important;line-height:1.2!important}/* POPT_THIN */
 .pok{width:84px;height:84px;margin:30px auto 10px;border-radius:42px;background:#2E9E5B;color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center}
 </style>"""
 
