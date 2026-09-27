@@ -436,11 +436,14 @@ CHAIN_JOB = [
 ]
 
 # Дүң соода: көлөм жана жеткирүү шарты сурлат
+WS_UNITS = _opts([(x, x) for x in (   # WS_UNITS: өлчөө бирдиктери
+    "кг", "тонна", "даана", "капка", "куту", "литр", "метр", "м²")])
+
 CHAIN_WHOLESALE = [
-    ("wsMinOrder", "📦 Эң аз буйрутма канча? / Минимальный заказ?",
-     "Мис: 1 тонна / Например: 1 тонна"),
     ("wsUnit", "⚖️ Өлчөө бирдиги кандай? / Единица измерения?",
-     "Мис: кг, тонна, даана, капка / Например: кг, тонна, штука, мешок"),
+     "Же өзүңүз жазыңыз / Или впишите свою", WS_UNITS),
+    ("wsMinOrder", "📦 Эң аз буйрутма канча? / Минимальный заказ?",
+     "Мис: 5 / Например: 5"),
     ("wsDelivery", "🚚 Жеткирүү барбы? / Есть ли доставка?",
      "Мис: Өзү алып кетет / Например: Самовывоз"),
 ]
@@ -945,7 +948,14 @@ def render(step, data=None):
             if at == _at:
                 p = _chain_pending(_chain, d)
                 if p:
-                    return _view(p[1], input=True, placeholder=p[2])
+                    if p[0] == "wsMinOrder" and d.get("wsUnit"):   # WS_UNITS
+                        u = d["wsUnit"]
+                        v = _view("📦 Эң аз буйрутма канча %s? / Минимальный заказ (%s)?" % (u, u),
+                                  input=True, placeholder=p[2])
+                        v["numeric"] = True
+                        return v
+                    return _view(p[1], p[3] if len(p) > 3 else None,
+                                 input=True, placeholder=p[2])
         return _view("Сиздин атыңыз же компанияңыздын аты кандай? / Ваше имя или название компании? 👤",
                      input=True, placeholder="Мис: Айбек / Например: Айбек")
 
@@ -1604,10 +1614,14 @@ def advance(step, value, data=None):
             if at == _at:
                 p = _chain_pending(_chain, d)
                 if p:
+                    if p[0] == "wsMinOrder" and d.get("wsUnit"):   # WS_UNITS
+                        _v = str(value).strip()
+                        if _v.replace(",", "").replace(".", "").replace(" ", "").isdigit():
+                            value = "%s %s" % (_v, d["wsUnit"])
                     d[p[0]] = value
                     if p[0] == _last:
                         d["title"] = " | ".join(
-                            [str(d.get(k) or "") for k, _q, _ph in _chain[:-1]]
+                            [str(d.get(it[0]) or "") for it in _chain[:-1] if it[0] != "wsUnit"]
                             + [str(value)])
                         base = d.get("subcategory") or _cat_label(d.get("category"))
                         d["title"] = f"{base} | {d['title']}"

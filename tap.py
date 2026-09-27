@@ -424,6 +424,7 @@ def _wview(step, d, lang):
             "multi": bool(v.get("multi")), "photo": bool(v.get("photo")),
             "video": bool(v.get("video")), "vmax": _WEB_VMAX,
             "photo_max": v.get("photo_max") or 10, "final": bool(v.get("final")),
+            "long": step == "post_comment", "numeric": bool(v.get("numeric")) or step in ("post_price", "trade_price"),   # SHORT_FLD
             "done": step == "post_done"} if step != "post_done" else {
             "text": html.escape("Дээрлик даяр! Жарыянын аталышын жазып, «Жарыялоо» басыңыз."
                                 if lang != "ru" else
@@ -655,7 +656,9 @@ function draw(){
     v.options.forEach(function(o,i){h+='<button class="popt'+(S.picked.indexOf(o.value)>=0?' on':'')+(WIDE?' pw':'')+'" data-i="'+i+'">'+esc(o.label)+'</button>';});
     h+='</div>';
     if(v.multi){h+='<button class="pbtn" id="pmd"'+(S.picked.length?'':' style="opacity:.5"')+'>'+T('Даяр','Готово')+(S.picked.length?' · '+S.picked.length+T(' тандалды',' выбрано'):'')+'</button>';}
-    if(v.input){h+='<textarea id="pi" class="pfld" rows="5" placeholder="'+esc(v.placeholder)+'"></textarea><button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>';}
+    if(v.input){h+=(v.long?'<textarea id="pi" class="pfld" rows="5" placeholder="'+esc(v.placeholder)+'"></textarea>'
+      :'<input id="pi" class="pfld" autocomplete="off" enterkeyhint="next"'+(v.numeric?' inputmode="decimal"':'')+' placeholder="'+esc(v.placeholder)+'">')
+      +'<button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>';}
   }
   box.innerHTML=h;
   var pb=document.getElementById('pb'); if(pb)pb.onclick=function(){pb.classList.add('tap');   /* TAP_ALL */var x=S.hist.pop();if(!x){start();return;}
@@ -664,6 +667,7 @@ function draw(){
     if(v.multi){var k=S.picked.indexOf(o.value);if(k>=0)S.picked.splice(k,1);else S.picked.push(o.value);draw();}
     else{b.classList.add('tap');next(o.value);}};});   // POPT_TAP
   var md=document.getElementById('pmd'); if(md)md.onclick=function(){if(!S.picked.length){alert(T('Жок дегенде бирөөнү тандаңыз.','Выберите хотя бы один вариант.'));return;} next(S.picked.join(', '));};
+  var pi0=document.getElementById('pi'); if(pi0&&pi0.tagName==='INPUT')pi0.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();var b=document.getElementById('pnx');if(b)b.click();}};
   var nx=document.getElementById('pnx'); if(nx)nx.onclick=function(){var t=(document.getElementById('pi').value||'').trim(); if(!t){alert(T('Жооп жазыңыз.','Введите ответ.'));return;} next(t);};
   var pd=document.getElementById('pdone'); if(pd)pd.onclick=function(){next(String((S.data.webPhotos||[]).length));};
   var pv=document.getElementById('pv'); if(pv)pv.onchange=function(){vupload(pv.files[0]);};
