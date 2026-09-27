@@ -650,7 +650,7 @@ function draw(){
     h+='<button class="pbtn" id="pdone">'+T('Даяр','Готово')+' ('+ph.length+')</button>';
   } else {
     if(v.multi){h+='<div class="phint">'+T('Бир нечесин тандасаңыз болот.','Можно выбрать несколько.')+'</div>';}
-    var WIDE=v.options.some(function(o){return String(o.label).length>22;});   // POPT_WIDE
+    var WIDE=v.options.length<2||v.options.some(function(o){return String(o.label).length>22;});   // POPT_WIDE
     h+='<div class="popts">';
     v.options.forEach(function(o,i){h+='<button class="popt'+(S.picked.indexOf(o.value)>=0?' on':'')+(WIDE?' pw':'')+'" data-i="'+i+'">'+esc(o.label)+'</button>';});
     h+='</div>';
