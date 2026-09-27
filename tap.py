@@ -662,7 +662,7 @@ function draw(){
     S.step=x.step;S.data=x.data;api({op:'view',step:x.step,data:x.data}).then(function(j){if(j.ok){S.view=j.view;S.picked=[];draw();}else err(j.err);});};
   box.querySelectorAll('.popt').forEach(function(b){b.onclick=function(){var o=v.options[+b.getAttribute('data-i')];
     if(v.multi){var k=S.picked.indexOf(o.value);if(k>=0)S.picked.splice(k,1);else S.picked.push(o.value);draw();}
-    else next(o.value);};});
+    else{b.classList.add('tap');next(o.value);}};});   // POPT_TAP
   var md=document.getElementById('pmd'); if(md)md.onclick=function(){if(!S.picked.length){alert(T('Жок дегенде бирөөнү тандаңыз.','Выберите хотя бы один вариант.'));return;} next(S.picked.join(', '));};
   var nx=document.getElementById('pnx'); if(nx)nx.onclick=function(){var t=(document.getElementById('pi').value||'').trim(); if(!t){alert(T('Жооп жазыңыз.','Введите ответ.'));return;} next(t);};
   var pd=document.getElementById('pdone'); if(pd)pd.onclick=function(){next(String((S.data.webPhotos||[]).length));};
@@ -725,6 +725,7 @@ _POST_CSS = """<style>/* PBACK4 */
 .psc span{padding:5px 2px 7px;font-size:12px;font-weight:800;line-height:1.15;color:#0B1B30;text-align:center;overflow-wrap:anywhere}
 .psec{display:flex;align-items:center;gap:8px}.psec img{width:34px;height:34px;border-radius:9px;object-fit:cover}
 .popts .popt{min-height:42px!important;padding:8px 12px!important;font-size:15px!important;line-height:1.2!important}/* POPT_THIN */
+.popts .popt{-webkit-tap-highlight-color:transparent;transition:background .12s,color .12s}.popts .popt:active,.popts .popt.tap{background:#1F7FC4!important;color:#fff!important;border-color:#1F7FC4!important}
 .pok{width:84px;height:84px;margin:30px auto 10px;border-radius:42px;background:#2E9E5B;color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center}
 </style>"""
 
