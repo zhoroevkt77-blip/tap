@@ -2208,6 +2208,7 @@ _BLUR_CSS = """<style>/* GBLUR */
 .gsl>.gbg{display:block!important;position:absolute!important;inset:-30px!important;width:auto!important;height:auto!important;opacity:1!important;visibility:visible!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;filter:blur(26px) brightness(.85);transform:scale(1.15);z-index:0}/* GBLUR2 */
 .gsl>img{position:relative!important;z-index:1;display:block;width:100%!important;height:100%!important;max-height:none!important;object-fit:contain!important;border-radius:0!important;background:transparent!important}
 .pgal .gsl{flex:0 0 100%;scroll-snap-align:center}
+.gsl{isolation:isolate}.pgc{z-index:5!important;background:rgba(10,20,35,.78)!important}/* GBLUR3 */
 </style>"""
 
 
