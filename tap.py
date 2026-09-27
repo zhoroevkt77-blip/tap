@@ -3123,8 +3123,8 @@ class H(BaseHTTPRequestHandler):
             self._send(find_page(ob, di, lang))
             return
 
-        if u.path == "/add":
-            self._send(add_page(lang))
+        if u.path == "/add":   # POST_SITE_ONLY
+            self._go("/post")
             return
 
         if u.path == "/bal":   # WEB_BAL

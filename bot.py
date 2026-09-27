@@ -462,6 +462,10 @@ def flow_kb(view, picked=None, lang="ky", back=False):
     for i, o in enumerate(view["options"]):
         label = o["label"] if ready else loc(o["label"], lang)
         # «Биздин сайт» — түз шилтеме баскычы: бир басууда браузер ачылат.
+        if o["value"] == "tap_post_site":   # POST_SITE_ONLY
+            _su = SITE_URL if (SITE_URL and "localhost" not in SITE_URL) else "https://tapmeni.up.railway.app"
+            rows.append([{"text": label[:64], "url": _su.rstrip("/") + "/post"}])
+            continue
         if o["value"] == "tap_site" and SITE_URL and "localhost" not in SITE_URL:
             rows.append([{"text": label[:64], "url": SITE_URL}])
             continue

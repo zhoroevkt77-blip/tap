@@ -580,6 +580,25 @@ def render(step, data=None):
                      _main_options())
 
     # ── Биздин сайт жана Жардам ─────────────────────────────
+    if step == "post_site":   # POST_SITE_ONLY
+        import os as _os
+        lg = _ui_lang(d)
+        url = (_os.environ.get("SITE_URL") or "").rstrip("/")
+        if not url or "localhost" in url:
+            url = "https://tapmeni.up.railway.app"
+        url += "/post"
+        if lg == "ru":
+            txt = ("📢 Объявления теперь подаются на сайте.\n\n"
+                   "Нажмите кнопку ниже — откроется форма. Номер подтверждается один раз, "
+                   "а ваши объявления видны и здесь, в «📋 Мои рекламы».\n\n🌐 " + url)
+            btn = "🌐 Разместить на сайте"
+        else:
+            txt = ("📢 Жарыя эми сайттан берилет.\n\n"
+                   "Төмөнкү баскычты басыңыз — жарыя берүү формасы ачылат. Номериңизди бир жолу "
+                   "ырастайсыз, ал эми жарыяларыңыз ушул ботто «📋 Менин жарыяларым» бөлүмүндө да көрүнөт.\n\n🌐 " + url)
+            btn = "🌐 Сайтта жарыя берүү"
+        return _view(txt, _opts([(btn, "tap_post_site"), (_hb("home", d), "home")]), localized=True)
+
     if step == "site_info":
         return _view(_help_text("site", _ui_lang(d)),
                      _opts([(_hb("home", d), "home")]), localized=True)
@@ -1243,9 +1262,14 @@ def advance(step, value, data=None):
             return "language_select", {}
         if value == "myposts":
             return go("my_posts", phone="")   # MYPOSTS_VERIFIED
+        if value == "post":   # POST_SITE_ONLY: жарыя сайттан гана берилет
+            return go("post_site")
         return go("type_select", action=value)
 
     # ── Биздин сайт жана Жардам ─────────────────────────────
+    if step == "post_site":   # POST_SITE_ONLY
+        return go("main_menu")
+
     if step == "site_info":
         return go("main_menu")
 
