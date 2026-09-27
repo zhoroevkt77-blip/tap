@@ -556,6 +556,8 @@ def _web_publish(d, st, b):
     except ImportError:
         pass
     row = bridge.to_listing(d)
+    if d.get("adType") == "taxi" and d.get("taxiRole") in ("driver", "passenger"):   # TAXIROLE
+        row["taxi_role"] = d["taxiRole"]
     if not row.get("title"):
         row["title"] = "Жарыя"
     lid = core.add_listing(row, uid, str(d.get("personName") or "")[:60])
@@ -1382,7 +1384,7 @@ def card(r, lang="ky"):
     return f"""<a class="c{'' if has else ' nophoto'}" href="/e/{r['id']}">
 <div class="ph">{img}{_shbtn(r, lang)}<button class="fav" data-id="{r['id']}" aria-label="Тандалганга кошуу">{NAV_ICONS['fav']}</button></div>
 <div class="cb"><div class="p{' pd' if is_deal(r['price']) else ''}">{esc(_price(r['price'], lang))}</div>
-<h2 class="t">{esc(L(bridge.show_title(r), lang))}</h2>
+{_role_tag(r, lang)}<h2 class="t">{esc(L(bridge.show_title(r), lang))}</h2>
 {_subline(r, lang)}
 {_reg_line1(r, lang)}
 <div class="m"><span>{esc(_sago(r['created_at'], lang))}</span>{_pcount(r)}{'<span class="vmark">🎬</span>' if core.video_of(r) else ''}
@@ -1914,8 +1916,30 @@ def _shelves(lang="ky", ob=None):
     return "".join(out)
 
 
+def _role_tag(r, lang="ky"):   # TAXIROLE: карточкадагы белги
+    rl = r.get("taxi_role") if r.get("ad_type") == "taxi" else None
+    if rl not in ("driver", "passenger"):
+        return ""
+    ru = lang == "ru"
+    t = ("🚖 Водитель" if ru else "🚖 Айдоочу") if rl == "driver" else ("🧍 Пассажир" if ru else "🧍 Жүргүнчү")
+    return ('<div style="font-size:12px;font-weight:800;color:#3A4E6B;margin:2px 0">%s</div>' % t)
+
+
+def _role_chips(link, rl, lang="ky", ob=None):   # TAXIROLE: айдоочу/жүргүнчү чиптери
+    ru = lang == "ru"
+    def n(r):
+        try:
+            return core.count(ad_type="taxi", oblast=ob or None, role=r)
+        except Exception:
+            return 0
+    opts = [(None, link(rl=None), "Все" if ru else "Баары", n(None)),
+            ("driver", link(rl="driver"), "🚖 Водители" if ru else "🚖 Айдоочулар", n("driver")),
+            ("passenger", link(rl="passenger"), "🧍 Пассажиры" if ru else "🧍 Жүргүнчүлөр", n("passenger"))]
+    return _chips_row("Кто нужен" if ru else "Ким керек", opts, rl, lang)
+
+
 def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
-         lang="ky", sort="new", vv=None):
+         lang="ky", sort="new", vv=None, rl=None):
     """
     Башкы бет.
       at  — бөлүм (trade/service/…)
@@ -1927,6 +1951,7 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
         """Учурдагы чыпкаларды сактап, бирөөнү гана өзгөрткөн шилтеме."""
         prm = {"q": q or None, "at": at, "cid": cid, "sid": sid,
                "ob": ob, "di": di, "vi": vi, "vv": vv,
+               "rl": rl if at == "taxi" else None,
                "sort": (sort if sort and sort != "new" else None)}
         prm.update(kw)
         prm = {k: v for k, v in prm.items() if v}
@@ -1944,12 +1969,13 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
 
     rows = core.find(q, limit=60, ad_type=at, cat_id=cid, sub_id=sid,
                      oblast=ob, district=di, locality=vi, village=vv,
-                     sort=sort)
+                     sort=sort, role=(rl if at == "taxi" else None))
     if at == "vehicle" and q in _CAR_BRANDS:   # BRAND_TITLE
         rows = _brand_rows(q, ad_type=at, cat_id=cid, sub_id=sid,
                            oblast=ob, district=di, locality=vi,
                            village=vv, sort=sort)[:60]
     body = ((cat_tiles(at, cid, ob, lang) if at and not q else "")
+            + (_role_chips(link, rl, lang, ob) if at == "taxi" else "")
             + _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort, vv))
 
     if rows:
@@ -3183,6 +3209,9 @@ class H(BaseHTTPRequestHandler):
             di = (qs.get("di", [""])[0]).strip() or None
             vi = (qs.get("vi", [""])[0]).strip() or None
             vv = (qs.get("vv", [""])[0]).strip() or None
+            rl = (qs.get("rl", [""])[0]).strip() or None
+            if rl not in ("driver", "passenger"):
+                rl = None
 
             # Эски шилтемелер иштей берсин (/?cat=…&region=…)
             if not ob:
@@ -3193,7 +3222,7 @@ class H(BaseHTTPRequestHandler):
                       "personal": "trade", "service": "service",
                       "shop": "markets", "business": "job"}.get(old)
 
-            self._send(home(q, at, cid, sid, ob, di, vi, lang, sort, vv))
+            self._send(home(q, at, cid, sid, ob, di, vi, lang, sort, vv, rl))
 
         elif u.path == "/fav":
             self._send(fav_page(lang))

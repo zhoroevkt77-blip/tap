@@ -430,7 +430,7 @@ NEW_COLUMNS = ["ad_type", "cat_id", "sub_id",
                # иргөө үчүн бааны сан түрүндө сактайбыз
                "expires_at", "price_num",
                # мөөнөт бүтөрдөн мурун эскертүү жиберилдиби
-               "warned"]
+               "warned", "taxi_role"]   # TAXIROLE
 
 
 def _add_missing_columns():
@@ -793,15 +793,16 @@ def add_listing(d, tg_id, tg_name):
            (category, subcat, region, title, description, price, contact,
             tg_id, tg_name, stext, created_at,
             ad_type, cat_id, sub_id, oblast, district, locality, village,
-            expires_at, price_num)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            expires_at, price_num, taxi_role)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (d["category"], d.get("subcat"), d.get("region", ""), d["title"],
          d.get("description", ""), d.get("price", ""), d.get("contact", ""),
          str(tg_id), tg_name, stext, now_str(),
          d.get("ad_type", ""), d.get("cat_id", ""), d.get("sub_id", ""),
          d.get("oblast", ""), d.get("district", ""),
          d.get("locality", ""), d.get("village", ""),
-         expiry_from(d.get("duration")), price_number(d.get("price"))),
+         expiry_from(d.get("duration")), price_number(d.get("price")),
+         d.get("taxi_role", "") or ""),
         fetch="id")
 
 
@@ -856,8 +857,10 @@ def photo_list(row):
 def _filters(q=None, cat=None, region=None, sub=None,
              ad_type=None, cat_id=None, oblast=None, district=None,
              village=None, sub_id=None, pmin=None, pmax=None,
-             locality=None):
+             locality=None, role=None):
     sql, p = "", []
+    if role:
+        sql += " AND taxi_role=?"; p.append(role)
     if cat:
         sql += " AND category=?"; p.append(cat)
     if sub:
@@ -916,10 +919,10 @@ SORTS = {
 
 def find(q=None, cat=None, region=None, sub=None, limit=30, offset=0,
          ad_type=None, cat_id=None, oblast=None, district=None, village=None,
-         sub_id=None, pmin=None, pmax=None, sort="new", locality=None):
+         sub_id=None, pmin=None, pmax=None, sort="new", locality=None, role=None):
     where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast,
                         district, village, sub_id, pmin, pmax,
-                        locality=locality)
+                        locality=locality, role=role)
     order = SORTS.get(sort or "new", SORTS["new"])
     return query(
         "SELECT * FROM listings WHERE is_active=1" + where +
@@ -929,9 +932,9 @@ def find(q=None, cat=None, region=None, sub=None, limit=30, offset=0,
 
 def count(q=None, cat=None, region=None, sub=None,
           ad_type=None, cat_id=None, oblast=None, district=None, village=None,
-          sub_id=None, pmin=None, pmax=None):
+          sub_id=None, pmin=None, pmax=None, role=None):
     where, p = _filters(q, cat, region, sub, ad_type, cat_id, oblast,
-                        district, village, sub_id, pmin, pmax)
+                        district, village, sub_id, pmin, pmax, role=role)
     r = query("SELECT COUNT(*) AS n FROM listings WHERE is_active=1" + where,
               tuple(p), fetch="one")
     return (r or {}).get("n", 0)
