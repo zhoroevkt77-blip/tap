@@ -2203,6 +2203,20 @@ function tapShare(b){
 }
 </script>"""
 
+_BLUR_CSS = """<style>/* GBLUR */
+.gsl{position:relative;overflow:hidden;border-radius:14px;aspect-ratio:4/5;max-height:72vh;width:100%;background:#1B2330}
+.gsl>i{position:absolute;inset:-30px;background-size:cover;background-position:center;filter:blur(26px) brightness(.85);transform:scale(1.15)}
+.gsl>img{position:relative;display:block;width:100%!important;height:100%!important;max-height:none!important;object-fit:contain!important;border-radius:0!important;background:transparent!important}
+.pgal .gsl{flex:0 0 100%;scroll-snap-align:center}
+</style>"""
+
+
+def _gsl(name, lazy=False):
+    u = "/media/" + esc(name)
+    return ('<div class="gsl"><i style="background-image:url(\'%s\')"></i>'
+            '<img src="%s" alt=""%s></div>' % (u, u, ' loading="lazy"' if lazy else ""))
+
+
 _GAL_CSS = """<style>
 .dph{position:relative}
 .pgal{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
@@ -2381,12 +2395,11 @@ def detail(r, lang="ky"):
     if not shots:
         dimg = ph_block(r, lang)
     elif len(shots) == 1:
-        dimg = f'<img src="/media/{esc(shots[0])}" alt="">'
+        dimg = _BLUR_CSS + _gsl(shots[0])
     else:
         strip = "".join(
-            f'<img src="/media/{esc(p)}" alt="" loading="lazy">'
-            for p in shots)
-        dimg = (_GAL_CSS + '<div class="pgal" id="pgal">' + strip
+            _gsl(p, k > 0) for k, p in enumerate(shots))
+        dimg = (_GAL_CSS + _BLUR_CSS + '<div class="pgal" id="pgal">' + strip
                 + '</div><span class="pgc" id="pgc">1 / '
                 + str(len(shots)) + '</span>')
     # Видео (бир гана). Автоматтык ойнобойт — колдонуучунун трафигин
