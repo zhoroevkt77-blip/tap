@@ -2834,6 +2834,10 @@ def me_page(lang="ky"):
     terms = "Условия использования" if ru else "Колдонуу шарттары"
     items += (f'<a class="mrow2" href="/terms">{NAV_ICONS["doc"]}'
               f'<span>{esc(terms)}</span></a>')
+    for _h, _l in (("/privacy", "Политика конфиденциальности" if ru else "Купуялык саясаты"),
+                   ("/about", "О ТАП!" if ru else "ТАП! жөнүндө")):
+        items += (f'<a class="mrow2" href="{_h}">{NAV_ICONS["doc"]}'
+                  f'<span>{esc(_l)}</span></a>')
 
     # ── Расмий баракчалар ──
     wa_num = "".join(c for c in os.environ.get("WA_NUMBER", "") if c.isdigit())
@@ -3138,8 +3142,10 @@ class H(BaseHTTPRequestHandler):
             self._send(help_page(lang))
             return
 
-        if u.path == "/terms":
-            self._send(help_page(lang, "terms"))
+        if u.path in ("/terms", "/privacy", "/about"):   # LEGAL_PAGES
+            import legal
+            _b, _t = legal.body(u.path[1:], lang)
+            self._send(page(_b, title=_t + " — ТАП!", lang=lang))
             return
 
         if u.path == "/":
