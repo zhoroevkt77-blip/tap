@@ -424,7 +424,7 @@ def _wview(step, d, lang):
             "multi": bool(v.get("multi")), "photo": bool(v.get("photo")),
             "video": bool(v.get("video")), "vmax": _WEB_VMAX,
             "photo_max": v.get("photo_max") or 10, "final": bool(v.get("final")),
-            "long": step == "post_comment", "numeric": bool(v.get("numeric")) or step in ("post_price", "trade_price"),   # SHORT_FLD
+            "long": step == "post_comment", "numeric": bool(v.get("numeric")) or step in ("post_price_custom", "trade_price_custom"),   # SHORT_FLD
             "done": step == "post_done"} if step != "post_done" else {
             "text": html.escape("Дээрлик даяр! Жарыянын аталышын жазып, «Жарыялоо» басыңыз."
                                 if lang != "ru" else
