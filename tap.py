@@ -725,7 +725,7 @@ _POST_CSS = """<style>/* PBACK4 */
 .psc span{padding:5px 2px 7px;font-size:12px;font-weight:800;line-height:1.15;color:#0B1B30;text-align:center;overflow-wrap:anywhere}
 .psec{display:flex;align-items:center;gap:8px}.psec img{width:34px;height:34px;border-radius:9px;object-fit:cover}
 .popts .popt{min-height:42px!important;padding:8px 12px!important;font-size:15px!important;line-height:1.2!important}/* POPT_THIN */
-.popts .popt{-webkit-tap-highlight-color:transparent;transition:background .12s,color .12s}.popts .popt:active,.popts .popt.tap{background:#1F7FC4!important;color:#fff!important;border-color:#1F7FC4!important}
+.popts .popt{-webkit-tap-highlight-color:transparent;transition:background .12s,color .12s}.popts .popt:active,.popts .popt.tap{background:#17304F!important;color:#fff!important;border-color:#17304F!important;box-shadow:0 4px 0 #2E9E5B,0 7px 16px rgba(23,48,79,.30)!important}
 .pok{width:84px;height:84px;margin:30px auto 10px;border-radius:42px;background:#2E9E5B;color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center}
 </style>"""
 
