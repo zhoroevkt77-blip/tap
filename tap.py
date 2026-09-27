@@ -27,6 +27,9 @@ from tap_catalog import (TRADE_CATEGORIES, PROPERTY_CATEGORIES,
                          OBLASTS, get_districts, get_localities, get_villages,
                          ru_name)
 from design import CSS, nav, FONTS, ICONS, NAV_ICONS, BOT
+# FONT_INTER: ТАКСИ роБОТтогудай Inter шрифти
+FONTS = FONTS + ('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">'
+                 '<style>html body,html body *:not(svg):not(path){font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important}</style>')
 from scenes import SCENES
 import secimg
 import appicon
