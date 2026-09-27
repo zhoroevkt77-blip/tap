@@ -650,8 +650,9 @@ function draw(){
     h+='<button class="pbtn" id="pdone">'+T('Даяр','Готово')+' ('+ph.length+')</button>';
   } else {
     if(v.multi){h+='<div class="phint">'+T('Бир нечесин тандасаңыз болот.','Можно выбрать несколько.')+'</div>';}
+    var WIDE=v.options.some(function(o){return String(o.label).length>22;});   // POPT_WIDE
     h+='<div class="popts">';
-    v.options.forEach(function(o,i){h+='<button class="popt'+(S.picked.indexOf(o.value)>=0?' on':'')+(String(o.label).length>22?' pw':'')+'" data-i="'+i+'">'+esc(o.label)+'</button>';});
+    v.options.forEach(function(o,i){h+='<button class="popt'+(S.picked.indexOf(o.value)>=0?' on':'')+(WIDE?' pw':'')+'" data-i="'+i+'">'+esc(o.label)+'</button>';});
     h+='</div>';
     if(v.multi){h+='<button class="pbtn" id="pmd">'+T('Даяр','Готово')+'</button>';}
     if(v.input){h+='<textarea id="pi" class="pfld" rows="5" placeholder="'+esc(v.placeholder)+'"></textarea><button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>';}
