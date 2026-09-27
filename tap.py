@@ -271,18 +271,22 @@ MANIFEST = {
 # Кызматчы скрипт. Тиркеме катары орнотулушу үчүн керек, ошону менен
 # бирге бет ачылганда бир аз тезирээк келет.
 SW_JS = """
-const CACHE = 'tap-v1';
+const CACHE = 'tap-v2';   // SWFIX: эски кэш (бузулган видео менен) өчөт
 self.addEventListener('install', e => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+self.addEventListener('activate', e => e.waitUntil(
+  caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    .then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
   if (e.request.method !== 'GET' || u.origin !== location.origin) return;
+  // Видео жана бөлүк-бөлүк суроолор (Range) кэшке тийбейт — браузер өзү жүктөйт
+  if (e.request.headers.has('range') || /[.](mp4|webm|mov)$/i.test(u.pathname)) return;
   // Сүрөттөр менен белгилер кэштен берилет — трафик үнөмдөлөт
   if (u.pathname.startsWith('/si/') || u.pathname.startsWith('/pwa/')
       || u.pathname.startsWith('/media/')) {
     e.respondWith(caches.open(CACHE).then(c =>
       c.match(e.request).then(r => r || fetch(e.request).then(res => {
-        c.put(e.request, res.clone());
+        if (res.ok && res.status === 200) c.put(e.request, res.clone()).catch(() => {});
         return res;
       }))));
   }
