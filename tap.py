@@ -649,12 +649,12 @@ function draw(){
       :'<label class="pbtn pbtn2" style="cursor:pointer">'+T('🎬 Видео кошуу','🎬 Добавить видео')+' ('+T('максимум ','до ')+v.vmax+' MB)<input type="file" id="pv" accept="video/*" hidden></label>')+'<div id="pvs" class="phint"></div></div>';}
     h+='<button class="pbtn" id="pdone">'+T('Даяр','Готово')+' ('+ph.length+')</button>';
   } else {
-    if(v.multi){h+='<div class="phint">'+T('Бир нечесин тандасаңыз болот.','Можно выбрать несколько.')+'</div>';}
+    if(v.multi){h+='<div class="phint">'+T('Бирөөнү же бир нечесин тандап, анан «Даяр» баскычын басыңыз.','Выберите один или несколько вариантов и нажмите «Готово».')+'</div>';}   /* MULTI_HINT */
     var WIDE=v.options.length<2||v.options.some(function(o){return String(o.label).length>22;});   // POPT_WIDE
     h+='<div class="popts">';
     v.options.forEach(function(o,i){h+='<button class="popt'+(S.picked.indexOf(o.value)>=0?' on':'')+(WIDE?' pw':'')+'" data-i="'+i+'">'+esc(o.label)+'</button>';});
     h+='</div>';
-    if(v.multi){h+='<button class="pbtn" id="pmd">'+T('Даяр','Готово')+'</button>';}
+    if(v.multi){h+='<button class="pbtn" id="pmd"'+(S.picked.length?'':' style="opacity:.5"')+'>'+T('Даяр','Готово')+(S.picked.length?' · '+S.picked.length+T(' тандалды',' выбрано'):'')+'</button>';}
     if(v.input){h+='<textarea id="pi" class="pfld" rows="5" placeholder="'+esc(v.placeholder)+'"></textarea><button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>';}
   }
   box.innerHTML=h;
