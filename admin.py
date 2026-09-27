@@ -521,6 +521,7 @@ CSS = (
     ".b.ac{background:#E6F4EC;color:#1F5E3C}.b.ex{background:#F1F4F9;color:#5A6982}"
     ".b.w{background:#FAEEDA;color:#854F0B}.b.bn{background:#FCEBEB;color:#A32D2D}"
     ".ab{display:flex;gap:6px;margin-top:10px}"
+    ".am a.dl{margin-left:6px;padding:2px 8px;border-radius:8px;border:1px solid #9AA8BA;font-size:12px;color:#17304F;text-decoration:none;white-space:nowrap}"
     ".b.sw{background:#E6EEFA;color:#17365C}.b.st{background:#E3F2FB;color:#0F5A86}.b.sa{background:#E4F6EA;color:#1F6B3C}"
     ".ab a{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;padding:9px 2px;border-radius:10px;font-size:13px;"
     "text-decoration:none;border:1.5px solid #9AA8BF;color:#17365C}"
@@ -666,6 +667,13 @@ def _do(h, uid, q):
     if a == "del":
         _delete(int(tid))
         msg = "№%s өчүрүлдү" % tid
+    elif a == "deal":   # DEAL_BTN
+        core.query("UPDATE listings SET price=? WHERE id=?", ("Келишим", int(tid)))
+        try:
+            core.log_event("edit", int(tid), uid, "admin", note="баа → Келишим")
+        except Exception:
+            pass
+        msg = "№%s: баасы «Келишим баада» болду" % tid
     elif a == "ext":
         msg = ("№%s: +7 күн узартылды" % tid) if _extend(int(tid)) else "Жарыя табылган жок"
     elif a == "ok":
@@ -748,10 +756,14 @@ def _card(r, k, back, now, mod=False):
         btn += "<a href='" + act("ext") + "'>+7 күн</a>"
     btn += ("<a class='del' href='" + act("del") + "' onclick=\"return confirm('№" +
             str(lid) + " өчүрүлсүнбү?')\">🗑 Өчүрүү</a>")
+    dl = ""   # DEAL_BTN: бааны «Келишим баада» кылуу
+    if not core.is_deal(str(r.get("price") or "")):
+        dl = (" <a class='dl' href='" + act("deal") + "' onclick=\"return confirm('№" +
+              str(lid) + " баасы Келишим баада болсунбу?')\">✎ Келишим</a>")
     return (
         "<div class='ad'><div class='ah'>№" + str(lid) + " · " + E(str(title)) +
         st + _src_badge(lid) + wn + "</div>"
-        "<div class='am'>" + E(str(r.get("price") or "-")) + " · " + E(cat) +
+        "<div class='am'>" + E(str(r.get("price") or "-")) + dl + " · " + E(cat) +
         " · 👁 " + str(r.get("views") or 0) + "</div>"
         "<div class='am'>Коюлду: " + E(_kg(r.get("created_at"))) +
         " · Бүтөт: " + E(exp[:10]) + "</div>"
