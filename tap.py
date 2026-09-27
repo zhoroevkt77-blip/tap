@@ -628,7 +628,7 @@ function secName(){var a=(S.data||{}).adType;for(var i=0;i<SECS.length;i++){if(S
 function start(){S.hist=[];S.data=null;
   var tp=document.getElementById('psecs');
   box.innerHTML='<div class="pq">'+T('Кандай жарыя бересиз?','Какое объявление подаёте?')+'</div>'+(tp?tp.innerHTML:'');
-  box.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(e){if(e)e.preventDefault();
+  box.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(e){if(e)e.preventDefault();b.classList.add('tap');
     api({op:'start',section:b.getAttribute('data-s')}).then(set).catch(function(){err();});};});}
 function next(v){S.hist.push({step:S.step,data:JSON.parse(JSON.stringify(S.data))});
   api({op:'next',step:S.step,data:S.data,value:v}).then(set).catch(function(){err();});}
@@ -658,7 +658,7 @@ function draw(){
     if(v.input){h+='<textarea id="pi" class="pfld" rows="5" placeholder="'+esc(v.placeholder)+'"></textarea><button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>';}
   }
   box.innerHTML=h;
-  var pb=document.getElementById('pb'); if(pb)pb.onclick=function(){var x=S.hist.pop();if(!x){start();return;}
+  var pb=document.getElementById('pb'); if(pb)pb.onclick=function(){pb.classList.add('tap');   /* TAP_ALL */var x=S.hist.pop();if(!x){start();return;}
     S.step=x.step;S.data=x.data;api({op:'view',step:x.step,data:x.data}).then(function(j){if(j.ok){S.view=j.view;S.picked=[];draw();}else err(j.err);});};
   box.querySelectorAll('.popt').forEach(function(b){b.onclick=function(){var o=v.options[+b.getAttribute('data-i')];
     if(v.multi){var k=S.picked.indexOf(o.value);if(k>=0)S.picked.splice(k,1);else S.picked.push(o.value);draw();}
@@ -726,6 +726,7 @@ _POST_CSS = """<style>/* PBACK4 */
 .psec{display:flex;align-items:center;gap:8px}.psec img{width:34px;height:34px;border-radius:9px;object-fit:cover}
 .popts .popt{min-height:42px!important;padding:8px 12px!important;font-size:15px!important;line-height:1.2!important}/* POPT_THIN */
 .popts .popt{-webkit-tap-highlight-color:transparent;transition:background .12s,color .12s}.popts .popt:active,.popts .popt.tap{background:#17304F!important;color:#fff!important;border-color:#17304F!important;box-shadow:0 4px 0 #2E9E5B,0 7px 16px rgba(23,48,79,.30)!important}
+#pbox .cat{-webkit-tap-highlight-color:transparent}#pbox .cat:active,#pbox .cat.tap{box-shadow:0 4px 0 #2E9E5B,0 7px 16px rgba(23,48,79,.30)!important;outline:3px solid #17304F;outline-offset:-3px}#pbox .cat:active .pill,#pbox .cat.tap .pill,#pbox .cat.tap .lb{background:#17304F!important;color:#fff!important}.pback{-webkit-tap-highlight-color:transparent}.pback:active,.pback.tap{background:#17304F!important;border-color:#17304F!important;box-shadow:0 4px 0 #2E9E5B}.pback:active svg,.pback.tap svg{stroke:#fff}
 .pok{width:84px;height:84px;margin:30px auto 10px;border-radius:42px;background:#2E9E5B;color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center}
 </style>"""
 
