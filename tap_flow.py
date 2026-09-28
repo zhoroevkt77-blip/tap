@@ -555,6 +555,44 @@ MARKET_OBLAST_MAP = {
     "tokmok": "Чүй облусу", "karabalta": "Чүй облусу", "kant": "Чүй облусу",
     "kemin": "Чүй облусу", "orlovka": "Чүй облусу", "kainyndy": "Чүй облусу",
     "shopokov": "Чүй облусу",
+    "kerben": "Жалал-Абад облусу", "kochkorata": "Жалал-Абад облусу",   # MKTGEO
+    "toktogul": "Жалал-Абад облусу",
+}
+
+# MKTGEO: шаардын району жана (райондун ичинде болсо) шаардын өзү —
+# жарыя сайттагы облус → район → шаар чиптеринде туура табылат.
+MARKET_PLACE = {
+    "jalalabad":  ("Манас шаары", None),
+    "karakol":    ("Каракол шаары", None),
+    "balykchy":   ("Балыкчы шаары", None),
+    "naryn":      ("Нарын шаары", None),
+    "talas":      ("Талас шаары", None),
+    "kyzylkiya":  ("Кызыл-Кыя шаары", None),
+    "batken":     ("Баткен шаары", None),
+    "tokmok":     ("Токмок шаары", None),
+    "suluktu":    ("Сулуктуу шаары", None),
+    "karakol_jal": ("Кара-Көл шаары", None),
+    "mailuusuu":  ("Майлуу-Суу шаары", None),
+    "tashkomur":  ("Таш-Көмүр шаары", None),
+    "karabalta":  ("Жайыл району", "Кара-Балта шаары / город Кара-Балта"),
+    "kant":       ("Ысык-Ата району", "Кант шаары / город Кант"),
+    "razzakov":   ("Лейлек району", "Раззаков шаары / город Раззаков"),
+    "aidarken":   ("Кадамжай району", "Айдаркен шаары / город Айдаркен"),
+    "kadamjai":   ("Кадамжай району", "Кадамжай шаары / город Кадамжай"),
+    "kokjangak":  ("Сузак району", "Көк-Жаңгак шаары / город Кок-Жангак"),
+    "kerben":     ("Аксы району", "Кербен шаары / город Кербен"),
+    "kochkorata": ("Ноокен району", "Кочкор-Ата шаары / город Кочкор-Ата"),
+    "toktogul":   ("Токтогул району", "Токтогул шаары / город Токтогул"),
+    "shamaldysai": ("Ноокен району", "Достук айыл аймагы / аильный округ Достук"),
+    "bazarkorgon": ("Базар-Коргон району", "Базар-Коргон шаары / город Базар-Коргон"),
+    "cholponata": ("Ысык-Көл району", "Чолпон-Ата шаары / город Чолпон-Ата"),
+    "karasuu":    ("Кара-Суу району", "Кара-Суу шаары / город Кара-Суу"),
+    "nookat":     ("Ноокат району", "Ноокат шаары / город Ноокат"),
+    "ozgon":      ("Өзгөн району", "Өзгөн шаары / город Узген"),
+    "kemin":      ("Кемин району", "Кемин шаары / город Кемин"),
+    "orlovka":    ("Кемин району", "Орловка шаары / город Орловка"),
+    "kainyndy":   ("Панфилов району", "Кайыңды шаары / город Кайынды"),
+    "shopokov":   ("Сокулук району", "Шопоков шаары / город Шопоков"),
 }
 
 
@@ -1449,9 +1487,15 @@ def advance(step, value, data=None):
         return go("generic_markets_sub", marketsGroup=value)
 
     if step == "generic_markets_sub":
-        return go("trade_category", subcategory=value, title=value,
-                  oblast=MARKET_OBLAST_MAP.get(d.get("marketsGroup"), "Кыргызстан"),
-                  locality=value, category="markets")
+        _kw = dict(subcategory=value, title=value,
+                   oblast=MARKET_OBLAST_MAP.get(d.get("marketsGroup"), "Кыргызстан"),
+                   locality=value, category="markets")
+        _pl = MARKET_PLACE.get(d.get("marketsGroup"))   # MKTGEO
+        if _pl:
+            _kw["district"] = _pl[0]
+            if _pl[1]:
+                _kw["locality"] = _pl[1]
+        return go("trade_category", **_kw)
 
     # ── Соода категориялары ─────────────────────────────────
     if step == "trade_category":

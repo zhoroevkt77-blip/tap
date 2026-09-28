@@ -10604,3 +10604,36 @@ TAXI_AIRPORT_SUBS = [
 TAXI_CATEGORIES.append({"id": "taxi_airport", "emoji": "✈️",
                         "label": "Аэропорт / Аэропорт",
                         "subs": list(TAXI_AIRPORT_SUBS)})
+
+
+# MKTGEO: ири базарлар өз шаарына жайгашат
+def _mkt_fix():
+    b = MARKETS_SUBS_BY_TYPE.get("bazaar") or {}
+    other = "Башка / Другое"
+    def put(gid, items, drop=()):
+        cur = [x for x in b.get(gid, [other]) if x not in drop and x != other]
+        for it in items:
+            if it not in cur:
+                cur.append(it)
+        b[gid] = cur + [other]
+    # Бишкек
+    put("bishkek", ["«Дордой-Дыйкан» базары / Рынок «Дордой-Дыйкан»",
+                    "«Дыйкан» базары / Рынок «Дыйкан»"])
+    # Ош шаары: Кара-Суу базары Кара-Суу шаарына көчөт
+    osh = b.get("osh", [])
+    osh = ["Борбордук базар (Жайма базар) / Центральный рынок (Жайма базар)"
+           if x.startswith("Борбордук базар («Тилеке Баатыр»)") else x for x in osh]
+    b["osh"] = osh
+    put("osh", ["«Фрунзе» базары / Фрунзенский рынок"],
+        drop=("«Кара-Суу» базары (Туратали) / Рынок «Кара-Суу» (Туратали)",))
+    # Кара-Суу шаары
+    put("karasuu", ["«Кара-Суу» базары / Рынок «Кара-Суу»",
+                    "«Туратаалы» базары / Рынок «Туратали»"],
+        drop=("Борбордук базар / Центральный рынок",))
+    # Өзгөн шаары
+    put("ozgon", ["Өзгөн базары / Узгенский рынок"],
+        drop=("Борбордук базар / Центральный рынок",))
+    MARKETS_SUBS_BY_TYPE["bazaar"] = b
+
+
+_mkt_fix()
