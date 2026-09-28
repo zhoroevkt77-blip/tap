@@ -752,18 +752,25 @@ def render(step, data=None):
         verb = "жарыя бересизби" if act == "post" else "издейсизби"
         return _view("%s боюнча %s (бүт %s)? / По всему %s?" % (dist, verb, unit, unit_ru),
                      _opts([("📍 Бүт %s боюнча / По всему %s" % (unit, unit_ru), "district_only"),
-                            ("🏘 Айыл аймактын бирин тандоо / Выбрать аильный округ", "locality")]))
+                            (("🏘 Кичи район/конуш тандоо / Выбрать микрорайон/посёлок"   # GEOFIX
+                              if unit == "шаар" else
+                              "🏘 Айыл аймактын бирин тандоо / Выбрать аильный округ"), "locality")]))
 
     if step == "locality_select":
         ob = d.get("oblast", "")
         text = ("Бир же бир нече кичи районду/МАБды/конушту тандаңыз / Выберите микрорайон(ы):"
-                if _is_city(ob)
-                else "Бир же бир нече айыл аймак тандаңыз / Выберите аильный округ(а):")
+                if _is_city(ob) or str(d.get("district") or "").endswith("шаары")   # GEOFIX
+                else "Шаарды же айыл аймакты тандаңыз (бир же бир нече) / Выберите город или аильный округ:")
         return _view(text, _from_list(get_localities(ob, d.get("district"))), multi=True)
 
     if step == "locality_scope_select":
         verb = "жарыя бересизби" if act == "post" else "издейсизби"
-        return _view("%s боюнча %s (бүт айыл аймак)? / По всему аильному округу?" % (d.get("locality", ""), verb),
+        _ln = str(d.get("locality", "")).split(" / ")[0].strip()   # GEOFIX
+        if "шаар" in _ln:
+            return _view("%s боюнча %s (бүт шаар)? / По всему городу?" % (_ln, verb),
+                         _opts([("🏙 Бүт шаар боюнча / По всему городу", "locality_only"),
+                                ("🏡 Кичи район/конуш тандоо / Выбрать микрорайон", "village")]))
+        return _view("%s боюнча %s (бүт айыл аймак)? / По всему аильному округу?" % (_ln, verb),
                      _opts([("🏘 Бүт айыл аймак боюнча / По всему аильному округу", "locality_only"),
                             ("🏡 Айылдын бирин тандоо / Выбрать одно из сёл", "village")]))
 
@@ -1404,6 +1411,12 @@ def advance(step, value, data=None):
         node = (GEO.get(d.get("oblast")) or {}).get(d.get("district"))
         if isinstance(node, list):
             return _after_region(d), d
+        try:   # GEOFIX: «Кара-Суу шаары» → айылы бирөө гана («Кара-Суу») — сурабайбыз
+            if len(get_villages(d.get("oblast"), d.get("district"), value) or []) <= 1:
+                d["village"] = None
+                return _after_region(d), d
+        except Exception:
+            pass
         return "locality_scope_select", d
 
     if step == "locality_scope_select":
