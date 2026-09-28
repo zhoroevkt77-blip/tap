@@ -399,7 +399,8 @@ def _wlead(line):
 def _wloc(text, lang):
     """«кыргызча / орусча» → бир тил, HTML."""
     out = []
-    for line in str(text or "").split("\n"):
+    text = str(text or "").replace(" / \n", " / ").replace("/\n", "/ ")   # TITLE2
+    for line in text.split("\n"):
         pk = L(line, lang)
         hd = _wlead(line)
         if hd.strip() and not pk.startswith(hd.strip()[:1]):
@@ -485,9 +486,11 @@ def _web_post(b, lang):
     step = str(b.get("step") or "")
     if op == "next":
         step, d = _tf.advance(step, str(b.get("value") or ""), d)
-        for _i in range(2):                  # номер ырасталган — өзү толтурулат
+        for _i in range(4):                  # номер ырасталган — өзү толтурулат
             if step in ("post_whatsapp", "taxi_phone"):
                 step, d = _tf.advance(step, "+996" + st["phone"], d)
+            elif step in ("post_preview", "taxi_preview"):   # TITLE2: кош ырастоо жок
+                step, d = _tf.advance(step, "confirm", d)
         if step in _WEB_HOME or step == "language_select":
             return {"ok": True, "restart": True}
         return {"ok": True, "step": step, "data": d, "view": _wview(step, d, lang)}
@@ -664,7 +667,7 @@ function start(){S.hist=[];S.data=null;S.rest=false;S.inp='';S.trail=[];dclr();
   box.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(e){if(e)e.preventDefault();b.classList.add('tap');
     api({op:'start',section:b.getAttribute('data-s')}).then(set).catch(function(){err();});};});}
 function next(v,lab){S.inp='';S.rest=false;S.hist.push({step:S.step,data:JSON.parse(JSON.stringify(S.data)),trail:(S.trail||[]).slice()});   /* PTRAIL */
-  S.trail=(S.trail||[]).concat(lab&&!/^\s*✅/.test(String(lab))?[String(lab)]:[]);
+  S.trail=(S.trail||[]).concat(lab&&!/^\s*(✅|[-—–]\s*$)/.test(String(lab))?[String(lab)]:[]);
   api({op:'next',step:S.step,data:S.data,value:v}).then(set).catch(function(){err();});}
 function draw(){
   var v=S.view,h='';

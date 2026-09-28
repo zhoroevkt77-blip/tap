@@ -205,8 +205,8 @@ def show_title(row):
         if sep and is_code(head):
             lbl = cat_label(head)
             if lbl:
-                return (lbl.split(" / ")[0] + sep + tail)
-        return t
+                return short_title(lbl.split(" / ")[0] + sep + tail)
+        return short_title(t)
     cid = row.get("cat_id") or (t if t else "")
     lbl = cat_label(cid)
     if lbl:
@@ -338,6 +338,29 @@ def _first(text):
     return " | ".join(x for x in parts if x)
 
 
+_TSKIP = {"", "-", "—", "–", "none", "null"}
+
+
+def short_title(t, limit=44):   # TITLE2: «A | B | - | Депозит: …» → «A | B»
+    """
+    Курама аталыштан кыскасын алат: бош, «-» жана «Аты: маани» түрүндөгү
+    бөлүктөр түшүп калат (алар сүрөттөмөдө баары бир турат). Эң көп эки бөлүк.
+    """
+    t = str(t or "").strip()
+    if " · " in t:
+        t = " · ".join(x.strip() for x in t.split(" · ") if x.strip().lower() not in _TSKIP)
+    if "|" not in t:
+        return t
+    raw = [x.strip() for x in t.split("|")]
+    parts = [x for x in raw if x.lower() not in _TSKIP and ":" not in x]
+    if not parts:
+        parts = [x for x in raw if x.lower() not in _TSKIP][:1] or [t]
+    out = parts[0]
+    if len(parts) > 1 and len(out) + 3 + len(parts[1]) <= limit:
+        out += " | " + parts[1]
+    return out
+
+
 def build_title(data):
     """
     Жарыянын аталышын чогултат.
@@ -347,7 +370,7 @@ def build_title(data):
     """
     t = data.get("title")
     if t and not is_code(str(t)):
-        return _first(str(t))[:200]
+        return short_title(_first(str(t)))[:200]
 
     sub = str(data.get("subcategory") or "").strip()
     if sub and not is_code(sub):
@@ -389,6 +412,7 @@ def build_description(data):
         ("storeAddress",  "Дареги"),
         ("storeHours",    "Иш убактысы"),
         ("storeDelivery", "Жеткирүү"),
+        ("rentalPeriod",  "Ижара мөөнөтү"),
         ("rentalCharacteristics", "Мүнөздөмөсү"),
         ("rentalDeposit", "Депозит"),
         ("jobDuties",     "Милдеттери"),
