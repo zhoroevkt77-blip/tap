@@ -363,8 +363,8 @@ EXTRA_CSS += chr(10) + 'nav.cats,#pbox nav.cats{display:grid!important;grid-temp
 
 # SIBLEND: ак фондогу сүрөттөр
 EXTRA_CSS += chr(10) + 'nav.cats .cat.pic img.pic,#pbox nav.cats .cat.pic img.pic{object-fit:cover!important;padding:0!important;/*SIFILL*/box-sizing:border-box!important;mix-blend-mode:multiply;transform:none!important;animation:none!important;object-position:center bottom!important}nav.cats .cat.pic .picw,#pbox nav.cats .cat.pic .picw{transform:none!important;box-shadow:none!important}' + chr(10)
-# SIALL: «Баары» сүрөтү солго жана жогору
-EXTRA_CSS += chr(10) + 'nav.cats .cat.pic.s-all img.pic,#pbox nav.cats .cat.pic.s-all img.pic{transform:translate(-6%,-12%) scale(1.2)!important;transform-origin:center center!important}' + chr(10)
+# SIALL: «Баары» сүрөтү — аймагы жогору чоюлат (SIALL3)
+EXTRA_CSS += chr(10) + 'nav.cats .cat.pic.s-all .pill,#pbox nav.cats .cat.pic.s-all .pill{min-height:0!important;padding-bottom:0!important}nav.cats .cat.pic.s-all img.pic,#pbox nav.cats .cat.pic.s-all img.pic{object-fit:contain!important;object-position:center center!important;transform:translate(-4%,-3%) scale(1.08)!important;transform-origin:center center!important}/* SIALL3 */' + chr(10)
 
 
 
