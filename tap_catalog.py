@@ -10637,3 +10637,11 @@ def _mkt_fix():
 
 
 _mkt_fix()
+
+
+# MALLS2: «Соода магазиндер» → «Ири соода дүкөндөр»; түйүндөрдүн тизмеси жок
+for _t in MALLS_TYPES:
+    if _t.get("id") == "store":
+        _t["label"] = "Ири соода дүкөндөр / Крупные магазины"
+for _g in list((MARKETS_SUBS_BY_TYPE.get("store") or {}).keys()):
+    MARKETS_SUBS_BY_TYPE["store"][_g] = ["Башка / Другое"]

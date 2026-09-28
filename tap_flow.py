@@ -435,27 +435,54 @@ CHAIN_BAZAAR = [
      "Же өзүңүз жазыңыз / Или впишите свой", BAZAAR_DELIVERY),
 ]
 
+STORE_HOURS = _o("08:00–20:00", "09:00–21:00", "10:00–22:00", "24/7 (тынымсыз)")   # MALLS2
+STORE_DELIV = _o("Жеткирүү бар", "Шаар ичинде гана", "Жеткирүү жок")
+
 CHAIN_MALL = [
-    ("mallBrand", "👜 Дүкөнүңүздүн аты жана эмне сунуштайсыз? / Название магазина и что предлагаете?",
-     "Мис: «Элегант» — италиялык сумкалар / Например: «Элегант» — сумки из Италии"),
-    ("mallPromo", "🎁 Өзгөчөлүгү же учурдагы акциялар барбы? / Особенности или акции?",
-     "Мис: Жаңы коллекция, 20% арзандатуу / Например: Новая коллекция, скидка 20%"),
-    ("mallFloor", "🏢 Кабаты жана ориентир кайсы? / Этаж и ориентир?",
-     "Мис: 1-кабат, борбордук фонтандын оң тарабында / Например: 1 этаж, справа от фонтана"),
+    ("mallBrand", "👜 Бутигиңиздин (дүкөнүңүздүн) аты? / Название бутика (магазина)?",
+     "Мис: «Элегант» / Например: «Элегант»"),
+    ("mallFloor", "🏢 Кабаты жана бутиктин номери? / Этаж и номер бутика?",
+     "Мис: 2-кабат, 215-бутик / Например: 2 этаж, бутик 215"),
     ("mallHours", "⏰ Иш убактысы кандай? / Часы работы?",
-     "Мис: 10:00–22:00 (дем алышсыз) / Например: 10:00–22:00 (без выходных)"),
+     "Же өзүңүз жазыңыз / Или впишите свой", STORE_HOURS),
 ]
 
 CHAIN_STORE = [
-    ("storeDirection", "🏪 Дүкөнүңүздүн аты жана эмнеге адистешкен? / Название магазина и специализация?",
-     "Мис: «Балдар дүйнөсү» — балдар кийими / Например: «Детский мир» — детская одежда"),
-    ("storeAddress", "📍 Так дареги жана ориентир кайсы? / Точный адрес и ориентир?",
-     "Мис: Сухэ-Батор көчөсү 23А / Например: ул. Сухэ-Батора 23А"),
+    ("storeDirection", "🏪 Дүкөнүңүздүн аты? / Название магазина?",
+     "Мис: «Айбек эмерек» / Например: «Айбек мебель»"),
+    ("storeAddress", "📍 Дареги жана ориентир? / Адрес и ориентир?",
+     "Мис: Ленин көчөсү 23, базардын жанында / Например: ул. Ленина 23"),
     ("storeHours", "⏰ Иш убактысы кандай? / Часы работы?",
-     "Мис: 09:00–20:00 (дем алышсыз) / Например: 09:00–20:00 (без выходных)"),
+     "Же өзүңүз жазыңыз / Или впишите свой", STORE_HOURS),
     ("storeDelivery", "🚚 Жеткирүү кызматы барбы? / Есть ли доставка?",
-     "Мис: Шаар ичинде жеткирүү бар / Например: Есть доставка по городу"),
+     "Же өзүңүз жазыңыз / Или впишите свой", STORE_DELIV),
 ]
+
+
+def _malls_post(d):
+    return d.get("adType") == "malls" and d.get("action") == "post"
+
+
+def _mall_group(d):
+    """Тандалган жерге дал келген шаардын коду (ТЦ тизмеси үчүн)."""
+    ob, di, loc = d.get("oblast"), d.get("district"), d.get("locality")
+    if ob == "Бишкек шаары":
+        return "bishkek"
+    if ob == "Ош шаары":
+        return "osh"
+    for gid, (pd, pl) in MARKET_PLACE.items():
+        if MARKET_OBLAST_MAP.get(gid) == ob and pd == di and (pl is None or pl == loc):
+            return gid
+    return None
+
+
+def _place_short(d):
+    for k in ("village", "locality", "district", "oblast"):
+        v = str(d.get(k) or "").split(" / ")[0].strip()
+        if v and "," not in v:
+            return v
+    return ""
+
 
 CHAIN_RENTAL = [
     ("rentalPeriod", "📅 Кандай мөөнөткө бересиз? / На какой срок сдаёте?", "", RENT_PERIOD),
@@ -743,7 +770,10 @@ def render(step, data=None):
 
     # ── Аймак тандоо ────────────────────────────────────────
     if step == "oblast_select":
-        return _view("Шаарды же облусту тандаңыз! / Выберите город или область!", _regions())
+        _rg = _regions()
+        if _malls_post(d):   # MALLS2: дүкөн бир жерде турат
+            _rg = [o for o in _rg if o.get("value") != ALL_KG]
+        return _view("Шаарды же облусту тандаңыз! / Выберите город или область!", _rg)
 
     if step == "city_scope_select":
         ob = d.get("oblast", "")
@@ -762,6 +792,9 @@ def render(step, data=None):
         # Уста, жеткирүү жана жүк ташуу кошуна райондорду тейлейт —
         # аларга бир нече район тандоого уруксат.
         multi = _is_city(ob) or at in MULTI_DISTRICT_TYPES
+        _mp = _malls_post(d)   # MALLS2
+        if _mp:
+            multi = False
         # CITY_ALL: шаарда — «Бүт шаар боюнча» жана аймактык башкармалыктар
         if _is_city(ob):
             text = ("Бүт шаар боюнча, же аймактык башкармалыктарды тандаңыз / "
@@ -772,9 +805,12 @@ def render(step, data=None):
             text = "%s — район же шаарды тандаңыз / Выберите район или город:" % ob
         opts = [{"label": "%s / %s" % (x, ru_name(x)), "value": x}
                 for x in get_districts(ob)]
-        if _is_city(ob):
+        if _is_city(ob) and not _mp:
             opts = [{"label": "🏙 Бүт шаар боюнча / По всему городу",
                      "value": "__city__"}] + opts
+        if _mp:
+            text = ("Дүкөн кайсы районда? / В каком районе магазин?" if _is_city(ob)
+                    else "%s — дүкөн кайсы район же шаарда? / В каком районе или городе?" % ob)
         return _view(text, opts, multi=multi)
 
     if step == "city_district_scope_select":
@@ -799,7 +835,8 @@ def render(step, data=None):
         text = ("Бир же бир нече кичи районду/МАБды/конушту тандаңыз / Выберите микрорайон(ы):"
                 if _is_city(ob) or str(d.get("district") or "").endswith("шаары")   # GEOFIX
                 else "Шаарды же айыл аймакты тандаңыз (бир же бир нече) / Выберите город или аильный округ:")
-        return _view(text, _from_list(get_localities(ob, d.get("district"))), multi=True)
+        return _view(text, _from_list(get_localities(ob, d.get("district"))),
+                     multi=not _malls_post(d))   # MALLS2
 
     if step == "locality_scope_select":
         verb = "жарыя бересизби" if act == "post" else "издейсизби"
@@ -816,6 +853,15 @@ def render(step, data=None):
         return _view("Бир же бир нече айыл тандаңыз / Выберите одно или несколько сёл:",
                      _from_list(get_villages(d.get("oblast"), d.get("district"), d.get("locality"))),
                      multi=True)
+
+    if step == "mall_pick":   # MALLS2
+        g = _mall_group(d)
+        lst = [x for x in ((MARKETS_SUBS_BY_TYPE.get("mall") or {}).get(g) or [])
+               if not str(x).startswith("Башка")]
+        return _view("🏬 Кайсы соода борборунда? Тизмеде жок болсо, атын жазыңыз / "
+                     "В каком торговом центре? Если нет в списке — напишите",
+                     _from_list(lst) if lst else [], input=True,
+                     placeholder="Мис: «Айчүрөк» соода борбору / Например: ТЦ «Айчурек»")
 
     # ── Базарлар / соода борборлору ─────────────────────────
     if step == "markets_type":
@@ -1299,6 +1345,8 @@ def render(step, data=None):
 
 def _after_region(d):
     """Аймак тандалгандан кийин кайда барабыз."""
+    if _malls_post(d):   # MALLS2
+        return "mall_pick" if d.get("marketsType") == "mall" else "trade_category"
     if d.get("action") == "post":
         return ("trade_category" if d.get("adType") in ("trade", "property", "vehicle")
                 else "category_select")
@@ -1416,6 +1464,8 @@ def advance(step, value, data=None):
             return _after_region(d), d
         d["oblast"] = value
         # CITY_SCOPE_ALWAYS: шаарда ар дайым «Бүт шаар / МАБ тандоо» экраны
+        if _malls_post(d):   # MALLS2
+            return "district_select", d
         return ("city_scope_select" if _is_city(value) else "district_select"), d
 
     if step == "city_scope_select":
@@ -1429,6 +1479,11 @@ def advance(step, value, data=None):
             d.update(district=None, locality=None)
             return _after_region(d), d
         d["district"] = value
+        if _malls_post(d):   # MALLS2: шаарда/шаар-районго чейин жетиштүү, районго айыл аймак керек
+            d["locality"] = None
+            if _is_city(d.get("oblast")) or str(value).endswith("шаары"):
+                return _after_region(d), d
+            return "locality_select", d
         if "," in value:            # бир нече район тандалды
             d["locality"] = None
             return _after_region(d), d
@@ -1468,6 +1523,10 @@ def advance(step, value, data=None):
         return _after_region(d), d
 
     # ── Базарлар ────────────────────────────────────────────
+    if step == "markets_type" and _malls_post(d):   # MALLS2: кадимки аймак агымы
+        d["marketsType"] = value
+        return "oblast_select", d
+
     if step == "markets_type":
         d["marketsType"] = value
         return ("livestock_oblast_select" if value == "livestock_market"
@@ -1482,6 +1541,9 @@ def advance(step, value, data=None):
     if step == "livestock_market_name":
         return go("trade_category", subcategory=value, title=value,
                   locality=value, category="markets")
+
+    if step == "mall_pick":   # MALLS2
+        return go("trade_category", mallName=str(value).split(" / ")[0].strip())
 
     if step == "generic_markets_group":
         return go("generic_markets_sub", marketsGroup=value)
@@ -1678,21 +1740,24 @@ def advance(step, value, data=None):
             p = _chain_pending(CHAIN_MALL, d)
             if p:
                 d[p[0]] = value
-                if p[0] == "mallHours":
-                    d["title"] = "%s | %s | %s | Иш убактысы: %s" % (
-                        d.get("mallBrand"), d.get("mallPromo"), d.get("mallFloor"), value)
-                    return "trade_price", d
+                if p[0] == "mallHours":   # MALLS2: баа суралбайт
+                    d["title"] = " · ".join(x for x in (
+                        str(d.get("mallBrand") or "").strip(),
+                        str(d.get("mallName") or "").strip()) if x) or "Бутик"
+                    d["price"], d["tradeBargain"] = "", ""
+                    return "trade_photo", d
                 return "trade_title", d
 
         if at in ("markets", "malls") and mt == "store":
             p = _chain_pending(CHAIN_STORE, d)
             if p:
                 d[p[0]] = value
-                if p[0] == "storeDelivery":
-                    d["title"] = "%s | %s | Иш убактысы: %s | Жеткирүү: %s" % (
-                        d.get("storeDirection"), d.get("storeAddress"),
-                        d.get("storeHours"), value)
-                    return "trade_price", d
+                if p[0] == "storeDelivery":   # MALLS2: баа суралбайт
+                    d["title"] = " · ".join(x for x in (
+                        str(d.get("storeDirection") or "").strip(),
+                        _place_short(d)) if x) or "Дүкөн"
+                    d["price"], d["tradeBargain"] = "", ""
+                    return "trade_photo", d
                 return "trade_title", d
 
         if (at == "trade" and not str(cat).startswith(("re_", "veh_"))

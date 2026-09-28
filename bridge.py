@@ -404,11 +404,12 @@ def build_description(data):
         ("marketStall",   "Соода орду"),
         ("bazaarQuality", "Сапаты"),
         ("bazaarDelivery", "Карго"),
+        ("mallName",      "Соода борбору"),   # MALLS2
         ("mallBrand",     "Дүкөн"),
         ("mallPromo",     "Акция"),
         ("mallFloor",     "Кабаты"),
         ("mallHours",     "Иш убактысы"),
-        ("storeDirection", "Багыты"),
+        ("storeDirection", "Дүкөн"),
         ("storeAddress",  "Дареги"),
         ("storeHours",    "Иш убактысы"),
         ("storeDelivery", "Жеткирүү"),
