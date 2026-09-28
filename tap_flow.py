@@ -1465,6 +1465,9 @@ def advance(step, value, data=None):
         d["oblast"] = value
         # CITY_SCOPE_ALWAYS: шаарда ар дайым «Бүт шаар / МАБ тандоо» экраны
         if _malls_post(d):   # MALLS2
+            if _is_city(value):   # MALLCITY: Бишкек/Ош — район, МАБ суралбайт
+                d.update(district=None, locality=None)
+                return _after_region(d), d
             return "district_select", d
         return ("city_scope_select" if _is_city(value) else "district_select"), d
 
