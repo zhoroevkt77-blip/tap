@@ -2010,3 +2010,101 @@ def advance(step, value, data=None):
         return "main_menu", {}
 
     return "main_menu", {}
+
+
+
+# ─────────────────────────────────────────────────────────────
+#  EXAMPLES_BY_CAT: «Мис: …» мисалы тандалган категорияга жараша.
+#  Мисалы, унаа тетиктерин сатса — «Айбек эмерек» эмес, «Авто Тетик».
+# ─────────────────────────────────────────────────────────────
+_SHOP_EX = {
+    "auto_parts": "«Авто Тетик»", "smartphones": "«Мобайл Сити»",
+    "computers": "«Комп Дүйнө»", "electronics": "«Электро Плюс»",
+    "appliances_home": "«Үй Техника»", "furniture": "«Айбек эмерек»",
+    "clothing": "«Стиль» кийим дүкөнү", "footwear": "«Бут кийим дүйнөсү»",
+    "watches_jewelry": "«Алтын Зер»", "construction_materials": "«Береке курулуш»",
+    "tools": "«Уста Инструмент»", "animals": "«Зоо Дүйнө»",
+    "kids": "«Балдар дүйнөсү»", "sport": "«Спорт Мастер»",
+    "food": "«Береке» азык-түлүк", "beauty_goods": "«Сулуу» косметика",
+    "medicine": "«Дары Плюс» дарыканасы", "carpets": "«Килем Сарайы»",
+    "national": "«Кыргыз Өнөр»", "books": "«Китеп Дүйнө»",
+    "handicraft": "«Уз Колдор»", "optics": "«Оптика Плюс»",
+    "toys_games": "«Оюнчук Дүйнө»", "flowers": "«Гүлзар»",
+    "heating_fuel": "«Отун-Көмүр» кампасы",
+}
+_TITLE_EX = {
+    "auto_parts": "Toyota Camry алдыңкы бампери", "smartphones": "iPhone 13, 128 ГБ",
+    "computers": "Lenovo ноутбук, i5, 16 ГБ", "electronics": "Samsung телевизор, 55 дюйм",
+    "appliances_home": "LG кир жуугуч машина, 7 кг", "furniture": "Жумшак диван, бурчтук",
+    "clothing": "Кышкы куртка, эркектерге", "footwear": "Балдар кроссовкасы, 32-өлчөм",
+    "watches_jewelry": "Алтын шакек, 585", "construction_materials": "Цемент М400, 50 кг",
+    "tools": "Makita перфоратору", "kids": "Балдар коляскасы",
+    "sport": "Велосипед, 26 дюйм", "food": "Жаңы бал, 1 кг",
+    "beauty_goods": "Корей кремдери", "medicine": "Тонометр, автомат",
+    "carpets": "Жүн килем, 2×3 м", "national": "Шырдак, кол менен жасалган",
+    "books": "Мектеп китептери, 5-класс", "handicraft": "Кийизден буюмдар",
+    "optics": "Көз айнектин алкагы", "toys_games": "PlayStation 5",
+    "flowers": "Роза гүлдөстөсү", "heating_fuel": "Көмүр, Кара-Кече, 1 тонна",
+}
+_RENT_EX = {
+    "rent_residential": "2 бөлмө, эмереги менен, интернет бар",
+    "rent_commercial": "80 м², 1-кабат, өзүнчө кирүү",
+    "rent_land": "10 сотых, суу бар, жол жакын",
+    "rent_car": "Toyota Camry 2015, автомат, айдоочусу менен же айдоочусуз",
+    "rent_truck": "Портер, 1,5 тонна, айдоочусу менен",
+    "rent_bus": "Спринтер, 18 орун, айдоочусу менен",
+    "rent_special": "JCB экскаватору, оператору менен",
+    "rent_tools": "Перфоратор, бетон аралаштыргыч",
+    "rent_agro": "МТЗ-82 трактору, соко менен",
+    "rent_event": "Боз үй, 50 кишилик, жасалгасы менен",
+    "rent_photo": "Canon камерасы, штатив, жарык",
+    "rent_clothes": "Улуттук кийим, келин көйнөк",
+    "rent_tourism": "Чатыр 4 кишилик, уктоочу баштык",
+    "rent_animals": "Ат, ээри менен",
+    "rent_equipment": "Генератор, 5 кВт",
+    "rent_medical": "Майыптар коляскасы",
+    "rent_kids_fun": "Батут, 4×4 м",
+}
+_JOB_EX = {
+    "drivers": "Шаар ичинде жүк ташуу, унааны кароо",
+    "delivery_job": "Буйрутмаларды үйгө жеткирүү",
+    "sales": "Кардарларды тейлөө, товар тизүү",
+    "construction": "Кыш тизүү, штукатурка",
+    "home_staff_job": "Үй тазалоо, тамак жасоо",
+    "sewing_job": "Кийим тигүү, оңдоо",
+    "security_job": "Объектти күзөтүү, сменалык",
+    "office": "1С менен иштөө, документ жүргүзүү",
+    "edu": "Англис тилинен сабак берүү",
+    "medical": "Бейтаптарды кароо, укол салуу",
+    "beauty_job": "Чач кыркуу, боёо",
+    "agro_job": "Мал багуу, бакча иштери",
+    "abroad_job": "Кампада иштөө, тамак-аш өндүрүшү",
+    "finance_job": "Бухгалтердик эсеп, салык отчеттору",
+    "logistics_job": "Товар кабыл алуу, кампада иреттөө",
+    "creative_job": "Дизайн, SMM, видео монтаж",
+    "religious_job": "Куран окутуу, диний сабак",
+}
+EXAMPLES_BY_CAT = {
+    CHAIN_STORE[0][1]: ("store", _SHOP_EX, "«Береке»"),
+    CHAIN_MALL[0][1]: ("mall", _SHOP_EX, "«Элегант»"),
+    CHAIN_RENTAL[1][1]: ("rent", _RENT_EX, "абалы жакшы, шарттары келишим боюнча"),
+    CHAIN_JOB[0][1]: ("job", _JOB_EX, "Кардарлар менен иштөө"),
+}
+
+_render_base = render
+
+
+def render(step, data=None):
+    v = _render_base(step, data)
+    try:
+        d = data or {}
+        cat = str(d.get("category") or "")
+        hit = EXAMPLES_BY_CAT.get(v.get("text"))
+        if hit:
+            v["placeholder"] = "Мис: " + hit[1].get(cat, hit[2])
+        elif (step == "trade_title" and v.get("input")
+              and str(v.get("text") or "").startswith("Жарыянын аталышын")):
+            v["placeholder"] = "Мис: " + _TITLE_EX.get(cat, "Жаңы кийимдер")
+    except Exception:
+        pass
+    return v
