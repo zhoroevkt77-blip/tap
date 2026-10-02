@@ -2928,8 +2928,9 @@ def me_page(lang="ky"):
                 f'<span>WhatsApp — {esc(soon_t)}</span></span>')
 
     top = (f'<div class="mehead">'
-           f'<span class="meav"><img src="/pwa/icon-192.png?v={appicon.VERSION}" alt="ТАП!" loading="lazy"></span>'  # MEAV_LOGO
-           '<style>.meav img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}.meav{overflow:hidden;padding:0}</style>'
+           f'<span class="meav meav2"><img src="/si/brand.jpg?v={secimg.VERSION}" alt="ТАП!" loading="lazy"></span>'  # MELOGO
+           '<style>.meav.meav2{width:104px;height:auto;border-radius:0;background:none;overflow:visible;padding:0}'
+           '.meav2 img{width:100%;height:auto;object-fit:contain;border-radius:0;display:block}</style>'
            f'<span class="metx"><b>{esc(top_t)}</b>'
            f'<i>{esc(top_p)}</i></span></div>'
            f'<div class="ments">{ent}</div>')
