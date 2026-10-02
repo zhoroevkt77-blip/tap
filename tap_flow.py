@@ -2108,3 +2108,18 @@ def render(step, data=None):
     except Exception:
         pass
     return v
+
+
+
+# RUDICT: «Айына» сыяктуу бир тилдүү баскычтарга орусчасын кошобуз
+try:
+    from bridge import RU_EXTRA as _RUX
+    for _nm, _lst in list(globals().items()):
+        if _nm.startswith("_") or not isinstance(_lst, list):
+            continue
+        for _o in _lst:
+            if (isinstance(_o, dict) and isinstance(_o.get("label"), str)
+                    and " / " not in _o["label"] and _o.get("value") in _RUX):
+                _o["label"] = _o["label"] + " / " + _RUX[_o["value"]]
+except Exception as _e:
+    print("RUDICT:", _e)
