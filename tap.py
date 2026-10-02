@@ -294,6 +294,7 @@ self.addEventListener('fetch', e => {
 """
 
 PWA_JS = """<script>
+/* WEBREF */try{var _m=location.search.match(/[?&]ref=([0-9]{3,20})/);if(_m&&!localStorage.getItem('tap_ref'))localStorage.setItem('tap_ref',_m[1]);window.__tapref=localStorage.getItem('tap_ref')||'';}catch(e){}
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('/sw.js').catch(function () {});
@@ -612,7 +613,8 @@ def _web_publish(d, st, b):
     lid = core.add_listing(row, uid, str(d.get("personName") or "")[:60])
     for fn in (lambda: core.remember_phone(uid, row.get("contact")),
                lambda: core.log_event("post", lid, uid, "site"),
-               lambda: core.query("UPDATE listings SET verified=1 WHERE id=?", (lid,))):
+               lambda: core.query("UPDATE listings SET verified=1 WHERE id=?", (lid,)),
+               lambda: core.claim_referral(uid)):   # WEBREF
         try:
             fn()
         except Exception as e:
@@ -836,7 +838,8 @@ def _web_balance(tok):
         print("web_balance:", e, flush=True)
         return {"ok": False, "err": "server"}
     out = {"ok": True, "phone": "+996 " + st["phone"],
-           "ref": "https://t.me/%s?start=ref%s" % (BOT, uid)}
+           "ref": "%s/?ref=%s" % ((core.SITE_URL or os.environ.get("SITE_URL")   # WEBREF
+                                   or "https://tapmeni.up.railway.app").rstrip("/"), uid)}
     for k in ("used", "limit", "left", "bonus", "friends", "active", "soon"):
         try:
             out[k] = int(b.get(k) or 0)
@@ -861,7 +864,7 @@ function need(){box.innerHTML='<p style="line-height:1.45">'+T('Балансты
 function row(ic,lb,val){return '<div class="brow"><span class="bic">'+ic+'</span><span class="blb">'+lb+'</span><b>'+val+'</b></div>';}
 function show(j){
   var pc=j.limit?Math.min(100,Math.round(j.used/j.limit*100)):0;
-  var h='<div class="bph">'+esc(j.phone)+' · '+T('ырасталган','подтверждён')+'</div>';
+  var h='<div class="bph">'+esc(j.phone)+' · ✓ '+T('ырасталган','подтверждён')+' (Telegram)</div>';
   h+='<div class="bcard"><div class="bttl">'+T('Бүгүн коюлду','Сегодня размещено')+'</div>'
     +'<div class="bbig">'+j.used+' <span>/ '+j.limit+'</span></div>'
     +'<div class="bbar"><i style="width:'+pc+'%"></i></div>'
@@ -1098,7 +1101,7 @@ def verify_page(lang="ky"):
   function $(i){{return document.getElementById(i);}}
   function poll(){{
     if(!tok||left--<=0){{return;}}
-    fetch('/api/verify/status?t='+encodeURIComponent(tok)).then(function(r){{return r.json();}})
+    fetch('/api/verify/status?t='+encodeURIComponent(tok)+'&ref='+encodeURIComponent(window.__tapref||'')).then(function(r){{return r.json();}})
     .then(function(j){{
       if(j.verified){{clearInterval(timer);$('vf2').style.display='none';$('vf3').style.display='block';
         try{{localStorage.removeItem('tap_vtok');localStorage.setItem('tap_vok',tok);}}catch(e){{}}var nx=(location.search.match(/next=([a-z]+)/)||[])[1];if(nx==='post'||nx==='bal'||nx==='my'){{location.href='/'+nx;}}}}
@@ -3201,6 +3204,12 @@ class H(BaseHTTPRequestHandler):
             return
         if u.path == "/api/verify/status":
             r = core.web_verify_status(qs.get("t", [""])[0])
+            _rf = "".join(c for c in qs.get("ref", [""])[0] if c.isdigit())[:20]   # WEBREF
+            if r and r["verified"] and _rf and r.get("tg_id"):
+                try:
+                    core.link_referral(r["tg_id"], _rf)
+                except Exception as _e:
+                    print("webref link:", _e, flush=True)
             _json_out(self, {"verified": bool(r and r["verified"])})
             return
         if u.path == "/verify":
