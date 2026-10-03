@@ -382,6 +382,8 @@ EXTRA_CSS += chr(10) + 'nav.cats .cat.pic,#pbox nav.cats .cat.pic{display:flex!i
 EXTRA_CSS += chr(10) + 'a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg),:is(a,button).sb2.sb2.sb2.sb2.sb2{padding:6px 11px!important;font-size:12.5px!important;font-weight:700!important;border-radius:999px!important;background:#fff!important;color:#14243B!important;border:1px solid #D5DEEA!important;box-shadow:0 2px 6px rgba(20,40,80,.08)!important;line-height:1.25!important;text-shadow:none!important}a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg) em,:is(a,button).sb2.sb2.sb2.sb2.sb2 em{color:#5A6B82!important;opacity:1!important;font-weight:600!important;margin-left:6px!important}a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg).on,:is(a,button).sb2.sb2.sb2.sb2.sb2.on{background:linear-gradient(180deg,#2458C6,#163C8C)!important;color:#fff!important;border:1px solid #163C8C!important;box-shadow:0 4px 12px rgba(22,60,140,.30)!important}a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg).on em,:is(a,button).sb2.sb2.sb2.sb2.sb2.on em{color:#fff!important;opacity:.9!important}a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg).on::before{content:\'\';display:inline-block;width:13px;height:13px;margin:0 6px -1px 0;background:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'white\'%3E%3Cpath d=\'M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z\'/%3E%3C/svg%3E") center/contain no-repeat}.subbar.shchips{background:none!important;box-shadow:none!important;-webkit-mask-image:none!important;mask-image:none!important}.subbar .sb2.sb2.sb2.sb2.sb2{font-family:inherit!important;cursor:pointer}a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg):active,:is(a,button).sb2.sb2.sb2.sb2.sb2:active{transform:scale(.97)}nav.cats .cat.pic .secn,#pbox nav.cats .cat.pic .secn{top:auto!important;bottom:6px!important;right:6px!important;min-width:18px!important;height:18px!important;padding:0 5px!important;border-radius:999px!important;font-size:10.5px!important;font-weight:700!important;line-height:18px!important;text-align:center!important;background:#fff!important;color:#1E4FB8!important;border:1px solid #D5DEEA!important;box-shadow:0 1px 3px rgba(20,40,80,.12)!important;display:block!important}nav.cats .cat.pic.on .secn,#pbox nav.cats .cat.pic.on .secn{background:#1E4FB8!important;color:#fff!important;border-color:#1E4FB8!important}nav.subbar.shchips.shchips,nav.subbar.subbar{background:transparent!important;box-shadow:none!important;border:0!important}/* CHIPS1 */ /* CHIPS2 */' + chr(10)
 # BLUE1: бардык баскычтар көк
 EXTRA_CSS += chr(10) + 'html:not(#_tap) body .popt.on,html:not(#_tap) body .popts .popt.tap,html:not(#_tap) body .popts .popt:active,html:not(#_tap) body .pbtn,html:not(#_tap) body .pback:active,html:not(#_tap) body .pback.tap,html:not(#_tap) body .bbtn,html:not(#_tap) body .mbtn,html:not(#_tap) body .mact button,html:not(#_tap) body .mtabs a.on,html:not(#_tap) body .rptb button,html:not(#_tap) body .lang a.on,html:not(#_tap) body .langs a.on,html:not(#_tap) body .top nav a.on,html:not(#_tap) body .top .lg.on,html:not(#_tap) body .sel.set{background:linear-gradient(180deg,#2458C6,#163C8C)!important;color:#fff!important;border-color:#163C8C!important;box-shadow:0 4px 12px rgba(22,60,140,.30)!important;text-shadow:none!important}html:not(#_tap) body .popts .popt:not(.on):not(.tap){border:1.5px solid #C9D6E8!important;box-shadow:0 2px 6px rgba(20,40,80,.08)!important;color:#14243B!important}html:not(#_tap) body .pback{border-color:#2458C6!important;color:#163C8C!important}nav:not(.regbar1):not(.regbar2):not(.regbar3):not(.regbar4) a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg).on::before{display:none!important;content:none!important}/* BLUE1 */' + chr(10)
+# GBANS: жыйынтыктардагы баннерлер
+EXTRA_CSS += chr(10) + '.g .gban{grid-column:1/-1;border-radius:16px;overflow:hidden;box-shadow:0 6px 18px rgba(30,60,110,.16);background:#fff}.g .gban img{width:100%;height:auto;display:block}.g .gban.gb-brand{padding:8px 18%;background:linear-gradient(180deg,#EAF4FF,#fff)}.g .gban.gb-brand img{mix-blend-mode:multiply}/* GBANS */' + chr(10)
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + '.hban{margin:18px 12px 8px;border-radius:16px;overflow:hidden;box-shadow:0 6px 18px rgba(30,60,110,.18);background:#E3F0FF}.hban img{width:100%;height:auto;display:block}/* HBAN */' + chr(10)
 # PROMOVID: видео такта
@@ -2022,6 +2024,20 @@ def _role_chips(link, rl, lang="ky", ob=None):   # TAXIROLE: айдоочу/жү
     return _chips_row("Кто нужен" if ru else "Ким керек", opts, rl, lang)
 
 
+
+def _gcards(rows, lang="ky"):   # GBANS: 2-жарыядан кийин, анан ар 6 жарыядан кийин баннер
+    out, k = [], 0
+    bans = [b for b in ("ban1", "ban3", "brand", "ban2") if secimg.has(b)]
+    for i, r in enumerate(rows, 1):
+        out.append(card(r, lang))
+        if bans and (i == 2 or (i > 2 and (i - 2) % 6 == 0 and i < len(rows))):
+            nm = bans[k % len(bans)]
+            k += 1
+            out.append(f'<div class="gban gb-{nm}"><img src="/si/{nm}.jpg?v={secimg.VERSION}" '
+                       f'alt="ТАП!" loading="lazy"></div>')
+    return "".join(out)
+
+
 def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
          lang="ky", sort="new", vv=None, rl=None):
     """
@@ -2074,7 +2090,7 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
         main = (f'<div class="rl"><span class="rn">{len(rows)}</span>'
                 f'<span class="rlb">{lbl}</span>'
                 f'<a href="/" class="cl">{T("clear", lang)}</a></div>'
-                f'<div class="g">{"".join(card(r, lang) for r in rows)}</div>')
+                f'<div class="g">{_gcards(rows, lang)}</div>')   # GBANS
     elif at and not q and not cid:
         nm = section_name(at, lang)
         main = (f'<div class="em"><i>{_EMPTY}</i>'
