@@ -1993,7 +1993,7 @@ def _shelves(lang="ky", ob=None):
             'onclick="this.previousElementSibling.scrollBy({left:this.previousElementSibling.clientWidth*0.8,behavior:\'smooth\'})">&#8250;</button>'
             '</div></section>')
         _ns = sum(1 for _x in out if _x.startswith('<section'))   # HBAN
-        _bn = {2: "ban1", 5: "ban2"}.get(_ns)
+        _bn = {2: "ban1", 5: "ban2", 8: "ban3"}.get(_ns)   # HBAN3
         if _bn and secimg.has(_bn):
             out.append(f'<div class="hban"><img src="/si/{_bn}.jpg?v={secimg.VERSION}" '
                        f'alt="ТАП!" loading="lazy"></div>')
