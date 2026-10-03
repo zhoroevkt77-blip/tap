@@ -271,9 +271,9 @@ MANIFEST = {
     "theme_color": "#17365C",
     "lang": "ky",
     "icons": [
-        {"src": "/pwa/icon-192.png", "sizes": "192x192", "type": "image/png"},
-        {"src": "/pwa/icon-512.png", "sizes": "512x512", "type": "image/png"},
-        {"src": "/pwa/icon-512-mask.png", "sizes": "512x512",
+        {"src": "/pwa/icon-192.png?v=n1", "sizes": "192x192", "type": "image/png"},
+        {"src": "/pwa/icon-512.png?v=n1", "sizes": "512x512", "type": "image/png"},
+        {"src": "/pwa/icon-512-mask.png?v=n1", "sizes": "512x512",
          "type": "image/png", "purpose": "maskable"},
     ],
 }
