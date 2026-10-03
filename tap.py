@@ -32,6 +32,16 @@ FONTS = FONTS + ('<link href="https://fonts.googleapis.com/css2?family=Inter:wgh
                  '<style>html body,html body *:not(svg):not(path){font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important}</style>')
 from scenes import SCENES
 import secimg
+try:   # PROMOVID: реподогу видео → media папкасы
+    import shutil as _sh
+    for _f in ("promo.mp4", "promo.jpg"):
+        _s = os.path.join(os.path.dirname(os.path.abspath(__file__)), _f)
+        _d = os.path.join(MEDIA, _f)
+        if os.path.isfile(_s) and (not os.path.isfile(_d) or os.path.getsize(_d) != os.path.getsize(_s)):
+            os.makedirs(MEDIA, exist_ok=True)
+            _sh.copyfile(_s, _d)
+except Exception as _e:
+    print("promo:", _e, flush=True)
 import appicon
 from strings import T, L, H as help_text
 from strings import TOPICS as HELP_TOPICS, topic_title
@@ -372,6 +382,8 @@ EXTRA_CSS += chr(10) + 'nav.cats .cat.pic,#pbox nav.cats .cat.pic{display:flex!i
 EXTRA_CSS += chr(10) + 'a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg),:is(a,button).sb2.sb2.sb2.sb2.sb2{padding:6px 11px!important;font-size:12.5px!important;font-weight:700!important;border-radius:999px!important;background:#fff!important;color:#14243B!important;border:1px solid #D5DEEA!important;box-shadow:0 2px 6px rgba(20,40,80,.08)!important;line-height:1.25!important;text-shadow:none!important}a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg) em,:is(a,button).sb2.sb2.sb2.sb2.sb2 em{color:#5A6B82!important;opacity:1!important;font-weight:600!important;margin-left:6px!important}a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg).on,:is(a,button).sb2.sb2.sb2.sb2.sb2.on{background:linear-gradient(180deg,#2458C6,#163C8C)!important;color:#fff!important;border:1px solid #163C8C!important;box-shadow:0 4px 12px rgba(22,60,140,.30)!important}a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg).on em,:is(a,button).sb2.sb2.sb2.sb2.sb2.on em{color:#fff!important;opacity:.9!important}a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg).on::before{content:\'\';display:inline-block;width:13px;height:13px;margin:0 6px -1px 0;background:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'white\'%3E%3Cpath d=\'M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z\'/%3E%3C/svg%3E") center/contain no-repeat}.subbar.shchips{background:none!important;box-shadow:none!important;-webkit-mask-image:none!important;mask-image:none!important}.subbar .sb2.sb2.sb2.sb2.sb2{font-family:inherit!important;cursor:pointer}a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg):active,:is(a,button).sb2.sb2.sb2.sb2.sb2:active{transform:scale(.97)}nav.cats .cat.pic .secn,#pbox nav.cats .cat.pic .secn{top:auto!important;bottom:6px!important;right:6px!important;min-width:18px!important;height:18px!important;padding:0 5px!important;border-radius:999px!important;font-size:10.5px!important;font-weight:700!important;line-height:18px!important;text-align:center!important;background:#fff!important;color:#1E4FB8!important;border:1px solid #D5DEEA!important;box-shadow:0 1px 3px rgba(20,40,80,.12)!important;display:block!important}nav.cats .cat.pic.on .secn,#pbox nav.cats .cat.pic.on .secn{background:#1E4FB8!important;color:#fff!important;border-color:#1E4FB8!important}nav.subbar.shchips.shchips,nav.subbar.subbar{background:transparent!important;box-shadow:none!important;border:0!important}/* CHIPS1 */ /* CHIPS2 */' + chr(10)
 # BLUE1: бардык баскычтар көк
 EXTRA_CSS += chr(10) + 'html:not(#_tap) body .popt.on,html:not(#_tap) body .popts .popt.tap,html:not(#_tap) body .popts .popt:active,html:not(#_tap) body .pbtn,html:not(#_tap) body .pback:active,html:not(#_tap) body .pback.tap,html:not(#_tap) body .bbtn,html:not(#_tap) body .mbtn,html:not(#_tap) body .mact button,html:not(#_tap) body .mtabs a.on,html:not(#_tap) body .rptb button,html:not(#_tap) body .lang a.on,html:not(#_tap) body .langs a.on,html:not(#_tap) body .top nav a.on,html:not(#_tap) body .top .lg.on,html:not(#_tap) body .sel.set{background:linear-gradient(180deg,#2458C6,#163C8C)!important;color:#fff!important;border-color:#163C8C!important;box-shadow:0 4px 12px rgba(22,60,140,.30)!important;text-shadow:none!important}html:not(#_tap) body .popts .popt:not(.on):not(.tap){border:1.5px solid #C9D6E8!important;box-shadow:0 2px 6px rgba(20,40,80,.08)!important;color:#14243B!important}html:not(#_tap) body .pback{border-color:#2458C6!important;color:#163C8C!important}nav:not(.regbar1):not(.regbar2):not(.regbar3):not(.regbar4) a.rg.rg.rg.rg.rg:not(.cb .rg):not(.cb2 .rg).on::before{display:none!important;content:none!important}/* BLUE1 */' + chr(10)
+# PROMOVID: видео такта
+EXTRA_CSS += chr(10) + 'nav.cats .catpromo{grid-column:span 2;position:relative;border-radius:14px;overflow:hidden;border:1px solid #D7E4F4;box-shadow:0 4px 12px rgba(30,60,110,.10);background:#E3F0FF;min-height:100%}nav.cats .catpromo video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 62%;pointer-events:none;display:block}#pbox nav.cats .catpromo{display:none}/* PROMOVID */' + chr(10)
 # HDRICON: баш бөлүктөгү белги
 EXTRA_CSS += chr(10) + 'html:not(#_tap) body .logo .lgi.lgi3{height:40px!important;width:auto!important;max-width:none!important;border-radius:0!important;margin:-4px 6px -4px 0!important;object-fit:contain!important;box-shadow:none!important;background:none!important}@media(max-width:360px){html:not(#_tap) body .logo .lgi.lgi3{height:34px!important}}/* HDRICON */' + chr(10)
 # TAPBLUE: басканда көк
@@ -1727,6 +1739,8 @@ def _sections_strip(link, at, lang, ob=None):
                      f'<span class="lb">{esc(section_name(code, lang))}</span>')
             cls = f"cat{on}"
         cats += f'<a href="{link(at=code, cid=None)}" class="{cls}">{inner}</a>'
+    cats += ('<div class="catpromo" aria-hidden="true"><video autoplay muted loop playsinline '
+             'preload="auto" poster="/media/promo.jpg" src="/media/promo.mp4"></video></div>')   # PROMOVID
     nav = f'<nav class="cats">{cats}</nav>'
     if not at:   # SECFOLD: башкы бетте баары көрүнөт
         return nav
