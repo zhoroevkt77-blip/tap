@@ -2025,12 +2025,23 @@ def _role_chips(link, rl, lang="ky", ob=None):   # TAXIROLE: айдоочу/жү
 
 
 
+def _topban(at=None):   # TOPBAN: ар бир бөлүмгө туруктуу бир баннер
+    bans = [b for b in ("ban1", "ban3", "ban2", "brand") if secimg.has(b)]
+    if not bans:
+        return ""
+    codes = [c for c, _i, _n in SECTIONS]
+    k = (codes.index(at) if at in codes else 0) % len(bans)
+    nm = bans[k]
+    return (f'<div class="gban gtop gb-{nm}"><img src="/si/{nm}.jpg?v={secimg.VERSION}" '
+            f'alt="ТАП!" loading="eager"></div>')
+
+
 def _gcards(rows, lang="ky"):   # GBANS: 2-жарыядан кийин, анан ар 6 жарыядан кийин баннер
     out, k = [], 0
     bans = [b for b in ("ban1", "ban3", "brand", "ban2") if secimg.has(b)]
     for i, r in enumerate(rows, 1):
         out.append(card(r, lang))
-        if bans and (i == 2 or (i > 2 and (i - 2) % 6 == 0 and i < len(rows))):
+        if bans and i % 6 == 0 and i < len(rows):   # TOPBAN: биринчиси үстүндө
             nm = bans[k % len(bans)]
             k += 1
             out.append(f'<div class="gban gb-{nm}"><img src="/si/{nm}.jpg?v={secimg.VERSION}" '
@@ -2090,7 +2101,7 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
         main = (f'<div class="rl"><span class="rn">{len(rows)}</span>'
                 f'<span class="rlb">{lbl}</span>'
                 f'<a href="/" class="cl">{T("clear", lang)}</a></div>'
-                f'<div class="g">{_gcards(rows, lang)}</div>')   # GBANS
+                f'<div class="g">{_topban(at)}{_gcards(rows, lang)}</div>')   # GBANS TOPBAN
     elif at and not q and not cid:
         nm = section_name(at, lang)
         main = (f'<div class="em"><i>{_EMPTY}</i>'
