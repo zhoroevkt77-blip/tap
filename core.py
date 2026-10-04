@@ -854,6 +854,27 @@ def photo_list(row):
     return [one] if one else []
 
 
+# TAXIOB: такси жарыясы облуска маршруту боюнча да табылат
+# («Жайыл району → Бишкек» — Чүй облусунда да, Бишкекте да чыгат)
+_TXN = {}
+_TX_EXTRA = {"Бишкек шаары": ["Бишкек", "Манас аэропорту"],
+             "Чүй облусу": ["Манас аэропорту"],
+             "Ош шаары": ["Ош аэропорту"], "Ош облусу": ["Ош аэропорту"]}
+
+
+def _taxi_names(ob):
+    if ob in _TXN:
+        return _TXN[ob]
+    try:
+        import taxi_geo as _tg
+        n = set(_tg.REGIONS.get(ob, [])) | set(_tg.DISTRICTS.get(ob, []))
+    except Exception:
+        n = set()
+    n |= set(_TX_EXTRA.get(ob, []))
+    _TXN[ob] = sorted(x for x in n if x and "%" not in x and "_" not in x)
+    return _TXN[ob]
+
+
 def _filters(q=None, cat=None, region=None, sub=None,
              ad_type=None, cat_id=None, oblast=None, district=None,
              village=None, sub_id=None, pmin=None, pmax=None,
@@ -874,7 +895,15 @@ def _filters(q=None, cat=None, region=None, sub=None,
     if sub_id:
         sql += " AND sub_id=?"; p.append(sub_id)
     if oblast:
-        sql += " AND oblast=?"; p.append(oblast)
+        _tn = _taxi_names(oblast)   # TAXIOB
+        if _tn:
+            sql += (" AND (oblast=? OR (ad_type='taxi' AND ("
+                    + " OR ".join(["title LIKE ? OR title LIKE ?"] * len(_tn)) + ")))")
+            p.append(oblast)
+            for _n in _tn:
+                p += [_n + " →%", "%→ " + _n]
+        else:
+            sql += " AND oblast=?"; p.append(oblast)
     if district:
         # Бир жарыяда бир нече район болушу мүмкүн («А району, Б району»).
         # Ошондуктан үтүр менен курчап салыштырабыз.
