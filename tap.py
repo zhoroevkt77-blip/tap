@@ -387,6 +387,68 @@ EXTRA_CSS += chr(10) + 'html:not(#_tap) body .popt.on,html:not(#_tap) body .popt
 EXTRA_CSS += chr(10) + '.hban.hb-brand{padding:8px 18%;background:linear-gradient(180deg,#EAF4FF,#fff)}.hban.hb-brand img{mix-blend-mode:multiply}/* EVERYBAN */' + chr(10)
 # GBANS: жыйынтыктардагы баннерлер
 EXTRA_CSS += chr(10) + '.g .gban{grid-column:1/-1;border-radius:16px;overflow:hidden;box-shadow:0 6px 18px rgba(30,60,110,.16);background:#fff}.g .gban img{width:100%;height:auto;display:block}.g .gban.gb-brand{padding:8px 18%;background:linear-gradient(180deg,#EAF4FF,#fff)}.g .gban.gb-brand img{mix-blend-mode:multiply}/* GBANS */' + chr(10)
+# TGWARN: Telegram ичинде эскертүү, орнотуу баскычы
+PWA_JS += r'''<script>/* TGWARN */(function(){
+var RU=(document.documentElement.lang||"ky")==="ru";
+function T(a,b){return RU?b:a;}
+var ua=navigator.userAgent||"";
+var sa=(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone;
+if(sa)return;
+var inTG=/Telegram/i.test(ua)||typeof window.TelegramWebviewProxy!=="undefined"||typeof window.TelegramWebview!=="undefined";
+var AND=/Android/i.test(ua),IOS=/iPhone|iPad|iPod/i.test(ua);
+function seen(k,d){try{return Date.now()-(+localStorage.getItem(k)||0)<d*864e5;}catch(e){return false;}}
+function mark(k){try{localStorage.setItem(k,String(Date.now()));}catch(e){}}
+var st=document.createElement("style");
+st.textContent="#tapbar{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:9999;background:#17304F;color:#fff;border-radius:18px;padding:14px 40px 14px 16px;box-shadow:0 10px 30px rgba(10,30,60,.35);font:600 15px/1.4 system-ui,sans-serif;animation:tbup .3s ease}"
++"#tapbar .x{position:absolute;top:6px;right:8px;width:30px;height:30px;border:0;background:transparent;color:#fff;font-size:22px;line-height:1;opacity:.8}"
++"#tapbar .bb{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}"
++"#tapbar .bb button{flex:1 1 auto;border:0;border-radius:12px;padding:10px 12px;font:700 14px system-ui,sans-serif;background:#fff;color:#17304F}"
++"#tapbar .bb button.y{background:#F2C230;color:#14243F}@keyframes tbup{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}";
+document.head.appendChild(st);
+function show(txt,btns,key,days){
+  if(document.getElementById("tapbar"))return null;
+  var d=document.createElement("div");d.id="tapbar";
+  var p=document.createElement("div");p.textContent=txt;d.appendChild(p);
+  var x=document.createElement("button");x.className="x";x.type="button";x.setAttribute("aria-label","close");x.textContent="×";
+  x.onclick=function(){mark(key);d.remove();};d.appendChild(x);
+  if(btns&&btns.length){var bb=document.createElement("div");bb.className="bb";
+    btns.forEach(function(b){var e=document.createElement("button");e.type="button";e.textContent=b[0];if(b[2])e.className="y";e.onclick=function(){b[1](e,d);};bb.appendChild(e);});
+    d.appendChild(bb);}
+  document.body.appendChild(d);return d;
+}
+function copy(e){
+  var u=location.href,ok=function(){e.textContent=T("✅ Көчүрүлдү","✅ Скопировано");};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(u).then(ok,function(){prompt("",u);});}
+  else{prompt("",u);}
+}
+if(inTG){
+  if(seen("tap_tgw",1))return;
+  var b=[];
+  if(AND)b.push([T("🌐 Chrome'до ачуу","🌐 Открыть в Chrome"),function(){
+    location.href="intent://"+location.host+location.pathname+location.search+"#Intent;scheme=https;package=com.android.chrome;end";},1]);
+  b.push([T("🔗 Шилтемени көчүрүү","🔗 Скопировать ссылку"),copy]);
+  show(T("Сайт Telegram'дын ичинде ачылды. Толук иштеши үчүн жогорудагы ⋮ (же •••) → «Открыть в браузере» басыңыз.",
+         "Сайт открыт внутри Telegram. Для полной работы нажмите ⋮ (или •••) вверху → «Открыть в браузере»."),b,"tap_tgw",1);
+  return;
+}
+var dp=null;
+window.addEventListener("beforeinstallprompt",function(e){
+  e.preventDefault();dp=e;
+  if(seen("tap_inst",7))return;
+  setTimeout(function(){
+    show(T("ТАП!'ты телефонго орнотуңуз — тиркемедей ачылат.","Установите ТАП! на телефон — откроется как приложение."),
+      [[T("📲 ТАП!'ты орнотуу","📲 Установить ТАП!"),function(e,d){
+        if(!dp)return;dp.prompt();dp.userChoice.then(function(){mark("tap_inst");d.remove();dp=null;});},1]],"tap_inst",7);
+  },3000);
+});
+window.addEventListener("appinstalled",function(){mark("tap_inst");var d=document.getElementById("tapbar");if(d)d.remove();});
+if(IOS&&/Safari/i.test(ua)&&!/CriOS|FxiOS|EdgiOS/i.test(ua)&&!seen("tap_ios",7)){
+  setTimeout(function(){
+    show(T("ТАП!'ты телефонго орнотуу: төмөндөгү «Бөлүшүү» ⬆️ → «Башкы экранга кошуу» («На экран Домой») басыңыз.",
+           "Чтобы установить ТАП!: нажмите «Поделиться» ⬆️ внизу → «На экран „Домой“»."),[],"tap_ios",7);
+  },3000);
+}
+})();</script>'''
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */'
 EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */'
