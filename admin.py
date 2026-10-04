@@ -539,6 +539,7 @@ def _page(title, body, tab="", msg=""):
                             ("/admin/mod", "mod", "Модерация"),
                             ("/admin/users", "us", "Колдонуучулар"),
                             ("/admin/bc", "bc", "Билдирүү"),
+                            ("/admin/banners", "bn", "Баннерлер"),   # BANADM
                             ("/admin/log", "log", "Журнал")):
         tabs += "<a href='%s'%s>%s</a>" % (href, " class='on'" if tab == key else "", name)
     flash = "<p class='ok'>" + E(msg) + "</p>" if msg else ""
@@ -664,6 +665,7 @@ def _do(h, uid, q):
     if not tid.isdigit() or not hmac.compare_digest(_q(q, "k"), _csrf(uid)):
         h._send(_page("Ката", "<p class='er'>Жараксыз суроо.</p>"), 403)
         return
+    msg = "Белгисиз аракет"   # BANADM: билдирүү туура чыксын
     if a == "del":
         _delete(int(tid))
         msg = "№%s өчүрүлдү" % tid
@@ -706,8 +708,6 @@ def _do(h, uid, q):
                        h.headers.get("User-Agent"), msg)
     except Exception:
         pass
-    else:
-        msg = "Белгисиз аракет"
     sep = "&" if "?" in back else "?"
     h._go(back + sep + "m=" + quote(msg), None)
 
@@ -981,6 +981,9 @@ def _route(h, u):
             _bc_post(h, uid, d)
         else:
             h._send(_page("Жапырт билдирүү", _bc_page(uid), "bc", msg))
+    elif p.startswith("/admin/banners"):   # BANADM
+        import banners
+        banners.admin(h, uid, q, p, msg, _page, _csrf(uid))
     elif p == "/admin/log":
         h._send(_page("Журнал", _log_page(q), "log", msg))
     elif p == "/admin/users":

@@ -32,6 +32,7 @@ FONTS = FONTS + ('<link href="https://fonts.googleapis.com/css2?family=Inter:wgh
                  '<style>html body,html body *:not(svg):not(path){font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important}</style>')
 from scenes import SCENES
 import secimg
+import banners   # BANADM
 try:   # PROMOVID: реподогу видео → media папкасы
     import shutil as _sh
     for _f in ("promo.mp4", "promo.jpg"):
@@ -387,6 +388,7 @@ EXTRA_CSS += chr(10) + '.hban.hb-brand{padding:8px 18%;background:linear-gradien
 # GBANS: жыйынтыктардагы баннерлер
 EXTRA_CSS += chr(10) + '.g .gban{grid-column:1/-1;border-radius:16px;overflow:hidden;box-shadow:0 6px 18px rgba(30,60,110,.16);background:#fff}.g .gban img{width:100%;height:auto;display:block}.g .gban.gb-brand{padding:8px 18%;background:linear-gradient(180deg,#EAF4FF,#fff)}.g .gban.gb-brand img{mix-blend-mode:multiply}/* GBANS */' + chr(10)
 # HBAN: баннерлер
+EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */' + chr(10)
 EXTRA_CSS += chr(10) + '.hban{margin:18px 12px 8px;border-radius:16px;overflow:hidden;box-shadow:0 6px 18px rgba(30,60,110,.18);background:#E3F0FF}.hban img{width:100%;height:auto;display:block}/* HBAN */' + chr(10)
 # PROMOVID: видео такта
 EXTRA_CSS += chr(10) + 'nav.cats .catpromo{grid-column:span 2;position:relative;border-radius:14px;overflow:hidden;border:1px solid #D7E4F4;box-shadow:0 4px 12px rgba(30,60,110,.10);background:#E3F0FF;min-height:100%}nav.cats .catpromo video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 62%;pointer-events:none;display:block}#pbox nav.cats .catpromo{display:none}/* PROMOVID */' + chr(10)
@@ -1999,7 +2001,10 @@ def _shelves(lang="ky", ob=None):
         _ns = sum(1 for _x in out if _x.startswith('<section'))   # HBAN
         _bl = [b for b in ("ban1", "ban3", "ban2", "brand") if secimg.has(b)]   # EVERYBAN
         _bn = _bl[(_ns - 1) % len(_bl)] if _bl else None
-        if _bn and secimg.has(_bn):
+        _pb = banners.slot("home", code, ob, _ns - 1, lang, "hban")   # BANADM
+        if _pb:
+            out.append(_pb)
+        elif _bn and secimg.has(_bn):
             out.append(f'<div class="hban hb-{_bn}"><img src="/si/{_bn}.jpg?v={secimg.VERSION}" '
                        f'alt="ТАП!" loading="lazy"></div>')
     return "".join(out)
@@ -2028,7 +2033,10 @@ def _role_chips(link, rl, lang="ky", ob=None):   # TAXIROLE: айдоочу/жү
 
 
 
-def _topban(at=None):   # TOPBAN: ар бир бөлүмгө туруктуу бир баннер
+def _topban(at=None, ob=None, lang="ky"):   # TOPBAN: ар бир бөлүмгө туруктуу бир баннер
+    _pb = banners.slot("top", at, ob, 0, lang, "gban gtop")   # BANADM
+    if _pb:
+        return _pb
     bans = [b for b in ("ban1", "ban3", "ban2", "brand") if secimg.has(b)]
     if not bans:
         return ""
@@ -2039,7 +2047,7 @@ def _topban(at=None):   # TOPBAN: ар бир бөлүмгө туруктуу б
             f'alt="ТАП!" loading="eager"></div>')
 
 
-def _gcards(rows, lang="ky"):   # GBANS: 2-жарыядан кийин, анан ар 6 жарыядан кийин баннер
+def _gcards(rows, lang="ky", at=None, ob=None):   # GBANS: 2-жарыядан кийин, анан ар 6 жарыядан кийин баннер
     out, k = [], 0
     bans = [b for b in ("ban1", "ban3", "brand", "ban2") if secimg.has(b)]
     for i, r in enumerate(rows, 1):
@@ -2047,6 +2055,10 @@ def _gcards(rows, lang="ky"):   # GBANS: 2-жарыядан кийин, анан
         if bans and i % 6 == 0 and i < len(rows):   # TOPBAN: биринчиси үстүндө
             nm = bans[k % len(bans)]
             k += 1
+            _pb = banners.slot("grid", at, ob, k, lang, "gban")   # BANADM
+            if _pb:
+                out.append(_pb)
+                continue
             out.append(f'<div class="gban gb-{nm}"><img src="/si/{nm}.jpg?v={secimg.VERSION}" '
                        f'alt="ТАП!" loading="lazy"></div>')
     return "".join(out)
@@ -2104,7 +2116,7 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
         main = (f'<div class="rl"><span class="rn">{len(rows)}</span>'
                 f'<span class="rlb">{lbl}</span>'
                 f'<a href="/" class="cl">{T("clear", lang)}</a></div>'
-                f'<div class="g">{_topban(at)}{_gcards(rows, lang)}</div>')   # GBANS TOPBAN
+                f'<div class="g">{_topban(at, ob, lang)}{_gcards(rows, lang, at, ob)}</div>')   # GBANS TOPBAN
     elif at and not q and not cid:
         nm = section_name(at, lang)
         main = (f'<div class="em"><i>{_EMPTY}</i>'
@@ -3447,6 +3459,12 @@ class H(BaseHTTPRequestHandler):
                 self.send_response(404)
                 self.send_header("Content-Length", "0")
                 self.end_headers()
+
+        elif u.path.startswith("/bimg/"):   # BANADM
+            banners.serve_img(self, u)
+
+        elif u.path.startswith("/bn/"):
+            banners.click(self, u)
 
         elif u.path.startswith("/si/"):
             # Бөлүм такталарынын сүрөттөрү — secimg.py ичинде турат
