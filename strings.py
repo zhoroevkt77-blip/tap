@@ -1377,9 +1377,21 @@ def L(text, lang="ky"):
         else:
             _p = part.strip()  #L_RUFALL
             if lang == "ru" and _p:
+                try:   # RUMORE
+                    import ru_more
+                    _q = ru_more.tr(_p)
+                except Exception:
+                    _q = None
+                if _q is not None:
+                    _p = _q
+                else:
+                    try:
+                        import bridge
+                        _p = bridge.ru_value(_p, "ru")
+                    except Exception:
+                        pass
                 try:
-                    import bridge
-                    _p = bridge.ru_value(_p, "ru")
+                    ru_more.log_miss(_p)
                 except Exception:
                     pass
             out.append(_p)
