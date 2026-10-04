@@ -1293,7 +1293,7 @@ def _cookie_ob(h):
     return None
 
 
-_RS_CSS = ('<style>button.pin{font:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;color:inherit}'
+_RS_CSS = ('<style>button.pin{font-family:inherit;font-size:14px!important;font-weight:600;cursor:pointer;-webkit-appearance:none;appearance:none;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}/* PINSZ */'
            '.rsh{position:fixed;inset:0;background:rgba(10,25,45,.45);z-index:10000;display:none;align-items:flex-end}'
            '.rsh.on{display:flex}.rsb{background:#fff;width:100%;max-height:82vh;overflow:auto;'
            'border-radius:22px 22px 0 0;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));'
