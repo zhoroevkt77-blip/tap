@@ -562,6 +562,11 @@ def order(h, lang="ky"):
     start = _date(d.get("start")) or _today()
     if start < _today():
         start = _today()
+    if not err:   # BANCAP
+        ff = free_from(prod[0], sec, obl, weeks)
+        if start < ff:
+            err = ("Бул орун тандалган күндөрү бош эмес. Эң жакынкы бош күн: %s." % _fdate(ff, False),
+                   "На выбранные даты место занято. Ближайшая свободная дата: %s." % _fdate(ff, True))
     if err:
         return _json(h, {"ok": False, "msg": err[1] if ru else err[0]})
     total = calc(prod[0], weeks, obl)
@@ -648,7 +653,7 @@ def sell_body(lang="ky"):
         '<label class="l">%s</label><select id="obl" class="f"><option value="">%s</option>%s</select>'
         '<div class="hint">%s</div>'
         '<label class="l">%s</label><div class="wk" id="wk">%s</div>'
-        '<label class="l">%s</label><input type="date" id="start" class="f" value="%s" min="%s"></div>'
+        '<label class="l">%s</label><input type="date" id="start" class="f" value="%s" min="%s"><div id="fr" class="hint" style="font-weight:700"></div></div>'
         '<div class="st"><h2>2. %s</h2>'
         '<label class="l">%s</label><input type="file" id="imf" accept="image/*" class="f">'
         '<div class="hint">%s</div><img id="imp" class="prev">'
@@ -682,13 +687,19 @@ def sell_body(lang="ky"):
         '<script>(function(){var PR=%s,RO=%d,MB=%s,RU=%s;function T(a,b){return RU?b:a;}'
         'var W=1,IMG="",RC="";var $=function(i){return document.getElementById(i);};'
         'function prod(){var r=document.querySelector("input[name=prod]:checked");return r?r.value:"";}'
+        'var MK=RU?["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"]:["январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"];'
+        'function fd(s){var p=s.split("-");return RU?(+p[2])+" "+MK[+p[1]-1]:(+p[2])+"-"+MK[+p[1]-1];}'
+        'function chk(p){var l=document.querySelector(".pr.on");if(l&&l.dataset.sec==="1"&&!$("sec").value){$("fr").textContent="";return;}'
+        'fetch("/reklama/free?product="+p+"&weeks="+W+"&oblast="+encodeURIComponent($("obl").value)+"&section="+encodeURIComponent($("sec").value))'
+        '.then(function(r){return r.json();}).then(function(j){if(!j.ok)return;var s=$("start");s.min=j.free;if(!s.value||s.value<j.free)s.value=j.free;'
+        '$("fr").style.color=j.busy?"#B42318":"#1E7A46";$("fr").textContent=j.busy?T("🔒 Бош эмес. Эң жакынкы бош күн: ","🔒 Занято. Ближайшая свободная дата: ")+fd(j.free):T("✅ Бош — бүгүндөн баштаса болот","✅ Свободно — можно начать сегодня");}).catch(function(){});}'
         'function calc(){var p=prod(),m={1:1,2:2,4:3}[W];document.querySelectorAll(".pr").forEach(function(l){'
         'l.classList.toggle("on",l.dataset.k===p);});var l=document.querySelector(".pr.on");'
         '$("secw").style.display=(l&&l.dataset.sec==="1")?"block":"none";'
-        'if(!p){$("tot").textContent="—";return;}var t=PR[p]*m;if($("obl").value)t=Math.round(t*(100-RO)/1000)*10;'
+        'if(!p){$("tot").textContent="—";$("fr").textContent="";return;}chk(p);var t=PR[p]*m;if($("obl").value)t=Math.round(t*(100-RO)/1000)*10;'
         '$("tot").textContent=t.toLocaleString("ru-RU").replace(/,/g," ")+" "+T("сом","сом");}'
         'document.querySelectorAll("input[name=prod]").forEach(function(r){r.onchange=calc;});'
-        '$("obl").onchange=calc;document.querySelectorAll("#wk button").forEach(function(b){b.onclick=function(){'
+        '$("obl").onchange=calc;$("sec").onchange=calc;document.querySelectorAll("#wk button").forEach(function(b){b.onclick=function(){'
         'W=+b.dataset.w;document.querySelectorAll("#wk button").forEach(function(x){x.classList.toggle("on",x===b);});calc();};});'
         'function rd(f,crop,mx,cb){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){'
         'var c=document.createElement("canvas"),g=c.getContext("2d"),sx=0,sy=0,sw=im.width,sh=im.height;'
@@ -763,8 +774,12 @@ def _orders(k):
 def _cfg_form(k):
     c = cfg()
     pr = prices()
+    cp = caps()   # BANCAP
     rows = "".join('<label>%s (сом/жума)</label><input id="p_%s" inputmode="numeric" value="%d">'
-                   % (E(kn), key, pr[key]) for key, kn, _r, _p, _n, _b in PRODUCTS)
+                   '<label style="font-size:12px">↳ бир убакта канча баннер</label>'
+                   '<input id="cap_%s" inputmode="numeric" value="%d">'
+                   % (E(kn), key, pr[key], key, cp.get(key, 1))
+                   for key, kn, _r, _p, _n, _b in PRODUCTS)
     return (
         "<details class='bf ad' style='margin-bottom:12px'><summary class='ah'>💰 Баалар жана төлөм маалыматы</summary>"
         + rows +
@@ -776,8 +791,8 @@ def _cfg_form(k):
         "var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var k=Math.min(1,700/Math.max(im.width,im.height));"
         "var c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);var g=c.getContext('2d');"
         "g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);QR=c.toDataURL('image/jpeg',0.9);};im.src=r.result;};r.readAsDataURL(x);};"
-        "document.getElementById('c_sv').onclick=function(){var P={};%s.forEach(function(k){P[k]=document.getElementById('p_'+k).value;});"
-        "fetch('/admin/banners/cfg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k:'%s',prices:P,"
+        "document.getElementById('c_sv').onclick=function(){var P={},C={};%s.forEach(function(k){P[k]=document.getElementById('p_'+k).value;C[k]=document.getElementById('cap_'+k).value;});"
+        "fetch('/admin/banners/cfg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k:'%s',prices:P,caps:C,"
         "mbank:document.getElementById('c_mb').value,mname:document.getElementById('c_mn').value,qr:QR})})"
         ".then(function(r){return r.json();}).then(function(j){location.href='/admin/banners?m='+encodeURIComponent(j.msg||'');});};})();</script>"
     ) % (E(c.get("mbank", "")), E(c.get("mname", "")), "(жүктөлгөн ✅)" if c.get("qr") else "",
@@ -796,9 +811,120 @@ def _cfg_save(h, uid, k):
         v = str((d.get("prices") or {}).get(key) or "").strip()
         if v.isdigit() and 0 < int(v) < 10_000_000:
             _cfg_set("price_" + key, int(v))
+    for key in CAPS:   # BANCAP
+        v = str((d.get("caps") or {}).get(key) or "").strip()
+        if v.isdigit() and 0 < int(v) <= 20:
+            _cfg_set("cap_" + key, int(v))
     _cfg_set("mbank", str(d.get("mbank") or "").strip()[:30])
     _cfg_set("mname", str(d.get("mname") or "").strip()[:60])
     q = _jpeg(d.get("qr"))
     if q:
         _cfg_set("qr", q)
     _json(h, {"ok": True, "msg": "Баалар сакталды"})
+
+
+
+# ══ BANCAP: ар бир орундун сыйымдуулугу, бош эмес болсо — эң жакынкы бош күн ══
+CAPS = {"all": 1, "home": 2, "top_all": 1, "top_sec": 1, "grid_all": 3, "grid_sec": 3}
+_HOLD_H = 48          # төлөм күтүп турган буйрутма орунду канча саат кармайт
+
+
+def caps():
+    c = cfg()
+    out = {}
+    for k, v in CAPS.items():
+        try:
+            out[k] = max(1, int(c.get("cap_" + k) or v))
+        except Exception:
+            out[k] = v
+    return out
+
+
+def _dt(x):
+    try:
+        return datetime.strptime(str(x)[:19], "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
+
+
+def _occupied():
+    """Орунду ээлеген баннерлер: төлөнгөн+күйүк, же 48 сааттан жаңы буйрутма.
+    Админдин өз баннерлери (статусу жок) эсептелбейт."""
+    rows = core.query("SELECT place, section, oblast, starts, ends, status, active, created_at "
+                      "FROM banners WHERE status IN ('paid','pending')", fetch="all") or []
+    now = _dt(core.now_str())
+    out = []
+    for r in rows:
+        if r.get("status") == "paid" and int(r.get("active") or 0) != 1:
+            continue
+        if r.get("status") == "pending":
+            c = _dt(r.get("created_at"))
+            if now and c and (now - c).total_seconds() > _HOLD_H * 3600:
+                continue
+        out.append(r)
+    return out
+
+
+def _clash(place, sec, obl, r):
+    pl = r.get("place") or "all"
+    if not (place == "all" or pl == "all" or pl == place):
+        return False
+    rs = r.get("section") or ""
+    if sec and rs and rs != sec:
+        return False
+    ro = r.get("oblast") or ""
+    if obl and ro and ro != obl:
+        return False
+    return True
+
+
+def free_from(product, sec, obl, weeks):
+    """Ушул орун ушул мөөнөткө бош болгон эң жакынкы күн (YYYY-MM-DD)."""
+    prod = {p[0]: p for p in PRODUCTS}.get(product)
+    if not prod:
+        return _today()
+    cap = caps().get(product, 1)
+    sec = sec if prod[4] else ""
+    occ = [r for r in _occupied() if _clash(prod[3], sec, obl, r)]
+    t0 = datetime.strptime(_today(), "%Y-%m-%d")
+    span = 7 * max(1, int(weeks or 1))
+    if len(occ) < cap:
+        return _today()
+    for i in range(0, 400):
+        ok = True
+        for j in range(span):
+            day = (t0 + timedelta(days=i + j)).strftime("%Y-%m-%d")
+            n = sum(1 for r in occ if (r.get("starts") or "0000") <= day <= (r.get("ends") or "9999"))
+            if n >= cap:
+                ok = False
+                break
+        if ok:
+            return (t0 + timedelta(days=i)).strftime("%Y-%m-%d")
+    return (t0 + timedelta(days=400)).strftime("%Y-%m-%d")
+
+
+def _fdate(s, ru=False):
+    mk = (["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа",
+           "сентября", "октября", "ноября", "декабря"] if ru else
+          ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август",
+           "сентябрь", "октябрь", "ноябрь", "декабрь"])
+    try:
+        y, m, d = [int(x) for x in s.split("-")]
+        return ("%d %s" if ru else "%d-%s") % (d, mk[m - 1])
+    except Exception:
+        return s
+
+
+def free_api(h, q):
+    """GET /reklama/free?product=&section=&oblast=&weeks="""
+    _ensure()
+    g = lambda x: (q.get(x) or [""])[0]
+    try:
+        w = int(g("weeks") or 1)
+    except Exception:
+        w = 1
+    obl = g("oblast")
+    if obl and obl not in [x for x, _ in _oblasts()]:
+        obl = ""
+    f = free_from(g("product"), g("section"), obl, w)
+    _json(h, {"ok": True, "free": f, "busy": f > _today()})
