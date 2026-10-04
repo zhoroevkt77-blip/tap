@@ -3286,20 +3286,23 @@ def me_page(lang="ky"):
 
     # ── Үстүңкү блок: ботко чакыруу (эки платформа тең) ──
     wa_top = "".join(c for c in os.environ.get("WA_NUMBER", "") if c.isdigit())
-    top_t = "Войдите через бота" if ru else "Ботко кириңиз"
-    top_p = ("Объявления и избранное привязаны к боту"
-             if ru else "Жарыялар менен тандалгандар ботко байланган")
+    top_t = "Добро пожаловать в ТАП!" if ru else "ТАП!'ка кош келиңиз"   # MEHEAD
+    top_p = ("Подавайте объявления прямо на сайте. Номер подтверждается один раз "
+             "через Telegram — бот присылает уведомления."
+             if ru else
+             "Жарыяны түз эле сайттан бересиз. Номериңизди Telegram аркылуу бир жолу "
+             "ырастайсыз — бот билдирүүлөрдү жиберип турат.")
     soon_t = "скоро" if ru else "жакында"
 
-    ent = (f'<a class="ment tg" href="https://t.me/{BOT}">'
-           f'{NAV_ICONS["tg"]}<span>Telegram</span></a>')
+    ent = (f'<a class="ment" href="/post" style="background:#1E9E5A;color:#fff">'   # MEHEAD
+           f'{NAV_ICONS["add"]}<span>{esc("Подать объявление" if ru else "Жарыя берүү")}</span></a>'
+           f'<a class="ment tg" href="https://t.me/{BOT}">'
+           f'{NAV_ICONS["tg"]}<span>{esc("Telegram-бот" if ru else "Telegram бот")}</span></a>')
     if wa_top:
         ent += (f'<a class="ment wa" href="https://wa.me/{wa_top}" '
                 f'target="_blank" rel="noopener">'
                 f'{NAV_ICONS["wa"]}<span>WhatsApp</span></a>')
-    else:
-        ent += (f'<span class="ment wa off">{NAV_ICONS["wa"]}'
-                f'<span>WhatsApp — {esc(soon_t)}</span></span>')
+    # MEHEAD: WhatsApp номери коюлбаса, «жакында» баскычы көрсөтүлбөйт
 
     top = (f'<div class="mehead">'
            f'<span class="meav meav2"><img src="/si/brand.jpg?v={secimg.VERSION}" alt="ТАП!" loading="lazy"></span>'  # MELOGO
