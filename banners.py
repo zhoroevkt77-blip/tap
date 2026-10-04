@@ -127,9 +127,10 @@ def slot(place, at=None, ob=None, k=0, lang="ky", cls="hban"):
         img = ('<img src="/bimg/%d.jpg?v=%s" alt="%s" loading="lazy">'
                % (b["id"], E(str(b.get("updated") or "0")[-8:].replace(":", "")), lbl))
         inner = img + '<span class="adl">%s</span>' % lbl
-        if b.get("link"):
-            return ('<a class="%s pb" href="/bn/%d" target="_blank" rel="nofollow sponsored noopener">%s</a>'
-                    % (cls, b["id"], inner))
+        if b.get("link"):   # ADLINKS: сайттын ичиндеги шилтеме ошол эле өтмөктө
+            tgt = ("" if str(b.get("link")).startswith("/")
+                   else ' target="_blank" rel="nofollow sponsored noopener"')
+            return ('<a class="%s pb" href="/bn/%d"%s>%s</a>' % (cls, b["id"], tgt, inner))
         return '<div class="%s pb">%s</div>' % (cls, inner)
     except Exception as e:
         print("banners slot:", e, flush=True)

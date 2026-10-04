@@ -967,7 +967,7 @@ function draw(){
   var go=document.getElementById('pgo'); if(go)go.onclick=function(){go.disabled=true;
     api({op:'publish',step:S.step,data:S.data,title:document.getElementById('pt').value}).then(function(j){
       if(!j.ok){go.disabled=false;err(j.err);return;}dclr();
-      box.innerHTML='<div class="pok">&#10003;</div><h2 style="text-align:center">'+T('Жарыяңыз жарыяланды!','Объявление опубликовано!')+'</h2><p style="text-align:center">№'+j.id+'</p><a class="pbtn" href="'+j.url+'">'+T('Жарыяны көрүү','Смотреть объявление')+'</a><a class="pbtn pbtn2" href="/post">'+T('Дагы жарыя берүү','Ещё объявление')+'</a>';
+      box.innerHTML='<div class="pok">&#10003;</div><h2 style="text-align:center">'+T('Жарыяңыз жарыяланды!','Объявление опубликовано!')+'</h2><p style="text-align:center">№'+j.id+'</p><a class="pbtn" href="'+j.url+'">'+T('Жарыяны көрүү','Смотреть объявление')+'</a><a class="pbtn pbtn2" href="/post">'+T('Дагы жарыя берүү','Ещё объявление')+'</a>'+'<p style="text-align:center;margin-top:18px;font-size:14px;color:#4A5A70">'+T('Көбүрөөк адам көрсүн десеңиз — ','Хотите больше просмотров? — ')+'<a href="/reklama" style="font-weight:700">'+T('баннер жарнамасы ›','баннерная реклама ›')+'</a></p>';   /* ADLINKS */
     }).catch(function(){go.disabled=false;err();});};
 }
 function aiGen(kind,btn){var fld=document.getElementById(kind==='desc'?'pi':'pt');if(!fld)return;var o=btn.textContent;btn.disabled=true;btn.textContent=T('✨ Жазылууда…','✨ Пишу…');
@@ -3234,6 +3234,8 @@ def help_page(lang="ky", open_key=None):
         blocks += (f'<details class="acc" id="{key}"{op}>'
                    f'<summary>{esc(topic_title(key, lang))}</summary>'
                    f'<div class="accb">{esc(txt)}</div></details>')
+        if key == "howsell":   # ADLINKS
+            blocks += _ad_help(lang, open_key)
 
     body = f"""<main class="wrap">
 <h1 class="ftitle">{esc(head)}</h1>
@@ -3243,6 +3245,31 @@ def help_page(lang="ky", open_key=None):
 {_admin_buttons(lang)}</main>""" + _HELP_CSS + _ACC_CSS
     return page(header("", None, None, lang) + body,
                 head + " — ТАП!", "msg", lang)
+
+
+def _ad_help(lang="ky", open_key=None):   # ADLINKS: Жардамдагы «Жарнама» бөлүмү
+    ru = lang == "ru"
+    try:
+        lo = min(banners.prices().values())
+    except Exception:
+        lo = 300
+    txt = ((("Вы можете разместить баннер на сайте: на главной странице, вверху разделов "
+             "или между объявлениями. Показ — по всему Кыргызстану или только в одной "
+             "области (на %d%% дешевле). Цены — от %d сом в неделю. Показы и клики "
+             "учитываются. Оплата через MBank, баннер запускается после проверки "
+             "администратором.") if ru else
+            ("Сайтта баннер жарнама бере аласыз: башкы бетте, бөлүмдөрдүн үстүндө же "
+             "жарыялардын арасында. Бүт Кыргызстанга же бир облуска гана көрсөтүлөт "
+             "(%d%% арзан). Баалар жумасына %d сомдон башталат. Көрсөтүү жана басуу "
+             "саны эсептелет. Төлөм MBank аркылуу, админ текшергенден кийин баннер "
+             "иштей баштайт.")) % (getattr(banners, "REGION_OFF", 30), lo))
+    btn = "📢 Разместить рекламу ›" if ru else "📢 Жарнама берүү ›"
+    ttl = "Реклама и цены" if ru else "Жарнама жана баалар"
+    op = " open" if open_key == "reklama" else ""
+    return (f'<details class="acc" id="reklama"{op}><summary>{esc(ttl)}</summary>'
+            f'<div class="accb">{esc(txt)}<br><br><a href="/reklama" class="pbtn" '
+            f'style="display:inline-block;text-decoration:none;font-weight:700">{esc(btn)}</a>'
+            f'</div></details>')
 
 
 def me_page(lang="ky"):
@@ -3303,6 +3330,9 @@ def me_page(lang="ky"):
         items += (f'<a class="mrow2" href="{href}">{NAV_ICONS[ic]}'
                   f'<span>{esc(label)}</span></a>')
 
+    items += ('<a class="mrow2" href="/reklama"><span style="font-size:20px;width:24px;'   # ADLINKS
+              'text-align:center;flex:none">📢</span><span>%s</span></a>'
+              % esc("Реклама на сайте" if ru else "Жарнама берүү (баннер)"))
     terms = "Условия использования" if ru else "Колдонуу шарттары"
     items += (f'<a class="mrow2" href="/terms">{NAV_ICONS["doc"]}'
               f'<span>{esc(terms)}</span></a>')
