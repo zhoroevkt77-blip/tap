@@ -670,7 +670,7 @@ def sell_body(lang="ky"):
           "Ваш баннер увидят пользователи по всему Кыргызстану или в вашей области. "
           "Показы и клики учитываются."),
         t("Орун жана мөөнөт", "Место и срок"), plist,
-        t("Бөлүм", "Раздел"), secs,
+        t("Бөлүмдү тандаңыз", "Выберите раздел"), secs,   # SECCHIP
         t("Аймак", "Регион"), t("Бүт Кыргызстан", "Весь Кыргызстан"), obls,
         t("Бир облус тандасаңыз — %d%% арзан." % REGION_OFF, "Одна область — дешевле на %d%%." % REGION_OFF),
         t("Мөөнөтү", "Срок"), wk,
@@ -722,6 +722,11 @@ def sell_body(lang="ky"):
         '$("done").textContent="✅ "+j.msg;$("done").style.display="block";scrollTo(0,0);}'
         'else{$("er").textContent=j.msg||T("Ката","Ошибка");b.disabled=false;b.textContent=T("Буйрутма берүү","Отправить заказ");}})'
         '.catch(function(){$("er").textContent=T("Байланыш катасы","Ошибка связи");b.disabled=false;b.textContent=T("Буйрутма берүү","Отправить заказ");});};'
+        '(function(){var sl=$("sec");sl.style.display="none";var c=document.createElement("div");'
+        'c.className="wk";c.style.flexWrap="wrap";Array.prototype.forEach.call(sl.options,function(o){if(!o.value)return;'
+        'var b=document.createElement("button");b.type="button";b.textContent=o.textContent;b.style.flex="1 1 40%%";'
+        'b.onclick=function(){sl.value=o.value;c.querySelectorAll("button").forEach(function(x){x.classList.toggle("on",x===b);});calc();};'
+        'c.appendChild(b);});sl.parentNode.insertBefore(c,sl);})();'
         'calc();})();</script>'
     ) % (js_pr, REGION_OFF, "true" if c.get("mbank") else "false", "true" if ru else "false")
 
