@@ -750,7 +750,7 @@ def sell_body(lang="ky"):
         'else{$("er").textContent=j.msg||T("Ката","Ошибка");b.disabled=false;b.textContent=T("Буйрутма берүү","Отправить заказ");}})'
         '.catch(function(){$("er").textContent=T("Байланыш катасы","Ошибка связи");b.disabled=false;b.textContent=T("Буйрутма берүү","Отправить заказ");});};'
         '(function(){'
-        'var st=document.createElement("style");st.textContent=".rk .tl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:6px 0 4px}.rk .tl button{text-align:left;border:1.5px solid #C9D4E3;background:#fff;border-radius:14px;padding:11px 12px;color:#17304F;font:700 15px system-ui,sans-serif}.rk .tl button small{display:block;font-weight:600;font-size:12.5px;color:#1E4FA8;margin-top:3px}.rk .tl button.on{border-color:#1E4FA8;background:#EEF4FF}.rk .cps{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 4px}.rk .cps button{border:1.5px solid #C9D4E3;background:#fff;border-radius:99px;padding:8px 13px;font:700 14px system-ui,sans-serif;color:#17304F}.rk .cps button.on{background:#1E4FA8;border-color:#1E4FA8;color:#fff}.rk .cps button em{font-style:normal;font-size:12px;color:#1E9E5A;margin-left:5px}.rk .cps button.on em{color:#CFF5DD}.rk .wk small.wp{display:block;font-size:12px;font-weight:700;margin-top:2px;opacity:.9}.rk .pv{display:grid;grid-template-columns:140px minmax(0,1fr);gap:12px;margin-top:14px;align-items:start}.rk .pvp{border:1.5px solid #C9D4E3;border-radius:16px;padding:7px;background:#F6F8FC}.rk .pvp p{font-size:11px;color:#5A6B82;margin:6px 2px 3px;font-weight:700}.rk .bk{border-radius:7px;font-size:11px;padding:5px 6px;margin:3px 0;background:#fff;color:#8A97AA;border:1px solid #E1E7F0}.rk .bka{border-radius:7px;font-size:11px;padding:5px 6px;margin:3px 0;background:#FFF4CC;border-color:#E3A008;color:#7A4B00;font-weight:800}.rk .pvl{font-size:12.5px;color:#4A5A70;font-weight:700;margin:0 0 3px}.rk .pvw{font-size:14px;color:#17304F;margin:0 0 10px;line-height:1.45}.rk .pvr{display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0;color:#17304F}.rk .pvrg{display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0;color:#1E7A46}.rk .pvrt{display:flex;justify-content:space-between;color:#17304F;border-top:1px solid #D5DEEA;margin-top:4px;padding-top:6px;font-weight:800;font-size:16px}";document.head.appendChild(st);'
+        'var st=document.createElement("style");st.textContent=".rk .tl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:6px 0 4px}.rk .tl button{text-align:left;border:1.5px solid #C9D4E3;background:#fff;border-radius:14px;padding:11px 12px;color:#17304F;font:700 15px system-ui,sans-serif}.rk .tl button small{display:block;font-weight:600;font-size:12.5px;color:#1E4FA8;margin-top:3px}.rk .tl button.on{border-color:#1E4FA8;background:#EEF4FF}.rk .cps{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 4px}.rk .cps button{border:1.5px solid #C9D4E3;background:#fff;border-radius:99px;padding:8px 13px;font:700 14px system-ui,sans-serif;color:#17304F}.rk .cps button.on{background:#1E4FA8;border-color:#1E4FA8;color:#fff}.rk .cps button em{font-style:normal;font-size:12px;color:#1E9E5A;margin-left:5px}.rk .cps button.on em{color:#CFF5DD}.rk .wk small.wp{display:block;font-size:12px;font-weight:700;margin-top:2px;opacity:.9}.rk .pv{display:grid;grid-template-columns:140px minmax(0,1fr);gap:12px;margin-top:14px;align-items:start}.rk .pvp{border:1.5px solid #C9D4E3;border-radius:16px;padding:7px;background:#F6F8FC}.rk .pvp p{font-size:11px;color:#5A6B82;margin:6px 2px 3px;font-weight:700}.rk .bk{border-radius:7px;font-size:11px;padding:5px 6px;margin:3px 0;background:#fff;color:#8A97AA;border:1px solid #E1E7F0}.rk .bka{border-radius:7px;font-size:11px;padding:5px 6px;margin:3px 0;background:#FFF4CC;border-color:#E3A008;color:#7A4B00;font-weight:800}.rk .pvl{font-size:12.5px;color:#4A5A70;font-weight:700;margin:0 0 3px}.rk .pvw{font-size:14px;color:#17304F;margin:0 0 10px;line-height:1.45}.rk .pvr{display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0;color:#17304F}.rk .pvrg{display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0;color:#1E7A46}.rk .av{display:block;font-size:11.5px;font-weight:800;color:#1E7A46;margin-top:3px}.rk .cps .av{display:inline;margin-left:5px}.rk .av.bz{color:#B42318}.rk .cps button.on .av{color:#CFF5DD}.rk .cps button.on .av.bz{color:#FFD2CC}.rk .pvrt{display:flex;justify-content:space-between;color:#17304F;border-top:1px solid #D5DEEA;margin-top:4px;padding-top:6px;font-weight:800;font-size:16px}";document.head.appendChild(st);'
         'function nf(n){return Number(n).toLocaleString("ru-RU");}'
         'var OFFS=window.TAPOFFS||{},MUL={1:1,2:2,4:3},SOM=T(" сом"," сом");'
         'var PL="",SC="",OB="";'
@@ -763,13 +763,13 @@ def sell_body(lang="ky"):
         'function key(){return PL==="top"?(SC?"top_sec":"top_all"):PL==="grid"?(SC?"grid_sec":"grid_all"):PL;}'
         'function price(k,w,o){var t=PR[k]*MUL[w];var ro=OFFS[o]||0;if(ro)t=Math.round(t*(100-ro)/1000)*10;return t;}'
         'var wrap=document.createElement("div");'
-        'wrap.appendChild(lab(T("Орду","Место")));'
+        'wrap.appendChild(lab(T("Орду (баалар 1 жума үчүн)","Место (цены за 1 неделю)")));'
         'var tl=document.createElement("div");tl.className="tl";wrap.appendChild(tl);'
         'var places=[["all",T("Бардык орундар","Все места"),[nf(PR.all)+SOM]],["home",T("Башкы бет","Главная"),[nf(PR.home)+SOM]],'
         '["top",T("Бөлүмдүн эң үстү","Верх раздела"),[T("1 бөлүм: ","1 раздел: ")+nf(PR.top_sec)+SOM,T("Бардыгы: ","Все: ")+nf(PR.top_all)+SOM]],'
         '["grid",T("Жарыялардын арасы","Между объявлениями"),[T("1 бөлүм: ","1 раздел: ")+nf(PR.grid_sec)+SOM,T("Бардыгы: ","Все: ")+nf(PR.grid_all)+SOM]]];'
         'places.forEach(function(p){var b=document.createElement("button");b.type="button";b.dataset.p=p[0];'
-        'b.appendChild(document.createTextNode(p[1]));p[2].forEach(function(x){var sm=document.createElement("small");sm.textContent=x+T(" /жума"," /нед.");b.appendChild(sm);});'
+        'b.appendChild(document.createTextNode(p[1]));p[2].forEach(function(x){var sm=document.createElement("small");sm.textContent=x;b.appendChild(sm);});'
         'b.onclick=function(){PL=p[0];tl.querySelectorAll("button").forEach(function(x){x.classList.toggle("on",x===b);});sw.style.display=(PL==="top"||PL==="grid")?"block":"none";apply();};tl.appendChild(b);});'
         'var sw=document.createElement("div");sw.style.display="none";sw.appendChild(lab(T("Бөлүм","Раздел")));'
         'var sc=document.createElement("div");sc.className="cps";sw.appendChild(sc);wrap.appendChild(sw);'
@@ -793,16 +793,22 @@ def sell_body(lang="ky"):
         'pv.querySelector(".pvw").textContent=PL?w+".":T("Жогорудан орунду тандаңыз.","Выберите место выше.");'
         'var c=pv.querySelector(".pvc");if(!k){c.innerHTML="";return;}var p=PR[k],m=MUL[W],sub=p*m,ro=OFFS[OB]||0,tot=price(k,W,OB);'
         'c.innerHTML="<div class=pvr><span>1 "+T("жума","нед.")+"</span><span>"+nf(p)+SOM+"</span></div><div class=pvr><span>× "+W+" "+T("жума","нед.")+(W===4?T(" (1 бекер)"," (1 в подарок)"):"")+"</span><span>"+nf(sub)+SOM+"</span></div>"+(ro?"<div class=pvrg><span>−"+ro+"%% "+T("аймак","регион")+"</span><span>−"+nf(sub-tot)+SOM+"</span></div>":"")+"<div class=pvrt><span>"+T("Төлөйсүз","К оплате")+"</span><span>"+nf(tot)+SOM+"</span></div>";}'
-        'function refresh(){var k=key();'
+        'var AV=null,TD="";function loadAv(){fetch("/reklama/avail?weeks="+W).then(function(r){return r.json();}).then(function(j){if(j&&j.ok){AV=j.m;TD=j.today;refresh();}}).catch(function(){});}'
+        'function fr(k,s,o){if(!AV||!AV[k])return null;var a=AV[k][s||""];return a?a[o||""]:null;}'
+        'function badge(b,f,big){var e=b.querySelector(".av");if(!e){e=document.createElement("span");e.className="av";b.appendChild(e);}if(!f){e.textContent="";return;}var bz=f>TD;e.className="av"+(bz?" bz":"");e.textContent=bz?(big?T("🔒 Бош эмес, бошойт: ","🔒 Занято, свободно с ")+fd(f):"🔒 "+fd(f)):(big?T("✓ Бош","✓ Свободно"):"✓");}'
+        'function avs(){tl.querySelectorAll("button").forEach(function(b){var p=b.dataset.p,tg=p==="top"||p==="grid";var k=tg?(SC?p+"_sec":p+"_all"):p;badge(b,fr(k,tg?SC:"",OB),true);});'
+        'if(PL==="top"||PL==="grid")sc.querySelectorAll("button").forEach(function(b){var v=b.dataset.v;badge(b,fr(v?PL+"_sec":PL+"_all",v,OB));});'
+        'var k=key();oc.querySelectorAll("button").forEach(function(b){badge(b,k?fr(k,(PL==="top"||PL==="grid")?SC:"",b.dataset.v):null);});}'
+        'function refresh(){avs();var k=key();'
         'oc.querySelectorAll("button").forEach(function(b){var ro=OFFS[b.dataset.v]||0,s=ro?"−"+ro+"%%":"";if(k){s=(s?s+" · ":"")+nf(price(k,1,b.dataset.v))+SOM;}b.querySelector("em").textContent=s;});'
         'document.querySelectorAll("#wk button").forEach(function(b){var w=+b.dataset.w,sm=b.querySelector("small.wp");if(!sm){sm=document.createElement("small");sm.className="wp";b.appendChild(sm);}'
         'sm.textContent=k?nf(price(k,w,OB))+SOM:"";});pvw();}'
         'function apply(){refresh();if(!PL)return;var k=key();'
         'var r=document.querySelector("input[name=prod][value="+k+"]");if(r)r.checked=true;$("sec").value=(PL==="top"||PL==="grid")?SC:"";ob.value=OB;calc();}'
-        'document.querySelectorAll("#wk button").forEach(function(b){b.addEventListener("click",function(){setTimeout(refresh,0);});});'
+        'loadAv();document.querySelectorAll("#wk button").forEach(function(b){b.addEventListener("click",function(){setTimeout(function(){refresh();loadAv();},0);});});'
         'refresh();'
         '})();'
-        '/* CHIPUI3 */'
+        '/* CHIPUI4 */'
         'calc();})();</script>'
     ) % (js_pr, REGION_OFF, "true" if c.get("mbank") else "false", "true" if ru else "false")
 
@@ -966,14 +972,14 @@ def _clash(place, sec, obl, r):
     return True
 
 
-def free_from(product, sec, obl, weeks):
+def free_from(product, sec, obl, weeks, _occ=None):
     """Ушул орун ушул мөөнөткө бош болгон эң жакынкы күн (YYYY-MM-DD)."""
     prod = {p[0]: p for p in PRODUCTS}.get(product)
     if not prod:
         return _today()
     cap = caps().get(product, 1)
     sec = sec if prod[4] else ""
-    occ = [r for r in _occupied() if _clash(prod[3], sec, obl, r)]
+    occ = [r for r in (_occupied() if _occ is None else _occ) if _clash(prod[3], sec, obl, r)]
     t0 = datetime.strptime(_today(), "%Y-%m-%d")
     span = 7 * max(1, int(weeks or 1))
     if len(occ) < cap:
@@ -1016,3 +1022,35 @@ def free_api(h, q):
         obl = ""
     f = free_from(g("product"), g("section"), obl, w)
     _json(h, {"ok": True, "free": f, "busy": f > _today()})
+
+
+# AVAIL: бардык орун/бөлүм/аймактын бош-бош эместиги бир суроо менен
+_AVC = {}
+
+
+def avail(weeks):
+    ck = (weeks, _today())
+    c = _AVC.get(ck)
+    if c and time.time() - c[0] < 20:
+        return c[1]
+    occ = _occupied()
+    obls = [""] + [x for x, _n in _oblasts()]
+    secs = [v for v, _n in SECTIONS]
+    m = {}
+    for p in PRODUCTS:
+        ss = secs if p[4] else [""]
+        m[p[0]] = {s: {o: free_from(p[0], s, o, weeks, occ) for o in obls} for s in ss}
+    _AVC.clear()
+    _AVC[ck] = (time.time(), m)
+    return m
+
+
+def avail_api(h, q):
+    _ensure()
+    try:
+        w = int((q.get("weeks") or ["1"])[0])
+    except Exception:
+        w = 1
+    if w not in dict(WEEKS):
+        w = 1
+    _json(h, {"ok": True, "today": _today(), "m": avail(w)})

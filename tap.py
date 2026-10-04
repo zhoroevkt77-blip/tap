@@ -3618,6 +3618,9 @@ class H(BaseHTTPRequestHandler):
                             title=("Реклама на ТАП!" if lang == "ru" else "ТАП!'та жарнама берүү"),
                             lang=lang))
             return
+        if u.path == "/reklama/avail":   # AVAIL
+            banners.avail_api(self, urllib.parse.parse_qs(u.query))
+            return
         if u.path == "/reklama/free":   # BANCAP
             banners.free_api(self, urllib.parse.parse_qs(u.query))
             return
