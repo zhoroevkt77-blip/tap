@@ -530,6 +530,11 @@ def _wview(step, d, lang):
         if o["value"] in _WEB_HOME or str(lab).lstrip().startswith("🏠"):
             continue
         opts.append({"label": lab, "value": o["value"]})
+    if step == "oblast_select" and getattr(_RS, "cob", None):   # REGSEL: аймак алдын ала
+        _c = _RS.cob
+        _f = [o for o in opts if o["value"] == _c]
+        if _f:
+            opts = [dict(_f[0], label="📍 " + str(_f[0]["label"]))] + [o for o in opts if o["value"] != _c]
     return {"text": _wloc(v["text"], lang) if not v.get("localized") else html.escape(v["text"]).replace("\n", "<br>"),
             "options": opts, "input": bool(v.get("input")),
             "placeholder": L(v.get("placeholder") or "", lang),
@@ -1272,11 +1277,86 @@ _EMPTY = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
           'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
           '<circle cx="10.5" cy="10.5" r="7"/><path d="m15.6 15.6 5.4 5.4"/></svg>')
 
+
+# REGSEL: колдонуучу тандаган аймак cookie'де сакталат, бүт сайт ошого өтөт
+import threading as _rs_thr
+_RS = _rs_thr.local()
+_RSC = {"at": 0.0, "oc": {}, "n": 0}
+
+
+def _cookie_ob(h):
+    for part in (h.headers.get("Cookie") or "").split(";"):
+        k, _, v = part.strip().partition("=")
+        if k == "ob":
+            v = urllib.parse.unquote(v)
+            return v if v in OBLASTS else None
+    return None
+
+
+_RS_CSS = ('<style>button.pin{font:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;color:inherit}'
+           '.rsh{position:fixed;inset:0;background:rgba(10,25,45,.45);z-index:10000;display:none;align-items:flex-end}'
+           '.rsh.on{display:flex}.rsb{background:#fff;width:100%;max-height:82vh;overflow:auto;'
+           'border-radius:22px 22px 0 0;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));'
+           'box-sizing:border-box;animation:rsup .25s ease}'
+           '@keyframes rsup{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}'
+           '.rsh-h{display:flex;justify-content:space-between;align-items:center;font-weight:800;'
+           'font-size:18px;color:#17304F;margin:4px 4px 10px}'
+           '.rsh-h button{border:0;background:#EEF3FA;color:#17304F;border-radius:99px;width:36px;height:36px;font-size:18px}'
+           '.rsi{display:flex;justify-content:space-between;align-items:center;padding:13px 14px;margin:6px 0;'
+           'border-radius:14px;border:1.5px solid #D5DEEA;color:#17304F;text-decoration:none;font-weight:700;font-size:16px}'
+           '.rsi em{font-style:normal;color:#5A6B82;font-weight:600}'
+           '.rsi.on{background:#1E4FA8;color:#fff;border-color:#1E4FA8}.rsi.on em{color:#DCE7FA}'
+           '.rsn{font-size:13px;color:#5A6B82;margin:10px 4px 0}</style>')
+
+
+def _region_sheet(lang="ky"):
+    """Жогорку «Бүт Кыргызстан» баскычы ачкан аймактар тизмеси."""
+    if _t.time() - _RSC["at"] > 60:
+        try:
+            _RSC.update(oc=core.oblast_counts() or {}, n=core.count(), at=_t.time())
+        except Exception:
+            pass
+    cur = getattr(_RS, "cob", None)
+    ru = lang == "ru"
+    it = ('<a class="rsi%s" href="/region/all"><span>🇰🇬 %s</span><em>%s</em></a>'
+          % ("" if cur else " on", esc(T("all_kg", lang)), _RSC["n"] or ""))
+    for rg in OBLASTS:
+        it += ('<a class="rsi%s" href="/region/%s"><span>📍 %s</span><em>%s</em></a>'
+               % (" on" if rg == cur else "", urllib.parse.quote(rg),
+                  esc(_place_name(rg, lang)), _RSC["oc"].get(rg, 0) or ""))
+    return (_RS_CSS + '<div id="rsheet" class="rsh" onclick="if(event.target===this)this.classList.remove(\'on\')">'
+            '<div class="rsb"><div class="rsh-h"><span>%s</span>'
+            '<button type="button" aria-label="close" onclick="document.getElementById(\'rsheet\').classList.remove(\'on\')">✕</button>'
+            '</div>%s<p class="rsn">%s</p></div></div>'
+            % ("📍 Выберите регион" if ru else "📍 Аймакты тандаңыз", it,
+               "Выбор запомнится — в следующий раз сайт откроется в этом регионе." if ru
+               else "Тандооңуз эсте калат — кийинки жолу сайт ушул аймакта ачылат."))
+
+
+def _others(lang, ob, at=None, skip=()):
+    """Аймакта жарыя аз болсо — башка аймактардан жарыялар."""
+    if not ob:
+        return ""
+    try:
+        if at is None and not skip and core.count(oblast=ob) >= 8:
+            return ""
+        rows = [r for r in core.find(limit=40, ad_type=at)
+                if r.get("oblast") != ob and r.get("id") not in skip][:12]
+    except Exception:
+        return ""
+    if not rows:
+        return ""
+    ttl = "🌍 Другие регионы" if lang == "ru" else "🌍 Башка аймактардан"
+    return (f'<div class="rl" style="margin-top:22px"><span class="rlb">{ttl}</span></div>'
+            f'<div class="g">{"".join(card(r, lang) for r in rows)}</div>')
+
+
 def header(q="", at=None, reg=None, lang="ky"):
+    reg = reg or getattr(_RS, "cob", None)   # REGSEL
     hidden = f'<input type="hidden" name="at" value="{esc(at)}">' if at else ""
     return f"""<header class="top"><div class="wrap">
 <div class="tin"><a href="/" class="logo"><img class="lgi lgi3" src="/si/brand.jpg?v={secimg.VERSION}" alt=""><span>ТАП!</span><!--HDRICON--></a><style>.logo .lgi{{width:30px;height:30px;border-radius:9px;margin-right:7px;display:block;object-fit:cover}}</style>
-<span class="pin"><b>&#9679;</b>{esc(_short_place(_place_name(reg, lang)) if reg else T("all_kg", lang))}</span>
+<button type="button" class="pin" onclick="var s=document.getElementById('rsheet');document.body.appendChild(s);s.classList.add('on')"><b>&#9679;</b>{esc(_short_place(_place_name(reg, lang)) if reg else T("all_kg", lang))} ▾</button>{_region_sheet(lang)}
 {_lang_switch(lang)}</div>
 <form class="s" action="/">{hidden}
 <span class="mg">{_EMPTY}</span>
@@ -2000,7 +2080,8 @@ def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
                '<nav class="regbar regsec">'
                f'<a href="{link(at=None, cid=None, sid=None)}" class="rg on">'
                f'{_nm}{_n}<span class="x">✕</span></a></nav>')
-    return (css + sec + f'<nav class="regbar regbar1">{out}</nav>'
+    _r1 = "" if getattr(_RS, "cob", None) else f'<nav class="regbar regbar1">{out}</nav>'   # REGSEL
+    return (css + sec + _r1
             + row2 + row3 + row4)
 
 
@@ -2154,7 +2235,7 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
     # Бөлүм/категория/издөө жок — катар-катар тизме.
     # Аймак гана тандалса, ошол аймактын ичинде катарлар көрүнөт.
     if not (q or at or cid or sid or di or vi or vv):
-        return page(top + f'<main class="wrap">{shelves(lang, ob)}</main>',
+        return page(top + f'<main class="wrap">{shelves(lang, ob)}{_others(lang, ob)}</main>',
                     "ТАП!", "home", lang)
 
     rows = core.find(q, limit=60, ad_type=at, cat_id=cid, sub_id=sid,
@@ -2192,6 +2273,8 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
                 f'<p>{T("try_other", lang)}</p>'
                 f'<a class="dk" href="/">{T("all_ads", lang)}</a></div>')
 
+    if ob and not (q or cid or sid or di or vi or vv) and len(rows) < 8:   # REGSEL
+        main += _others(lang, ob, at, [r.get("id") for r in rows])
     return page(top + body + f'<main class="wrap">{main}</main>',
                 "ТАП!", "home", lang)
 
@@ -3238,6 +3321,7 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         """Green API'ден келген WhatsApp билдирүүсү."""
+        _RS.cob = _cookie_ob(self)   # REGSEL
         u = urllib.parse.urlparse(self.path)
         if u.path.startswith("/admin"):  #MSG2
             import admin
@@ -3316,6 +3400,7 @@ class H(BaseHTTPRequestHandler):
             return box[1] > RATE_MAX
 
     def do_GET(self):
+        _RS.cob = _cookie_ob(self)   # REGSEL
         u = urllib.parse.urlparse(self.path)
         if not u.path.startswith(("/media/", "/pwa/", "/si/")) and self._too_fast():
             self.send_response(429)
@@ -3366,6 +3451,24 @@ class H(BaseHTTPRequestHandler):
             admin.report(self, u)
             return
         
+        if u.path.startswith("/region/"):   # REGSEL: аймак тандоо
+            nv = urllib.parse.unquote(u.path[8:])
+            back = "/"
+            try:
+                pr = urllib.parse.urlparse(self.headers.get("Referer") or "/")
+                kq = urllib.parse.parse_qs(pr.query)
+                keep = {k: kq[k][0] for k in ("at", "cid", "sid", "q", "sort", "rl") if k in kq}
+                if keep and pr.path == "/":
+                    back = "/?" + urllib.parse.urlencode(keep)
+            except Exception:
+                pass
+            if nv in OBLASTS:
+                ck = "ob=%s; Path=/; Max-Age=31536000; SameSite=Lax" % urllib.parse.quote(nv)
+            else:
+                ck = "ob=; Path=/; Max-Age=0; SameSite=Lax"
+            self._go(back, ck)
+            return
+
         if u.path.startswith("/lang/"):
             new = u.path[6:]
             if new not in ("ky", "ru"):
@@ -3427,6 +3530,8 @@ class H(BaseHTTPRequestHandler):
             # Эски шилтемелер иштей берсин (/?cat=…&region=…)
             if not ob:
                 ob = (qs.get("region", [""])[0]).strip() or None
+            if not ob and "ob" not in qs:   # REGSEL: cookie'деги аймак
+                ob = getattr(_RS, "cob", None)
             if not at and qs.get("cat"):
                 old = qs["cat"][0]
                 at = {"transport": "trade", "realty": "rental",
