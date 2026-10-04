@@ -53,6 +53,7 @@ def _ensure():
                "title TEXT, owner TEXT, starts TEXT, ends TEXT, "
                "active INTEGER DEFAULT 1, shows INTEGER DEFAULT 0, "
                "clicks INTEGER DEFAULT 0, updated TEXT, created_at TEXT)")
+    _cfg_ensure()   # BANSELL
     _READY[0] = True
 
 
@@ -262,7 +263,8 @@ def _form(b, k):
 
 def _list(k):
     rows = core.query("SELECT id, place, section, oblast, link, title, owner, starts, ends, "
-                      "active, shows, clicks, updated FROM banners ORDER BY id DESC",
+                      "active, shows, clicks, updated FROM banners "
+                      "WHERE COALESCE(status,'')<>'pending' ORDER BY id DESC",
                       fetch="all") or []
     if not rows:
         return "<p class='cnt'>Азырынча баннер жок. Бош орундарда ТАП!'тын өз баннерлери чыгат.</p>"
@@ -385,6 +387,14 @@ def _act(h, uid, q, k):
         core.query("UPDATE banners SET active=?, updated=? WHERE id=?",
                    (1 if a == "on" else 0, core.now_str(), int(bid)))
         msg = "№%s %s" % (bid, "күйгүзүлдү" if a == "on" else "өчүрүлдү")
+    elif a == "paid":   # BANSELL: төлөм ырасталды
+        core.query("UPDATE banners SET active=1, status='paid', updated=? WHERE id=?",
+                   (core.now_str(), int(bid)))
+        msg = "№%s ырасталды, баннер иштеп жатат" % bid
+    elif a == "rej":
+        core.query("UPDATE banners SET active=0, status='rejected', updated=? WHERE id=?",
+                   (core.now_str(), int(bid)))
+        msg = "№%s четке кагылды" % bid
     else:
         msg = "Белгисиз аракет"
     _reset()
@@ -402,10 +412,392 @@ def admin(h, uid, q, p, msg, page, k):
         return _save(h, uid, k)
     if p == "/admin/banners/act":
         return _act(h, uid, q, k)
+    if p == "/admin/banners/cfg" and getattr(h, "command", "GET") == "POST":   # BANSELL
+        return _cfg_save(h, uid, k)
     ed = (q.get("edit") or [""])[0]
     b = None
     if ed.isdigit():
         b = core.query("SELECT id, place, section, oblast, link, title, owner, starts, ends "
                        "FROM banners WHERE id=?", (int(ed),), fetch="one")
-    body = _form(b, k) + _list(k)
+    body = _orders(k) + _cfg_form(k) + _form(b, k) + _list(k)   # BANSELL
     h._send(page("Баннерлер", body, "bn", msg))
+
+
+# ══ BANSELL: колдонуучуга баннер сатуу (туруктуу баа) ═══════════════════
+PRODUCTS = [
+    # ачкыч, кыргызча, орусча, орун, бөлүм тандалабы, жумалык баа
+    ("all", "Бардык орундар", "Все места", "all", False, 1500),
+    ("home", "Башкы бет", "Главная страница", "home", False, 1000),
+    ("top_all", "Бөлүмдөрдүн эң үстү (бардыгы)", "Верх всех разделов", "top", False, 1000),
+    ("top_sec", "Бир бөлүмдүн эң үстү", "Верх одного раздела", "top", True, 500),
+    ("grid_all", "Жарыялардын арасы (бардык бөлүмдөр)", "Между объявлениями (все разделы)", "grid", False, 600),
+    ("grid_sec", "Жарыялардын арасы (бир бөлүм)", "Между объявлениями (один раздел)", "grid", True, 300),
+]
+WEEKS = [(1, 1), (2, 2), (4, 3)]      # (жума, канча жумага төлөйт)
+REGION_OFF = 30                        # бир облус үчүн арзандатуу, %
+_RATE = {}
+
+
+def _cfg_ensure():
+    core.query("CREATE TABLE IF NOT EXISTS banner_cfg (k TEXT PRIMARY KEY, v TEXT)")
+    for col, typ in (("status", "TEXT"), ("price", "INTEGER"), ("receipt", "TEXT"),
+                     ("product", "TEXT"), ("weeks", "INTEGER")):
+        try:
+            if getattr(core, "IS_PG", False):
+                core.query("ALTER TABLE banners ADD COLUMN IF NOT EXISTS %s %s" % (col, typ))
+            else:
+                core.query("ALTER TABLE banners ADD COLUMN %s %s" % (col, typ))
+        except Exception:
+            pass
+
+
+def cfg():
+    try:
+        rows = core.query("SELECT k, v FROM banner_cfg", fetch="all") or []
+        return {r["k"]: r["v"] for r in rows}
+    except Exception:
+        return {}
+
+
+def _cfg_set(k, v):
+    core.query("DELETE FROM banner_cfg WHERE k=?", (k,))
+    core.query("INSERT INTO banner_cfg (k, v) VALUES (?, ?)", (k, str(v)))
+
+
+def prices():
+    c = cfg()
+    out = {}
+    for key, _ky, _ru, _pl, _ns, base in PRODUCTS:
+        try:
+            out[key] = int(c.get("price_" + key) or base)
+        except Exception:
+            out[key] = base
+    return out
+
+
+def calc(product, weeks, oblast):
+    pr = prices().get(product)
+    mult = dict(WEEKS).get(weeks)
+    if pr is None or mult is None:
+        return None
+    total = pr * mult
+    if oblast:
+        total = int(round(total * (100 - REGION_OFF) / 100.0 / 10.0)) * 10
+    return total
+
+
+def _jpeg(data_url, maxlen=3_000_000):
+    s = str(data_url or "")
+    if not s.startswith("data:image/jpeg;base64,"):
+        return None
+    b64 = s.split(",", 1)[1]
+    if len(b64) > maxlen * 4 // 3:
+        return None
+    try:
+        if base64.b64decode(b64)[:2] != b"\xff\xd8":
+            return None
+    except Exception:
+        return None
+    return b64
+
+
+def _notify(text):
+    try:
+        import admin as _adm
+        import os
+        for a in [x for x in (os.environ.get("ADMIN_IDS") or "").replace(" ", "").split(",") if x]:
+            _adm._tg_send(a, text)
+    except Exception as e:
+        print("banner notify:", e, flush=True)
+
+
+def order(h, lang="ky"):
+    """POST /reklama/order — колдонуучунун буйрутмасы."""
+    ru = lang == "ru"
+    _ensure()
+    ip = (h.headers.get("X-Forwarded-For") or h.client_address[0] or "").split(",")[0].strip()
+    now = time.time()
+    hits = [x for x in _RATE.get(ip, []) if now - x < 3600]
+    if len(hits) >= 5:
+        return _json(h, {"ok": False, "msg": "Өтө көп аракет. Бир сааттан кийин кайталаңыз." if not ru
+                         else "Слишком много попыток. Попробуйте через час."})
+    try:
+        n = int(h.headers.get("Content-Length") or 0)
+        if not 0 < n < 9_000_000:
+            return _json(h, {"ok": False, "msg": "Сүрөт өтө чоң" if not ru else "Слишком большой файл"})
+        d = json.loads(h.rfile.read(n).decode("utf-8"))
+    except Exception:
+        return _json(h, {"ok": False, "msg": "Ката" if not ru else "Ошибка"})
+    prod = {p[0]: p for p in PRODUCTS}.get(d.get("product"))
+    try:
+        weeks = int(d.get("weeks") or 0)
+    except Exception:
+        weeks = 0
+    obl = str(d.get("oblast") or "")
+    if obl and obl not in [x for x, _ in _oblasts()]:
+        obl = ""
+    sec = d.get("section") if (prod and prod[4] and d.get("section") in dict(SECTIONS)) else ""
+    err = None
+    if not prod or weeks not in dict(WEEKS):
+        err = ("Орунду жана мөөнөттү тандаңыз", "Выберите место и срок")
+    elif prod[4] and not sec:
+        err = ("Бөлүмдү тандаңыз", "Выберите раздел")
+    img = _jpeg(d.get("img"))
+    if not err and not img:
+        err = ("Баннердин сүрөтүн жүктөңүз", "Загрузите изображение баннера")
+    phone = "".join(ch for ch in str(d.get("phone") or "") if ch.isdigit() or ch == "+")[:16]
+    if not err and len(phone.replace("+", "")) < 9:
+        err = ("Телефон номериңизди жазыңыз", "Укажите номер телефона")
+    link = str(d.get("link") or "").strip()[:500]
+    if link and not _safe_link(link):
+        if link.startswith("www.") or "." in link:
+            link = "https://" + link.lstrip("/")
+        else:
+            link = ""
+    c = cfg()
+    rec = _jpeg(d.get("receipt"))
+    if not err and c.get("mbank") and not rec:
+        err = ("Төлөм чегинин сүрөтүн жүктөңүз", "Загрузите фото чека об оплате")
+    start = _date(d.get("start")) or _today()
+    if start < _today():
+        start = _today()
+    if err:
+        return _json(h, {"ok": False, "msg": err[1] if ru else err[0]})
+    total = calc(prod[0], weeks, obl)
+    end = (datetime.strptime(start, "%Y-%m-%d") + timedelta(days=7 * weeks - 1)).strftime("%Y-%m-%d")
+    title = str(d.get("name") or "").strip()[:120]
+    bid = core.query(
+        "INSERT INTO banners (place, section, oblast, link, title, owner, starts, ends, updated, img, "
+        "active, shows, clicks, created_at, status, price, receipt, product, weeks) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,0,0,0,?,?,?,?,?,?)",
+        (prod[3], sec, obl, link, title, phone, start, end, core.now_str(), img,
+         core.now_str(), "pending", total, rec or "", prod[0], weeks), fetch="id")
+    _RATE[ip] = hits + [now]
+    site = (__import__("os").environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
+    _notify("💰 <b>Жаңы баннер буйрутмасы №%s</b>\n\n📍 %s%s%s\n📅 %s → %s (%d жума)\n💵 %s сом%s\n"
+            "👤 %s\n☎️ %s\n\n🛠 <a href=\"%s/admin/banners\">Админде текшерүү</a>"
+            % (bid, E(prod[1]), (" · " + E(dict(SECTIONS)[sec])) if sec else "",
+               (" · " + E(obl)) if obl else "", start, end, weeks, total,
+               " · чек жүктөлдү" if rec else "", E(title or "—"), E(phone), site))
+    msg = ("Буйрутма №%s кабыл алынды. Админ төлөмдү текшерип, баннериңизди иштетет — "
+           "адатта бир нече сааттын ичинде." % bid) if not ru else \
+          ("Заказ №%s принят. Администратор проверит оплату и запустит баннер — "
+           "обычно в течение нескольких часов." % bid)
+    _json(h, {"ok": True, "msg": msg, "id": bid})
+
+
+_SELL_CSS = """<style>
+.rk{max-width:620px;margin:0 auto;padding:4px 14px 120px}
+.rk h1{font-size:24px;margin:8px 0 6px;color:#0B1B30}.rk .lead{color:#4A5A70;font-size:15px;margin:0 0 14px;line-height:1.5}
+.rk .st{background:#fff;border:1.5px solid #D5DEEA;border-radius:18px;padding:14px;margin:12px 0}
+.rk .st h2{font-size:17px;margin:0 0 10px;color:#17304F}
+.rk .pr{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;border:1.5px solid #D5DEEA;border-radius:14px;margin:8px 0;cursor:pointer;font-weight:600;color:#17304F}
+.rk .pr input{width:20px;height:20px;flex:none;accent-color:#1E4FA8}.rk .pr .nm{flex:1}.rk .pr em{font-style:normal;color:#1E4FA8;font-weight:800;white-space:nowrap}
+.rk .pr.on{border-color:#1E4FA8;background:#EEF4FF}
+.rk label.l{display:block;font-size:13px;color:#4A5A70;margin:12px 0 5px;font-weight:600}
+.rk input.f,.rk select.f{width:100%;box-sizing:border-box;font-size:16px;border:1.5px solid #C9D4E3;border-radius:12px;padding:11px 12px;background:#fff;color:#0B1B30}
+.rk .wk{display:flex;gap:8px}.rk .wk button{flex:1;border:1.5px solid #C9D4E3;background:#fff;border-radius:12px;padding:10px 4px;font-size:14px;font-weight:700;color:#17304F}
+.rk .wk button.on{background:#1E4FA8;border-color:#1E4FA8;color:#fff}.rk .wk small{display:block;font-weight:600;font-size:11px;opacity:.85}
+.rk .prev{width:100%;aspect-ratio:2/1;object-fit:cover;border-radius:14px;margin-top:8px;display:none;background:#EEF3FA}
+.rk .tot{font-size:30px;font-weight:800;color:#0B1B30;margin:4px 0}.rk .hint{font-size:12.5px;color:#6A7A90;margin-top:5px;line-height:1.45}
+.rk .pay{background:#F3F8FF;border-radius:14px;padding:12px;margin-top:10px;font-size:15px;line-height:1.6;color:#17304F}
+.rk .pay b{font-size:18px}.rk .qr{max-width:220px;width:100%;display:block;margin:10px auto 0;border-radius:12px}
+.rk .go{width:100%;border:0;border-radius:16px;padding:15px;background:#1E9E5A;color:#fff;font-size:17px;font-weight:800;margin-top:14px}
+.rk .ok{background:#E9F8EF;border:1.5px solid #9FD9B5;border-radius:16px;padding:16px;font-size:16px;color:#155B33;line-height:1.5}
+.rk .er{color:#B42318;font-size:14px;margin-top:8px;font-weight:600}
+</style>"""
+
+
+def sell_body(lang="ky"):
+    _ensure()
+    ru = lang == "ru"
+    t = lambda a, b: b if ru else a
+    pr = prices()
+    c = cfg()
+    plist = "".join(
+        '<label class="pr" data-k="%s" data-sec="%d"><input type="radio" name="prod" value="%s">'
+        '<span class="nm">%s</span><em>%s %s</em></label>'
+        % (k, 1 if ns else 0, k, E(rn if ru else kn), "{:,}".format(pr[k]).replace(",", " "),
+           t("сом/жума", "сом/нед."))
+        for k, kn, rn, _pl, ns, _b in PRODUCTS)
+    secs = "".join('<option value="%s">%s</option>' % (E(v), E(n)) for v, n in SECTIONS)
+    obls = "".join('<option value="%s">%s</option>' % (E(v), E(n)) for v, n in _oblasts())
+    wk = "".join('<button type="button" data-w="%d"%s>%d %s%s</button>'
+                 % (w, ' class="on"' if w == 1 else "", w, t("жума", "нед."),
+                    ("<small>%s</small>" % t("1 жума бекер", "1 нед. в подарок")) if w == 4 else "")
+                 for w, _m in WEEKS)
+    if c.get("mbank"):
+        pay = ('<div class="pay">%s<br>📱 MBank: <b>%s</b>%s%s</div>'
+               '<label class="l">%s</label><input type="file" id="rcf" accept="image/*" class="f">'
+               '<img id="rcp" class="prev" style="aspect-ratio:auto;max-height:260px;object-fit:contain">'
+               % (t("Төмөнкү номерге которуңуз:", "Переведите на номер:"), E(c["mbank"]),
+                  ("<br>👤 " + E(c.get("mname", ""))) if c.get("mname") else "",
+                  '<img class="qr" src="/reklama/qr.jpg" alt="QR">' if c.get("qr") else "",
+                  t("Төлөм чегинин сүрөтү (скриншот)", "Фото чека об оплате (скриншот)")))
+    else:
+        pay = '<div class="pay">%s</div>' % t(
+            "Буйрутманы жөнөтүңүз — админ сиз менен байланышып, төлөмдү айтат.",
+            "Отправьте заказ — администратор свяжется с вами насчёт оплаты.")
+    js_pr = json.dumps(pr)
+    return _SELL_CSS + (
+        '<main class="rk"><h1>📢 %s</h1><p class="lead">%s</p>'
+        '<div class="st"><h2>1. %s</h2>%s'
+        '<div id="secw" style="display:none"><label class="l">%s</label><select id="sec" class="f">'
+        '<option value="">—</option>%s</select></div>'
+        '<label class="l">%s</label><select id="obl" class="f"><option value="">%s</option>%s</select>'
+        '<div class="hint">%s</div>'
+        '<label class="l">%s</label><div class="wk" id="wk">%s</div>'
+        '<label class="l">%s</label><input type="date" id="start" class="f" value="%s" min="%s"></div>'
+        '<div class="st"><h2>2. %s</h2>'
+        '<label class="l">%s</label><input type="file" id="imf" accept="image/*" class="f">'
+        '<div class="hint">%s</div><img id="imp" class="prev">'
+        '<label class="l">%s</label><input id="lnk" class="f" placeholder="https://wa.me/996700123456">'
+        '<label class="l">%s</label><input id="nm" class="f" placeholder="%s">'
+        '<label class="l">%s</label><input id="ph" class="f" inputmode="tel" placeholder="0700 123 456"></div>'
+        '<div class="st"><h2>3. %s</h2><div class="tot" id="tot">—</div>%s'
+        '<div id="er" class="er"></div><button class="go" id="go" type="button">%s</button></div>'
+        '<div id="done" class="ok" style="display:none"></div></main>'
+    ) % (
+        t("ТАП!'та жарнама берүү", "Реклама на ТАП!"),
+        t("Баннериңиз бүт Кыргызстандагы же өзүңүздүн облусуңуздагы колдонуучуларга көрүнөт. "
+          "Көрсөтүү жана басуу саны эсептелип турат.",
+          "Ваш баннер увидят пользователи по всему Кыргызстану или в вашей области. "
+          "Показы и клики учитываются."),
+        t("Орун жана мөөнөт", "Место и срок"), plist,
+        t("Бөлүм", "Раздел"), secs,
+        t("Аймак", "Регион"), t("Бүт Кыргызстан", "Весь Кыргызстан"), obls,
+        t("Бир облус тандасаңыз — %d%% арзан." % REGION_OFF, "Одна область — дешевле на %d%%." % REGION_OFF),
+        t("Мөөнөтү", "Срок"), wk,
+        t("Башталышы", "Начало"), _today(), _today(),
+        t("Баннер", "Баннер"),
+        t("Сүрөт (туурасына, 2:1)", "Изображение (горизонтальное, 2:1)"),
+        t("Сүрөт ортосунан 1200×600 болуп кесилет.", "Изображение обрежется по центру до 1200×600."),
+        t("Шилтеме (WhatsApp, сайт, Instagram) — милдеттүү эмес", "Ссылка (WhatsApp, сайт, Instagram) — необязательно"),
+        t("Ишканаңыздын аты", "Название компании"), t("Мис: Береке дүкөнү", "Напр.: Магазин Береке"),
+        t("Телефон номериңиз", "Ваш номер телефона"),
+        t("Төлөм", "Оплата"), pay,
+        t("Буйрутма берүү", "Отправить заказ"),
+    ) + (
+        '<script>(function(){var PR=%s,RO=%d,MB=%s,RU=%s;function T(a,b){return RU?b:a;}'
+        'var W=1,IMG="",RC="";var $=function(i){return document.getElementById(i);};'
+        'function prod(){var r=document.querySelector("input[name=prod]:checked");return r?r.value:"";}'
+        'function calc(){var p=prod(),m={1:1,2:2,4:3}[W];document.querySelectorAll(".pr").forEach(function(l){'
+        'l.classList.toggle("on",l.dataset.k===p);});var l=document.querySelector(".pr.on");'
+        '$("secw").style.display=(l&&l.dataset.sec==="1")?"block":"none";'
+        'if(!p){$("tot").textContent="—";return;}var t=PR[p]*m;if($("obl").value)t=Math.round(t*(100-RO)/1000)*10;'
+        '$("tot").textContent=t.toLocaleString("ru-RU").replace(/,/g," ")+" "+T("сом","сом");}'
+        'document.querySelectorAll("input[name=prod]").forEach(function(r){r.onchange=calc;});'
+        '$("obl").onchange=calc;document.querySelectorAll("#wk button").forEach(function(b){b.onclick=function(){'
+        'W=+b.dataset.w;document.querySelectorAll("#wk button").forEach(function(x){x.classList.toggle("on",x===b);});calc();};});'
+        'function rd(f,crop,mx,cb){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){'
+        'var c=document.createElement("canvas"),g=c.getContext("2d"),sx=0,sy=0,sw=im.width,sh=im.height;'
+        'if(crop){sw=Math.min(im.width,im.height*2);sh=sw/2;sx=(im.width-sw)/2;sy=(im.height-sh)/2;}'
+        'var k=Math.min(1,mx/Math.max(sw,sh));c.width=Math.round(sw*k);c.height=Math.round(sh*k);'
+        'g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(im,sx,sy,sw,sh,0,0,c.width,c.height);'
+        'cb(c.toDataURL("image/jpeg",0.85));};im.src=r.result;};r.readAsDataURL(f);}'
+        '$("imf").onchange=function(){var f=this.files[0];if(f)rd(f,true,1200,function(u){IMG=u;$("imp").src=u;$("imp").style.display="block";});};'
+        'if($("rcf"))$("rcf").onchange=function(){var f=this.files[0];if(f)rd(f,false,1400,function(u){RC=u;$("rcp").src=u;$("rcp").style.display="block";});};'
+        '$("go").onclick=function(){var b=this;$("er").textContent="";'
+        'if(!prod()){$("er").textContent=T("Орунду тандаңыз","Выберите место");return;}'
+        'if(!IMG){$("er").textContent=T("Баннердин сүрөтүн жүктөңүз","Загрузите изображение баннера");return;}'
+        'if($("ph").value.replace(/\\D/g,"").length<9){$("er").textContent=T("Телефон номериңизди жазыңыз","Укажите номер телефона");return;}'
+        'if(MB&&!RC){$("er").textContent=T("Төлөм чегинин сүрөтүн жүктөңүз","Загрузите фото чека");return;}'
+        'b.disabled=true;b.textContent=T("Жөнөтүлүүдө…","Отправка…");'
+        'fetch("/reklama/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({'
+        'product:prod(),section:$("sec").value,oblast:$("obl").value,weeks:W,start:$("start").value,'
+        'img:IMG,receipt:RC,link:$("lnk").value,name:$("nm").value,phone:$("ph").value})})'
+        '.then(function(r){return r.json();}).then(function(j){if(j.ok){document.querySelectorAll(".rk .st").forEach(function(s){s.style.display="none";});'
+        '$("done").textContent="✅ "+j.msg;$("done").style.display="block";scrollTo(0,0);}'
+        'else{$("er").textContent=j.msg||T("Ката","Ошибка");b.disabled=false;b.textContent=T("Буйрутма берүү","Отправить заказ");}})'
+        '.catch(function(){$("er").textContent=T("Байланыш катасы","Ошибка связи");b.disabled=false;b.textContent=T("Буйрутма берүү","Отправить заказ");});};'
+        'calc();})();</script>'
+    ) % (js_pr, REGION_OFF, "true" if c.get("mbank") else "false", "true" if ru else "false")
+
+
+def serve_qr(h):
+    c = cfg()
+    try:
+        data = base64.b64decode(c.get("qr") or "")
+    except Exception:
+        data = b""
+    if not data:
+        return _404(h)
+    h.send_response(200)
+    h.send_header("Content-Type", "image/jpeg")
+    h.send_header("Content-Length", str(len(data)))
+    h.send_header("Cache-Control", "max-age=600")
+    h.end_headers()
+    h.wfile.write(data)
+
+
+def _orders(k):
+    rows = core.query("SELECT id, place, section, oblast, link, title, owner, starts, ends, price, "
+                      "product, weeks, receipt FROM banners WHERE status='pending' ORDER BY id",
+                      fetch="all") or []
+    if not rows:
+        return ""
+    pn = {p[0]: p[1] for p in PRODUCTS}
+    out = "<h2>🆕 Төлөм күтүүдө (%d)</h2>" % len(rows)
+    for b in rows:
+        a = "/admin/banners/act?k=%s&id=%d&a=" % (k, b["id"])
+        out += (
+            "<div class='bn' style='border-color:#E3A008'><img src='/bimg/%d.jpg?v=o' alt=''>"
+            "<div class='ah' style='margin-top:8px'>№%d · %s</div>"
+            "<div class='am'>📍 %s%s · %s</div><div class='am'>📅 %s → %s (%s жума)</div>"
+            "<div class='am'>💵 <b>%s сом</b> · 👤 %s · ☎️ %s</div>%s%s"
+            "<div class='ab'><a href='%spaid' onclick=\"return confirm('Төлөм келдиби? №%d иштетилсинби?')\">✅ Төлөм келди, иштетүү</a>"
+            "<a class='del' href='%srej' onclick=\"return confirm('№%d четке кагылсынбы?')\">❌ Четке кагуу</a></div></div>"
+        ) % (b["id"], b["id"], E(pn.get(b.get("product"), "")),
+             E(_name(PLACES, b.get("place"), "")),
+             (" · " + E(dict(SECTIONS).get(b.get("section") or "", ""))) if b.get("section") else "",
+             E(b.get("oblast") or "Бүт Кыргызстан"), E(b.get("starts") or ""), E(b.get("ends") or ""),
+             b.get("weeks") or "?", b.get("price") or "?", E(b.get("title") or "—"), E(b.get("owner") or "—"),
+             ("<div class='am'>🔗 %s</div>" % E(b["link"])) if b.get("link") else "",
+             ("<div class='am'>🧾 Чек:</div><img src='data:image/jpeg;base64,%s' style='aspect-ratio:auto;max-width:100%%;object-fit:contain'>"
+              % b["receipt"]) if b.get("receipt") else "<div class='am'>🧾 Чек жүктөлгөн эмес</div>",
+             a, b["id"], a, b["id"])
+    return out
+
+
+def _cfg_form(k):
+    c = cfg()
+    pr = prices()
+    rows = "".join('<label>%s (сом/жума)</label><input id="p_%s" inputmode="numeric" value="%d">'
+                   % (E(kn), key, pr[key]) for key, kn, _r, _p, _n, _b in PRODUCTS)
+    return (
+        "<details class='bf ad' style='margin-bottom:12px'><summary class='ah'>💰 Баалар жана төлөм маалыматы</summary>"
+        + rows +
+        "<label>MBank номери (бош калса, чек суралбайт)</label><input id='c_mb' value='%s' placeholder='0700 123 456'>"
+        "<label>Алуучунун аты</label><input id='c_mn' value='%s' placeholder='Азамат Ж.'>"
+        "<label>MBank QR сүрөтү %s</label><input type='file' id='c_qr' accept='image/*'>"
+        "<button type='button' id='c_sv'>Сактоо</button></details>"
+        "<script>(function(){var QR='';var f=document.getElementById('c_qr');f.onchange=function(){var x=f.files[0];if(!x)return;"
+        "var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var k=Math.min(1,700/Math.max(im.width,im.height));"
+        "var c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);var g=c.getContext('2d');"
+        "g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);QR=c.toDataURL('image/jpeg',0.9);};im.src=r.result;};r.readAsDataURL(x);};"
+        "document.getElementById('c_sv').onclick=function(){var P={};%s.forEach(function(k){P[k]=document.getElementById('p_'+k).value;});"
+        "fetch('/admin/banners/cfg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k:'%s',prices:P,"
+        "mbank:document.getElementById('c_mb').value,mname:document.getElementById('c_mn').value,qr:QR})})"
+        ".then(function(r){return r.json();}).then(function(j){location.href='/admin/banners?m='+encodeURIComponent(j.msg||'');});};})();</script>"
+    ) % (E(c.get("mbank", "")), E(c.get("mname", "")), "(жүктөлгөн ✅)" if c.get("qr") else "",
+         json.dumps([p[0] for p in PRODUCTS]), k)
+
+
+def _cfg_save(h, uid, k):
+    try:
+        n = int(h.headers.get("Content-Length") or 0)
+        d = json.loads(h.rfile.read(n).decode("utf-8")) if 0 < n < 3_000_000 else {}
+    except Exception:
+        d = {}
+    if not hmac.compare_digest(str(d.get("k") or ""), k):
+        return _json(h, {"ok": False, "msg": "Сессия бүттү"})
+    for key, *_r in PRODUCTS:
+        v = str((d.get("prices") or {}).get(key) or "").strip()
+        if v.isdigit() and 0 < int(v) < 10_000_000:
+            _cfg_set("price_" + key, int(v))
+    _cfg_set("mbank", str(d.get("mbank") or "").strip()[:30])
+    _cfg_set("mname", str(d.get("mname") or "").strip()[:60])
+    q = _jpeg(d.get("qr"))
+    if q:
+        _cfg_set("qr", q)
+    _json(h, {"ok": True, "msg": "Баалар сакталды"})

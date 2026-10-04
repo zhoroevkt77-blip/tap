@@ -455,6 +455,9 @@ if(IOS&&/Safari/i.test(ua)&&!/CriOS|FxiOS|EdgiOS/i.test(ua)&&!seen("tap_ios",7))
 }
 })();</script>'''
 EXTRA_CSS += chr(10) + 'body .hsec .hg{margin-top:4px}body .hmore{display:block;margin:14px 0 6px;text-align:center;padding:11px;border:1.5px solid #D5DEEA;border-radius:99px;color:#17304F;font-weight:700;font-size:14px;text-decoration:none;background:#fff}body .g .c .csh{display:none!important}body .g .c .p{font-size:17px!important;font-weight:800!important;color:#0B1B30!important;margin:0 0 2px!important}body .g .c .t{font-size:14.5px!important;font-weight:500!important;color:#1E2B3C!important;-webkit-line-clamp:1!important;line-height:1.35!important}body .g .c .rgl{font-size:13px!important;color:#7A889C!important;margin-top:2px!important}/* HGRID */' + chr(10)
+# BANSELL: ТАП!'тын өз баннерлери «Жарнама берүү» бетине алып барат
+EXTRA_CSS += chr(10) + '.hban:not(.pb),.gban:not(.pb){position:relative;cursor:pointer}.hban:not(.pb)::after,.gban:not(.pb)::after{content:"📢 Бул жерде сиздин жарнамаңыз ›";position:absolute;left:10px;bottom:10px;background:rgba(11,27,48,.78);color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:99px}html[lang=ru] .hban:not(.pb)::after,html[lang=ru] .gban:not(.pb)::after{content:"📢 Здесь может быть ваша реклама ›"}' + chr(10)
+PWA_JS += '<script>document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".hban:not(.pb),.gban:not(.pb)");if(b)location.href="/reklama";});</script>'
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */'
 EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */'
@@ -3475,6 +3478,14 @@ class H(BaseHTTPRequestHandler):
                 _json_out(self, {"ok": False, "err": "server"})
             return
 
+        if u.path == "/reklama/order":   # BANSELL
+            try:
+                banners.order(self, _lang(self))
+            except Exception as e:
+                print("reklama order:", e, flush=True)
+                _json_out(self, {"ok": False, "msg": "Ката / Ошибка"})
+            return
+
         if u.path in ("/api/post", "/api/post/photo", "/api/post/video"):   # WEB_POST WEB_VIDEO
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -3569,6 +3580,15 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/balance":   # WEB_BAL
             _json_out(self, _web_balance(qs.get("t", [""])[0]))
             return
+        if u.path == "/reklama":   # BANSELL: баннер сатуу бети
+            self._send(page(banners.sell_body(lang),
+                            title=("Реклама на ТАП!" if lang == "ru" else "ТАП!'та жарнама берүү"),
+                            lang=lang))
+            return
+        if u.path == "/reklama/qr.jpg":
+            banners.serve_qr(self)
+            return
+
         if u.path == "/post":   # WEB_POST
             self._send(post_page(lang))
             return
