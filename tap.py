@@ -33,6 +33,11 @@ FONTS = FONTS + ('<link href="https://fonts.googleapis.com/css2?family=Inter:wgh
 from scenes import SCENES
 import secimg
 import banners   # BANADM
+import vidopt   # VIDOPT: видео 720p + faststart
+try:
+    vidopt.start(MEDIA)
+except Exception as _e:
+    print("vidopt start:", _e, flush=True)
 try:   # PROMOVID: реподогу видео → media папкасы
     import shutil as _sh
     for _f in ("promo.mp4", "promo.jpg"):
@@ -789,6 +794,10 @@ def _web_video(tok, raw):
     except Exception as e:
         print("web_video:", e, flush=True)
         return {"ok": False, "err": "vfmt"}
+    try:   # VIDOPT: жүктөлгөндө эле кичирейтилет
+        vidopt.optimize(os.path.join(MEDIA, name))
+    except Exception as e:
+        print("web_video opt:", e, flush=True)
     return {"ok": True, "name": name}
 
 
@@ -852,6 +861,7 @@ def _web_publish(d, st, b):
             try:
                 os.replace(src, os.path.join(MEDIA, "%d.mp4" % lid))
                 core.set_video(lid, "%d.mp4" % lid)
+                vidopt.mark(MEDIA, "%d.mp4" % lid)   # VIDOPT
             except Exception as e:
                 print("web_publish video:", e, flush=True)
     try:
@@ -964,7 +974,7 @@ function aiGen(kind,btn){var fld=document.getElementById(kind==='desc'?'pi':'pt'
 function vupload(f){if(!f)return;var st=document.getElementById('pvs');var mx=S.view.vmax*1024*1024;
   if(f.size>mx){alert(T('Видео өтө чоң. Максимум ','Видео слишком большое. Максимум ')+S.view.vmax+' MB.');return;}
   var x=new XMLHttpRequest();x.open('POST','/api/post/video?t='+encodeURIComponent(tok));
-  x.upload.onprogress=function(e){if(e.lengthComputable)st.textContent=T('Видео жүктөлүүдө… ','Загрузка видео… ')+Math.round(e.loaded/e.total*100)+'%';};
+  x.upload.onprogress=function(e){if(e.lengthComputable)st.textContent=(e.loaded>=e.total)?T('⏳ Видео даярдалууда, бир аз күтүңүз…','⏳ Видео обрабатывается, подождите…'):T('Видео жүктөлүүдө… ','Загрузка видео… ')+Math.round(e.loaded/e.total*100)+'%';};   /* VIDOPT */
   x.onload=function(){var j={};try{j=JSON.parse(x.responseText);}catch(e){}
     if(j.ok){S.data.webVideo=j.name;draw();}else{st.textContent='';
       alert(j.err==='vfmt'?T('Бул видео форматы колдоого алынбайт (MP4 керек).','Формат не поддерживается (нужен MP4).'):j.err==='verify'?T('Номерди кайра ырастаңыз.','Подтвердите номер снова.'):T('Видеону жүктөй албадык.','Не удалось загрузить видео.'));}};
