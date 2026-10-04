@@ -3684,23 +3684,31 @@ class H(BaseHTTPRequestHandler):
                         partial = False
                 if not partial:
                     start, end = 0, size - 1
-                else:
-                    end = min(end, start + 1024 * 1024 - 1)   # 1 МБлык бөлүк
-
-                with open(fp, "rb") as f:
-                    f.seek(start)
-                    data = f.read(end - start + 1)
-
+                # VIDSTREAM: 1 МБга кесилбейт — сураган жеринен агым менен
+                # берилет. Ар бир 1 МБ үчүн өзүнчө суроо видеону үзгүлтүккө
+                # салчу.
+                n = end - start + 1
                 self.send_response(206 if partial else 200)
                 self.send_header("Content-Type", ctype)
                 self.send_header("Accept-Ranges", "bytes")
-                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Content-Length", str(n))
                 if partial:
                     self.send_header("Content-Range",
                                      "bytes %d-%d/%d" % (start, end, size))
                 self.send_header("Cache-Control", "max-age=86400")
                 self.end_headers()
-                self.wfile.write(data)
+                try:
+                    with open(fp, "rb") as f:
+                        f.seek(start)
+                        left = n
+                        while left > 0:
+                            chunk = f.read(min(131072, left))
+                            if not chunk:
+                                break
+                            self.wfile.write(chunk)
+                            left -= len(chunk)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
             else:
                 self.send_response(404)
                 self.send_header("Content-Length", "0")
