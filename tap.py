@@ -389,7 +389,8 @@ EXTRA_CSS += chr(10) + '.hban.hb-brand{padding:8px 18%;background:linear-gradien
 EXTRA_CSS += chr(10) + '.g .gban{grid-column:1/-1;border-radius:16px;overflow:hidden;box-shadow:0 6px 18px rgba(30,60,110,.16);background:#fff}.g .gban img{width:100%;height:auto;display:block}.g .gban.gb-brand{padding:8px 18%;background:linear-gradient(180deg,#EAF4FF,#fff)}.g .gban.gb-brand img{mix-blend-mode:multiply}/* GBANS */' + chr(10)
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */'
-EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */' + chr(10)
+EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */'
+EXTRA_CSS += chr(10) + '.g .gban.pb{grid-column:1/-1;aspect-ratio:2/1}.hban.pb{width:auto;aspect-ratio:2/1}/* BANFW */' + chr(10)
 EXTRA_CSS += chr(10) + '.hban{margin:18px 12px 8px;border-radius:16px;overflow:hidden;box-shadow:0 6px 18px rgba(30,60,110,.18);background:#E3F0FF}.hban img{width:100%;height:auto;display:block}/* HBAN */' + chr(10)
 # PROMOVID: видео такта
 EXTRA_CSS += chr(10) + 'nav.cats .catpromo{grid-column:span 2;position:relative;border-radius:14px;overflow:hidden;border:1px solid #D7E4F4;box-shadow:0 4px 12px rgba(30,60,110,.10);background:#E3F0FF;min-height:100%}nav.cats .catpromo video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 62%;pointer-events:none;display:block}#pbox nav.cats .catpromo{display:none}/* PROMOVID */' + chr(10)

@@ -191,13 +191,13 @@ def click(h, u):
 
 _CSS = (
     "<style>.bn{background:#fff;border:1.5px solid #9AA8BF;border-radius:14px;"
-    "padding:10px;margin-bottom:12px}.bn img{width:100%;max-width:220px;aspect-ratio:1/1;object-fit:cover;border-radius:10px;display:block}"
+    "padding:10px;margin-bottom:12px}.bn img{width:100%;aspect-ratio:2/1;object-fit:cover;border-radius:10px;display:block}"
     ".bn .am{margin-top:6px}.bf label{display:block;font-size:13px;color:#33425A;"
     "margin:10px 0 4px}.bf input,.bf select{width:100%;box-sizing:border-box;font-size:15px;"
     "border:1.5px solid #9AA8BF;border-radius:10px;padding:9px 10px;background:#fff}"
     ".bf .row{display:flex;gap:8px}.bf .row>div{flex:1}.bf button{width:100%;margin-top:14px;"
     "border:0;border-radius:10px;padding:12px;background:#17365C;color:#fff;font-size:16px;"
-    "font-weight:700}#bprev{width:100%;max-width:220px;border-radius:10px;margin-top:8px;display:none}"
+    "font-weight:700}#bprev{width:100%;aspect-ratio:2/1;object-fit:cover;border-radius:10px;margin-top:8px;display:none}"
     ".bf .hint{font-size:12px;color:#5A6982;margin-top:4px}</style>")
 
 
@@ -223,7 +223,7 @@ def _form(b, k):
     bid = b.get("id") or ""
     return _CSS + (
         '<div class="bf ad"><div class="ah">%s</div>'
-        '<label>Сүрөт (жарыянын сүрөтүндөй чарчы)</label>'   # BANSZ
+        '<label>Сүрөт (туурасына 2:1, мис. 1200×600)</label>'   # BANFW
         '<input type="file" id="bfile" accept="image/*">'
         '<div class="hint">%s</div><img id="bprev">'
         '<label>Аталышы (өзүңүз үчүн)</label><input id="btitle" value="%s" placeholder="Мис: Береке дүкөнү">'
@@ -238,9 +238,9 @@ def _form(b, k):
         '<button type="button" id="bsave">%s</button></div>'
         '<script>(function(){var IMG="",f=document.getElementById("bfile"),pv=document.getElementById("bprev");'
         'f.onchange=function(){var x=f.files[0];if(!x)return;var r=new FileReader();r.onload=function(){'
-        'var im=new Image();im.onload=function(){var s=Math.min(im.width,im.height),w=Math.min(800,s),hh=w;'
+        'var im=new Image();im.onload=function(){var sw=Math.min(im.width,im.height*2),sh=sw/2,w=Math.min(1200,Math.round(sw)),hh=Math.round(w/2);'
         'var c=document.createElement("canvas");c.width=w;c.height=hh;var g=c.getContext("2d");'
-        'g.fillStyle="#fff";g.fillRect(0,0,w,hh);g.drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,w,hh);'
+        'g.fillStyle="#fff";g.fillRect(0,0,w,hh);g.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,0,0,w,hh);'
         'IMG=c.toDataURL("image/jpeg",0.85);pv.src=IMG;pv.style.display="block";};im.src=r.result;};r.readAsDataURL(x);};'
         'function v(i){return document.getElementById(i).value;}'
         'document.getElementById("bsave").onclick=function(){var t=this;'
@@ -252,7 +252,7 @@ def _form(b, k):
         'else{alert(j.msg||"Ката");t.disabled=false;t.textContent="Сактоо";}})'
         '.catch(function(){alert("Байланыш катасы");t.disabled=false;t.textContent="Сактоо";});};})();</script>'
     ) % ("№%s баннерди өзгөртүү" % bid if bid else "Жаңы баннер",
-         "Жаңы сүрөт тандабасаңыз, эскиси калат." if bid else "Сүрөт ортосунан чарчы болуп кесилет (800×800).",
+         "Жаңы сүрөт тандабасаңыз, эскиси калат." if bid else "Сүрөт ортосунан 2:1 болуп кесилет (1200×600). Кара чет жок сүрөт тандаңыз.",
          E(b.get("title") or ""), E(b.get("owner") or ""), E(b.get("link") or ""),
          _opts(PLACES, b.get("place") or "all"), _opts(SECTIONS, b.get("section")),
          _opts(_oblasts(), b.get("oblast")),
