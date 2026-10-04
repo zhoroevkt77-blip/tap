@@ -626,8 +626,19 @@ def sell_body(lang="ky"):
         % (k, 1 if ns else 0, k, E(rn if ru else kn), "{:,}".format(pr[k]).replace(",", " "),
            t("сом/жума", "сом/нед."))
         for k, kn, rn, _pl, ns, _b in PRODUCTS)
-    secs = "".join('<option value="%s">%s</option>' % (E(v), E(n)) for v, n in SECTIONS)
-    obls = "".join('<option value="%s">%s</option>' % (E(v), E(n)) for v, n in _oblasts())
+    # SELRU: бөлүм жана аймак аттары орусча бетте орусча
+    _sr = {"trade": "Торговля", "wholesale": "Оптовая торговля", "property": "Продажа недвижимости",
+           "vehicle": "Продажа транспорта", "service": "Услуги", "rental": "Аренда",
+           "delivery": "Доставка", "cargo": "Грузоперевозки", "jobseek": "Поиск работы",
+           "job": "Работа", "markets": "Рынки", "malls": "Торговые центры", "taxi": "Такси"}
+    _or = {"Бишкек шаары": "г. Бишкек", "Ош шаары": "г. Ош", "Баткен облусу": "Баткенская область",
+           "Жалал-Абад облусу": "Джалал-Абадская область", "Нарын облусу": "Нарынская область",
+           "Ош облусу": "Ошская область", "Талас облусу": "Таласская область",
+           "Чүй облусу": "Чуйская область", "Ысык-Көл облусу": "Иссык-Кульская область"}
+    secs = "".join('<option value="%s">%s</option>' % (E(v), E(_sr.get(v, n) if ru else n))
+                   for v, n in SECTIONS)
+    obls = "".join('<option value="%s">%s</option>' % (E(v), E(_or.get(v, n) if ru else n))
+                   for v, n in _oblasts())
     wk = "".join('<button type="button" data-w="%d"%s>%d %s%s</button>'
                  % (w, ' class="on"' if w == 1 else "", w, t("жума", "нед."),
                     ("<small>%s</small>" % t("1 жума бекер", "1 нед. в подарок")) if w == 4 else "")
