@@ -542,12 +542,13 @@ def _wview(step, d, lang):
             "video": bool(v.get("video")), "vmax": _WEB_VMAX,
             "photo_max": v.get("photo_max") or 10, "final": bool(v.get("final")),
             "long": step == "post_comment", "numeric": bool(v.get("numeric")) or step in ("post_price_custom", "trade_price_custom"),   # SHORT_FLD
+            "ai": _ai_on(),   # AIPOST
             "done": step == "post_done"} if step != "post_done" else {
             "text": html.escape("Дээрлик даяр! Жарыянын аталышын жазып, «Жарыялоо» басыңыз."
                                 if lang != "ru" else
                                 "Почти готово! Напишите заголовок и нажмите «Опубликовать»."),
             "options": [], "input": False, "placeholder": "", "multi": False,
-            "photo": False, "photo_max": 10, "final": True, "done": True, **_wpreview(d, lang)}
+            "photo": False, "photo_max": 10, "final": True, "done": True, "ai": _ai_on(), **_wpreview(d, lang)}
 
 
 def _wpreview(d, lang):   # PPREVIEW: жарыя сайтта кандай көрүнөрү
@@ -580,6 +581,120 @@ def _wverified(tok):
     return st if (st and st["verified"] and st.get("tg_id")) else None
 
 
+# AIPOST: ИИ жарыянын аталышын жана сүрөттөмөсүн жазып берет (Claude API)
+_AI_MODEL = os.environ.get("AI_MODEL", "claude-haiku-4-5-20251001")
+_AI_HITS = {}
+_AI_MAX = int(os.environ.get("AI_MAX_HOUR", "15"))
+
+
+def _ai_on():
+    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+
+
+def _ai_photo(d, tok):
+    import io
+    pre = "web_%s_" % str(tok or "")[:8]
+    for name in [x for x in (d.get("webPhotos") or []) if isinstance(x, str)][:1]:
+        fp = os.path.join(MEDIA, name)
+        if not (_WPH_RE.match(name) and name.startswith(pre) and os.path.isfile(fp)):
+            continue
+        try:
+            from PIL import Image
+            im = Image.open(fp).convert("RGB")
+            im.thumbnail((800, 800))
+            buf = io.BytesIO()
+            im.save(buf, "JPEG", quality=80)
+            return base64.b64encode(buf.getvalue()).decode()
+        except Exception:
+            with open(fp, "rb") as fh:
+                raw = fh.read()
+            return base64.b64encode(raw).decode() if len(raw) < 4_000_000 else None
+    return None
+
+
+def _ai_post(d, st, b, lang):
+    import urllib.request
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        return {"ok": False, "err": "ai_off"}
+    uid = str(st.get("tg_id"))
+    now = _t.time()
+    hits = [x for x in _AI_HITS.get(uid, []) if now - x < 3600]
+    if len(hits) >= _AI_MAX:
+        return {"ok": False, "err": "limit_ai"}
+    _AI_HITS[uid] = hits + [now]
+    kind = "title" if b.get("kind") == "title" else "desc"
+    ru = lang == "ru"
+    dd = dict(d)
+    if kind == "desc":
+        dd.pop("postComment", None)
+    try:
+        facts = bridge.build_description(dd)
+    except Exception:
+        facts = ""
+    try:
+        place = bridge.region_line(d)
+    except Exception:
+        place = ""
+    sec = section_name(d.get("adType"), "ky")
+    try:
+        cat = cat_label(d.get("adType"), d.get("category"), "ky") if d.get("category") else ""
+    except Exception:
+        cat = ""
+    have = str(b.get("text") or "").strip()[:1000]
+    info = "Бөлүм: %s\nКатегория: %s\nАймак: %s\n%s" % (sec, cat, place, facts)
+    if have:
+        info += "\nКолдонуучу жазганы: " + have
+    tl = "орус тилинде" if ru else "кыргыз тилинде"
+    if kind == "title":
+        task = ("Жарыянын кыска аталышын жаз: 3–8 сөз, 60 белгиден ашпасын, %s. "
+                "Эмодзи, тырмакча, баа, телефон жазба. Бардык тамгаларды чоң жазба." % tl)
+    else:
+        task = ("Жарыянын сүрөттөмөсүн жаз: 2–4 кыска сүйлөм, 350 белгиден ашпасын, %s. "
+                "Сатып алуучуга керек болгон фактыларды жаз: эмне, абалы, өзгөчөлүгү. "
+                "Баа, телефон, шилтеме, эмодзи жазба. Ашыкча мактаба." % tl)
+        if have:
+            task += " Колдонуучу жазганын негиз кылып, тазалап толукта."
+    system = ("Сен ТАП! — Кыргызстандагы жарыя сайтынын жардамчысысың. "
+              "Сүрөттө же берилген маалыматта жок нерсени (бренд, модель, өлчөм, жыл, сан) ОЙДОН ЧЫГАРБА. "
+              "Билбеген нерсени жазба. Жоопто тапшырманын натыйжасы гана болсун — "
+              "түшүндүрмө, тырмакча, «Аталыш:» сыяктуу белгилер жок.")
+    content = []
+    ph = _ai_photo(d, b.get("token"))
+    if ph:
+        content.append({"type": "image", "source": {"type": "base64",
+                        "media_type": "image/jpeg", "data": ph}})
+    content.append({"type": "text", "text": info + "\n\nТапшырма: " + task})
+    body = json.dumps({"model": _AI_MODEL, "max_tokens": 400, "system": system,
+                       "messages": [{"role": "user", "content": content}]}).encode()
+    rq = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, headers={
+        "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+    try:
+        with urllib.request.urlopen(rq, timeout=30) as r:
+            j = json.loads(r.read().decode("utf-8"))
+        txt = "".join(x.get("text", "") for x in j.get("content", []) if x.get("type") == "text")
+    except Exception as e:
+        print("ai_post:", e, flush=True)
+        return {"ok": False, "err": "ai_fail"}
+    txt = txt.strip().strip('"«»').strip()
+    if kind == "title":
+        txt = txt.splitlines()[0].strip().strip('"«»').strip() if txt else ""
+        txt = txt[:120]
+    else:
+        txt = txt[:1000]
+    if not txt:
+        return {"ok": False, "err": "ai_fail"}
+    try:
+        import rules
+        level, _h = rules.check_text(txt)
+        if level in ("hard", "swear"):
+            return {"ok": False, "err": "ai_fail"}
+    except Exception:
+        pass
+    print("ai_post: %s uid=%s len=%d" % (kind, uid, len(txt)), flush=True)
+    return {"ok": True, "text": txt}
+
+
 def _web_post(b, lang):
     op = b.get("op")
     st = _wverified(b.get("token"))
@@ -606,6 +721,8 @@ def _web_post(b, lang):
         if step in _WEB_HOME or step == "language_select":
             return {"ok": True, "restart": True}
         return {"ok": True, "step": step, "data": d, "view": _wview(step, d, lang)}
+    if op == "ai":   # AIPOST
+        return _ai_post(d, st, b, lang)
     if op == "view":
         return {"ok": True, "step": step, "data": d, "view": _wview(step, d, lang)}
     if op == "publish":
@@ -788,7 +905,7 @@ function draw(){
   if(!v.done&&S.trail&&S.trail.length){h+='<div class="ptrail">'+S.trail.map(function(x,k){x=String(x);return '<span data-k="'+k+'">'+esc(x.length>32?x.slice(0,31)+'…':x)+'</span>';}).join('')+'</div>';}
   h+='<div class="pq">'+v.text+'</div>';
   if(v.done){
-    h+='<label class="plab" for="pt">'+T('Жарыянын аталышы (милдеттүү эмес)','Заголовок (необязательно)')+'</label><input id="pt" class="pfld" maxlength="120" placeholder="'+esc(v.atitle||'')+'">'+(v.preview||'')+'';
+    h+='<label class="plab" for="pt">'+T('Жарыянын аталышы (милдеттүү эмес)','Заголовок (необязательно)')+'</label><input id="pt" class="pfld" maxlength="120" placeholder="'+esc(v.atitle||'')+'">'+(v.ai?'<button class="pbtn pbtn2" id="pait">'+T('✨ Аталышты ИИ жазсын','✨ Заголовок от ИИ')+'</button>':'')+(v.preview||'')+'';
     h+='<button class="pbtn" id="pgo">'+T('Жарыялоо','Опубликовать')+'</button>';
   } else if(v.photo){
     var ph=S.data.webPhotos||[];
@@ -808,7 +925,7 @@ function draw(){
     if(v.multi){h+='<button class="pbtn" id="pmd"'+(S.picked.length?'':' style="opacity:.5"')+'>'+T('Даяр','Готово')+(S.picked.length?' · '+S.picked.length+T(' тандалды',' выбрано'):'')+'</button>';}
     if(v.input){h+=(v.long?'<textarea id="pi" class="pfld" rows="5" placeholder="'+esc(v.placeholder)+'"></textarea>'
       :'<input id="pi" class="pfld" autocomplete="off" enterkeyhint="next"'+(v.numeric?' inputmode="decimal"':'')+' placeholder="'+esc(v.placeholder)+'">')
-      +'<button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>';}
+      +'<button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>'+(v.long&&v.ai?'<button class="pbtn pbtn2" id="pai">'+T('✨ ИИ жазып берсин','✨ Пусть напишет ИИ')+'</button>':'');}
   }
   if(S.rest)h='<div class="pdraft">'+T('📝 Мурунку долбооруңуз калыбына келди.','📝 Ваш черновик восстановлен.')+' <button id="pdx">'+T('Башынан баштоо','Начать заново')+'</button></div>'+h;
   box.innerHTML=h;dsave();
@@ -831,12 +948,19 @@ function draw(){
     for(var q=0;q<S.hist.length;q++){var a=(S.hist[q].trail||[]).length,b2=q+1<S.hist.length?(S.hist[q+1].trail||[]).length:(S.trail||[]).length;if(a===i&&b2>i){j=q;break;}}
     if(j<0)return; sp.classList.add('tap'); var x=S.hist[j]; S.hist=S.hist.slice(0,j);
     S.inp='';S.rest=false;S.trail=x.trail||[];S.step=x.step;S.data=x.data;api({op:'view',step:x.step,data:x.data}).then(function(j2){if(j2.ok){S.view=j2.view;S.picked=[];draw();}else err(j2.err);});};});
+  var pai=document.getElementById('pai'); if(pai)pai.onclick=function(){aiGen('desc',pai);};   /* AIPOST */
+  var pait=document.getElementById('pait'); if(pait)pait.onclick=function(){aiGen('title',pait);};
   var go=document.getElementById('pgo'); if(go)go.onclick=function(){go.disabled=true;
     api({op:'publish',step:S.step,data:S.data,title:document.getElementById('pt').value}).then(function(j){
       if(!j.ok){go.disabled=false;err(j.err);return;}dclr();
       box.innerHTML='<div class="pok">&#10003;</div><h2 style="text-align:center">'+T('Жарыяңыз жарыяланды!','Объявление опубликовано!')+'</h2><p style="text-align:center">№'+j.id+'</p><a class="pbtn" href="'+j.url+'">'+T('Жарыяны көрүү','Смотреть объявление')+'</a><a class="pbtn pbtn2" href="/post">'+T('Дагы жарыя берүү','Ещё объявление')+'</a>';
     }).catch(function(){go.disabled=false;err();});};
 }
+function aiGen(kind,btn){var fld=document.getElementById(kind==='desc'?'pi':'pt');if(!fld)return;var o=btn.textContent;btn.disabled=true;btn.textContent=T('✨ Жазылууда…','✨ Пишу…');
+  api({op:'ai',kind:kind,step:S.step,data:S.data,text:fld.value||''}).then(function(j){btn.disabled=false;btn.textContent=o;
+    if(j.ok&&j.text){fld.value=j.text;if(kind==='desc'){S.inp=j.text;dsave();}if(fld.oninput)fld.oninput();fld.focus();}
+    else alert(j.err==='limit_ai'?T('ИИ чеги бүттү, бир сааттан кийин кайра аракет кылыңыз.','Лимит ИИ исчерпан, попробуйте через час.'):T('ИИ азыр жооп бере албады. Өзүңүз жазып коюңуз.','ИИ сейчас не ответил. Напишите сами.'));
+  }).catch(function(){btn.disabled=false;btn.textContent=o;alert(T('Байланыш катасы.','Ошибка связи.'));});}   /* AIPOST */
 function vupload(f){if(!f)return;var st=document.getElementById('pvs');var mx=S.view.vmax*1024*1024;
   if(f.size>mx){alert(T('Видео өтө чоң. Максимум ','Видео слишком большое. Максимум ')+S.view.vmax+' MB.');return;}
   var x=new XMLHttpRequest();x.open('POST','/api/post/video?t='+encodeURIComponent(tok));
