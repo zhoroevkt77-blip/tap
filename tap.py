@@ -454,6 +454,7 @@ if(IOS&&/Safari/i.test(ua)&&!/CriOS|FxiOS|EdgiOS/i.test(ua)&&!seen("tap_ios",7))
   },3000);
 }
 })();</script>'''
+EXTRA_CSS += chr(10) + 'body .hsec .hg{margin-top:4px}body .hmore{display:block;margin:14px 0 6px;text-align:center;padding:11px;border:1.5px solid #D5DEEA;border-radius:99px;color:#17304F;font-weight:700;font-size:14px;text-decoration:none;background:#fff}body .g .c .csh{display:none!important}body .g .c .p{font-size:17px!important;font-weight:800!important;color:#0B1B30!important;margin:0 0 2px!important}body .g .c .t{font-size:14.5px!important;font-weight:500!important;color:#1E2B3C!important;-webkit-line-clamp:1!important;line-height:1.35!important}body .g .c .rgl{font-size:13px!important;color:#7A889C!important;margin-top:2px!important}/* HGRID */' + chr(10)
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */'
 EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */'
@@ -2250,33 +2251,30 @@ def _shelves(lang="ky", ob=None):
     сүрүлөт. Категория чиптерин басканда ошол катардын ичи алмашат —
     бет кайра жүктөлбөйт.
     """
-    out = []
+    # HGRID: ар бөлүмдө 4 жарыя (2 катар тор), «Дагы N жарыя», анан баннер
+    secs = []
     for code, _ic, _n in SECTIONS:
-        rows = core.find(limit=12, ad_type=code, oblast=ob)
+        rows = core.find(limit=4, ad_type=code, oblast=ob)
         if not rows:
             continue
-        cc = core.catid_counts(code, oblast=ob)
-        chips = (f'<button class="sb2 on" data-sec="{code}" data-cid="">'
-                 f'{T("all", lang)}</button>')
-        for cid, n in sorted(cc.items(), key=lambda x: -x[1])[:12]:
-            _em = cat_emoji(cid)
-            chips += (f'<button class="sb2" data-sec="{code}" data-cid="{esc(cid)}">'
-                      f'{(_em + " ") if _em else ""}{esc(cat_label(code, cid, lang))}'
-                      f' <em>{n}</em></button>')
+        try:
+            tot = core.count(ad_type=code, oblast=ob)
+        except Exception:
+            tot = len(rows)
+        secs.append((code, rows, tot))
+    secs.sort(key=lambda x: -x[2])
+    out = []
+    for code, rows, tot in secs:
+        more = tot - len(rows)
+        mtxt = ("Ещё объявлений: %d ›" if lang == "ru" else "Дагы %d жарыя ›") % more
         out.append(
-            f'<section class="shelf" id="sh-{code}">'
+            f'<section class="shelf hsec" id="sh-{code}">'
             f'<div class="shead"><h2>{esc(section_name(code, lang))}</h2>'
             f'<a href="/?at={code}{_obq(ob)}" class="more">'
             f'{T("show_all", lang)} ›</a></div>'
-            f'<nav class="subbar shchips" data-ob="{esc(ob or "")}">{chips}</nav>'
-            '<div class="swrap">'
-            '<button class="sarr" type="button" aria-label="prev" '
-            'onclick="this.nextElementSibling.scrollBy({left:-this.nextElementSibling.clientWidth*0.8,behavior:\'smooth\'})">&#8249;</button>'
-            f'<div class="srow" id="row-{code}">'
-            f'{"".join(card(r, lang) for r in rows)}</div>'
-            '<button class="sarr sr" type="button" aria-label="next" '
-            'onclick="this.previousElementSibling.scrollBy({left:this.previousElementSibling.clientWidth*0.8,behavior:\'smooth\'})">&#8250;</button>'
-            '</div></section>')
+            f'<div class="g hg">{"".join(card(r, lang) for r in rows)}</div>'
+            + (f'<a class="hmore" href="/?at={code}{_obq(ob)}">{mtxt}</a>' if more > 0 else '')
+            + '</section>')
         _ns = sum(1 for _x in out if _x.startswith('<section'))   # HBAN
         _bl = [b for b in ("ban1", "ban3", "ban2", "brand") if secimg.has(b)]   # EVERYBAN
         _bn = _bl[(_ns - 1) % len(_bl)] if _bl else None
