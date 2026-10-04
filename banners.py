@@ -436,6 +436,21 @@ PRODUCTS = [
 ]
 WEEKS = [(1, 1), (2, 2), (4, 3)]      # (жума, канча жумага төлөйт)
 REGION_OFF = 30                        # бир облус үчүн арзандатуу, %
+# ROFF: ар бир аймактын өз арзандатуусу (админден өзгөрөт)
+REGION_OFFS = {"Бишкек шаары": 10, "Ош шаары": 30, "Чүй облусу": 30,
+               "Жалал-Абад облусу": 40, "Ош облусу": 40, "Ысык-Көл облусу": 40,
+               "Нарын облусу": 50, "Талас облусу": 50, "Баткен облусу": 50}
+
+
+def region_offs():
+    c = cfg()
+    out = {}
+    for k, v in REGION_OFFS.items():
+        try:
+            out[k] = min(90, max(0, int(c.get("off_" + k) or v)))
+        except Exception:
+            out[k] = v
+    return out
 _RATE = {}
 
 
@@ -482,8 +497,9 @@ def calc(product, weeks, oblast):
     if pr is None or mult is None:
         return None
     total = pr * mult
-    if oblast:
-        total = int(round(total * (100 - REGION_OFF) / 100.0 / 10.0)) * 10
+    off = region_offs().get(oblast, 0) if oblast else 0   # ROFF
+    if off:
+        total = int(round(total * (100 - off) / 100.0 / 10.0)) * 10
     return total
 
 
@@ -656,7 +672,7 @@ def sell_body(lang="ky"):
             "Буйрутманы жөнөтүңүз — админ сиз менен байланышып, төлөмдү айтат.",
             "Отправьте заказ — администратор свяжется с вами насчёт оплаты.")
     js_pr = json.dumps(pr)
-    return _SELL_CSS + (
+    return _SELL_CSS + '<script>window.TAPOFFS=%s;</script>' % json.dumps(region_offs()) + (   # ROFF
         '<main class="rk"><h1>📢 %s</h1><p class="lead">%s</p>'
         '<div class="st"><h2>1. %s</h2>%s'
         '<div id="secw" style="display:none"><label class="l">%s</label><select id="sec" class="f">'
@@ -683,7 +699,7 @@ def sell_body(lang="ky"):
         t("Орун жана мөөнөт", "Место и срок"), plist,
         t("Бөлүмдү тандаңыз", "Выберите раздел"), secs,   # SECCHIP
         t("Аймак", "Регион"), t("Бүт Кыргызстан", "Весь Кыргызстан"), obls,
-        t("Бир облус тандасаңыз — %d%% арзан." % REGION_OFF, "Одна область — дешевле на %d%%." % REGION_OFF),
+        t("Бир облус тандасаңыз — %d%% чейин арзан." % max(region_offs().values()), "Одна область — дешевле на %d%%." % REGION_OFF),
         t("Мөөнөтү", "Срок"), wk,
         t("Башталышы", "Начало"), _today(), _today(),
         t("Баннер", "Баннер"),
@@ -707,7 +723,7 @@ def sell_body(lang="ky"):
         'function calc(){var p=prod(),m={1:1,2:2,4:3}[W];document.querySelectorAll(".pr").forEach(function(l){'
         'l.classList.toggle("on",l.dataset.k===p);});var l=document.querySelector(".pr.on");'
         '$("secw").style.display="none";'
-        'if(!p){$("tot").textContent="—";$("fr").textContent="";return;}chk(p);var t=PR[p]*m;if($("obl").value)t=Math.round(t*(100-RO)/1000)*10;'
+        'if(!p){$("tot").textContent="—";$("fr").textContent="";return;}chk(p);var t=PR[p]*m;var ro=(window.TAPOFFS||{})[$("obl").value]||0;if(ro)t=Math.round(t*(100-ro)/1000)*10;'
         '$("tot").textContent=t.toLocaleString("ru-RU").replace(/,/g," ")+" "+T("сом","сом");}'
         'document.querySelectorAll("input[name=prod]").forEach(function(r){r.onchange=calc;});'
         '$("obl").onchange=calc;$("sec").onchange=calc;$("start").onchange=function(){this.dataset.m=1;};/* BANCAP2 */document.querySelectorAll("#wk button").forEach(function(b){b.onclick=function(){'
@@ -760,7 +776,7 @@ def sell_body(lang="ky"):
         'wrap.appendChild(lab(T("Шаар / облус","Город / область")));'
         'var oc=document.createElement("div");oc.className="cps";wrap.appendChild(oc);'
         'chip(oc,T("Бүт Кыргызстан","Весь Кыргызстан"),"",null,function(v){OB=v;apply();},true);'
-        'Array.prototype.forEach.call(ob.options,function(o){if(o.value)chip(oc,o.textContent,o.value,"−"+RO+"%%",function(v){OB=v;apply();});});'
+        'Array.prototype.forEach.call(ob.options,function(o){if(o.value)chip(oc,o.textContent,o.value,((window.TAPOFFS||{})[o.value]?"−"+(window.TAPOFFS||{})[o.value]+"%%":""),function(v){OB=v;apply();});});'
         'h2.parentNode.insertBefore(wrap,h2.nextSibling);'
         'function apply(){if(!PL)return;var k=PL==="top"?(SC?"top_sec":"top_all"):PL==="grid"?(SC?"grid_sec":"grid_all"):PL;'
         'var r=document.querySelector("input[name=prod][value="+k+"]");if(r)r.checked=true;$("sec").value=(PL==="top"||PL==="grid")?SC:"";ob.value=OB;calc();}'
@@ -827,6 +843,9 @@ def _cfg_form(k):
     return (
         "<details class='bf ad' style='margin-bottom:12px'><summary class='ah'>💰 Баалар жана төлөм маалыматы</summary>"
         + rows +
+        "<div class='ah' style='margin-top:14px'>Аймак боюнча арзандатуу, %%</div>"
+        + "".join("<label>%s</label><input id='o_%d' data-k='%s' class='roff' inputmode='numeric' value='%d'>"
+                  % (E(k), i, E(k), v) for i, (k, v) in enumerate(region_offs().items())) +
         "<label>MBank номери (бош калса, чек суралбайт)</label><input id='c_mb' value='%s' placeholder='0700 123 456'>"
         "<label>Алуучунун аты</label><input id='c_mn' value='%s' placeholder='Азамат Ж.'>"
         "<label>MBank QR сүрөтү %s</label><input type='file' id='c_qr' accept='image/*'>"
@@ -836,7 +855,7 @@ def _cfg_form(k):
         "var c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);var g=c.getContext('2d');"
         "g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);QR=c.toDataURL('image/jpeg',0.9);};im.src=r.result;};r.readAsDataURL(x);};"
         "document.getElementById('c_sv').onclick=function(){var P={},C={};%s.forEach(function(k){P[k]=document.getElementById('p_'+k).value;C[k]=document.getElementById('cap_'+k).value;});"
-        "fetch('/admin/banners/cfg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k:'%s',prices:P,caps:C,"
+        "fetch('/admin/banners/cfg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k:'%s',prices:P,caps:C,offs:(function(){var O={};document.querySelectorAll('.roff').forEach(function(e){O[e.dataset.k]=e.value;});return O;})(),"
         "mbank:document.getElementById('c_mb').value,mname:document.getElementById('c_mn').value,qr:QR})})"
         ".then(function(r){return r.json();}).then(function(j){location.href='/admin/banners?m='+encodeURIComponent(j.msg||'');});};})();</script>"
     ) % (E(c.get("mbank", "")), E(c.get("mname", "")), "(жүктөлгөн ✅)" if c.get("qr") else "",
@@ -859,6 +878,10 @@ def _cfg_save(h, uid, k):
         v = str((d.get("caps") or {}).get(key) or "").strip()
         if v.isdigit() and 0 < int(v) <= 20:
             _cfg_set("cap_" + key, int(v))
+    for k in REGION_OFFS:   # ROFF
+        v = str((d.get("offs") or {}).get(k) or "").strip()
+        if v.isdigit() and 0 <= int(v) <= 90:
+            _cfg_set("off_" + k, int(v))
     _cfg_set("mbank", str(d.get("mbank") or "").strip()[:30])
     _cfg_set("mname", str(d.get("mname") or "").strip()[:60])
     q = _jpeg(d.get("qr"))
