@@ -740,7 +740,8 @@ def sell_body(lang="ky"):
         'if($("rcf"))$("rcf").onchange=function(){var f=this.files[0];if(f)rd(f,false,1400,function(u){RC=u;$("rcp").src=u;$("rcp").style.display="block";});};'
         '$("go").onclick=function(){var b=this;$("er").textContent="";'
         'if(!prod()){$("er").textContent=T("Орунду тандаңыз","Выберите место");return;}'
-        'if(!IMG){$("er").textContent=T("Баннердин сүрөтүн жүктөңүз","Загрузите изображение баннера");return;}'
+        'if(window.TAPVBUSY){$("er").textContent=T("⏳ Видео али даярдалып жатат, бир аз күтүңүз","⏳ Видео ещё обрабатывается, подождите");return;}'
+        'if(!IMG){$("er").textContent=window.TAPVMODE==="video"?T("Видеону жүктөңүз","Загрузите видео"):T("Баннердин сүрөтүн жүктөңүз","Загрузите изображение баннера");return;}'
         'if($("ph").value.replace(/\\D/g,"").length<9){$("er").textContent=T("Телефон номериңизди жазыңыз","Укажите номер телефона");return;}'
         'if(MB&&!RC){$("er").textContent=T("Төлөм чегинин сүрөтүн жүктөңүз","Загрузите фото чека");return;}'
         'b.disabled=true;b.textContent=T("Жөнөтүлүүдө…","Отправка…");'
@@ -817,15 +818,19 @@ def sell_body(lang="ky"):
         'var vs=document.createElement("div");vs.className="hint";vs.style.fontWeight="700";'
         'var vp=document.createElement("video");vp.controls=true;vp.playsInline=true;vp.className="prev";'
         'vw.appendChild(vl);vw.appendChild(vf);vw.appendChild(vs);vw.appendChild(vp);hint.parentNode.insertBefore(vw,$("imp").nextSibling);'
-        'function mode(m){MODE=m;bI.classList.toggle("on",m==="img");bV.classList.toggle("on",m==="video");'
+        'function mode(m){MODE=m;window.TAPVMODE=m;window.TAPVBUSY=0;bI.classList.toggle("on",m==="img");bV.classList.toggle("on",m==="video");'
         'imf.style.display=lb.style.display=hint.style.display=m==="img"?"":"none";$("imp").style.display=(m==="img"&&IMG)?"block":"none";vw.style.display=m==="video"?"block":"none";'
         'IMG="";window.TAPVIDEO="";vp.style.display="none";vp.removeAttribute("src");vs.textContent="";$("imp").style.display="none";imf.value="";vf.value="";paint();}'
         'bI.onclick=function(){mode("img");};bV.onclick=function(){mode("video");};'
         'vf.onchange=function(){var f=vf.files[0];if(!f)return;if(f.size>60*1024*1024){vs.textContent=T("Видео өтө чоң (60 МБ чейин)","Видео слишком большое (до 60 МБ)");return;}'
-        'vs.style.color="#4A5A70";vs.textContent=T("⏳ Видео жүктөлүүдө жана даярдалууда… (1 мүнөткө чейин)","⏳ Видео загружается и обрабатывается… (до 1 минуты)");IMG="";window.TAPVIDEO="";'
-        'fetch("/reklama/video",{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:f}).then(function(r){return r.json();}).then(function(j){'
-        'if(j.ok){IMG=j.poster;window.TAPVIDEO=j.video;vp.src="/media/"+j.video;vp.style.display="block";vs.style.color="#1E7A46";vs.textContent=T("✅ Видео даяр","✅ Видео готово");}'
-        'else{vs.style.color="#B42318";vs.textContent=j.msg||T("Ката","Ошибка");}}).catch(function(){vs.style.color="#B42318";vs.textContent=T("Байланыш катасы","Ошибка связи");});};})();'
+        'vs.style.color="#4A5A70";IMG="";window.TAPVIDEO="";window.TAPVBUSY=1;vs.textContent=T("⏳ Видео жүктөлүүдө…","⏳ Загрузка видео…");/* VIDBAN2 */'
+        'var x=new XMLHttpRequest();x.open("POST","/reklama/video");x.timeout=300000;x.setRequestHeader("Content-Type","application/octet-stream");'
+        'x.upload.onprogress=function(e){if(e.lengthComputable){var p=Math.round(e.loaded/e.total*100);vs.textContent=p<100?T("⏳ Видео жүктөлүүдө: ","⏳ Загрузка видео: ")+p+"%%":T("⏳ Видео даярдалууда, 1–2 мүнөт күтүңүз…","⏳ Видео обрабатывается, подождите 1–2 минуты…");}};'
+        'function fail(m){window.TAPVBUSY=0;vs.style.color="#B42318";vs.textContent=m;}'
+        'x.onload=function(){window.TAPVBUSY=0;var j={};try{j=JSON.parse(x.responseText);}catch(e){}if(j.ok){IMG=j.poster;window.TAPVIDEO=j.video;vp.src="/media/"+j.video;vp.style.display="block";vs.style.color="#1E7A46";vs.textContent=T("✅ Видео даяр","✅ Видео готово");}else{fail(j.msg||T("Ката, кайра аракет кылыңыз (","Ошибка, попробуйте снова (")+x.status+")");}};'
+        'x.onerror=function(){fail(T("Байланыш катасы, кайра аракет кылыңыз","Ошибка связи, попробуйте снова"));};'
+        'x.ontimeout=function(){fail(T("Убакыт бүттү — кыскараак видео жүктөп көрүңүз","Время истекло — попробуйте видео короче"));};'
+        'x.send(f);};})();'
         'drawMap();loadAv();'
         '})();'
         '/* SLOTSUI */'
@@ -1462,9 +1467,9 @@ def upload_video(h):
     try:
         r = subprocess.run([ff, "-y", "-v", "error", "-i", src, "-t", "20",
                             "-vf", "scale=1280:640:force_original_aspect_ratio=increase,crop=1280:640",
-                            "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-pix_fmt", "yuv420p",
+                            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p",
                             "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-movflags", "+faststart", out],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=180)
+                           stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=240)
         ok = r.returncode == 0 and os.path.isfile(out)
         if ok:
             subprocess.run([ff, "-y", "-v", "error", "-ss", "0.5", "-i", out, "-frames:v", "1",
