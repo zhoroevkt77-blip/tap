@@ -73,7 +73,7 @@ def _active():
         return _CACHE["rows"]
     try:
         _ensure()
-        rows = core.query("SELECT id, place, section, oblast, link, starts, ends, updated, slot "
+        rows = core.query("SELECT id, place, section, oblast, link, starts, ends, updated, slot, video "
                           "FROM banners WHERE COALESCE(active,1)=1", fetch="all") or []
         d = _today()
         rows = [r for r in rows
@@ -457,7 +457,7 @@ _RATE = {}
 def _cfg_ensure():
     core.query("CREATE TABLE IF NOT EXISTS banner_cfg (k TEXT PRIMARY KEY, v TEXT)")
     for col, typ in (("status", "TEXT"), ("price", "INTEGER"), ("receipt", "TEXT"),
-                     ("product", "TEXT"), ("weeks", "INTEGER"), ("slot", "TEXT")):
+                     ("product", "TEXT"), ("weeks", "INTEGER"), ("slot", "TEXT"), ("video", "TEXT")):
         try:
             if getattr(core, "IS_PG", False):
                 core.query("ALTER TABLE banners ADD COLUMN IF NOT EXISTS %s %s" % (col, typ))
@@ -745,7 +745,7 @@ def sell_body(lang="ky"):
         'if(MB&&!RC){$("er").textContent=T("Төлөм чегинин сүрөтүн жүктөңүз","Загрузите фото чека");return;}'
         'b.disabled=true;b.textContent=T("Жөнөтүлүүдө…","Отправка…");'
         'fetch("/reklama/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({'
-        'product:prod(),slot:window.TAPSLOT||"",section:$("sec").value,oblast:$("obl").value,weeks:W,start:$("start").value,'
+        'product:prod(),slot:window.TAPSLOT||"",video:window.TAPVIDEO||"",section:$("sec").value,oblast:$("obl").value,weeks:W,start:$("start").value,'
         'img:IMG,receipt:RC,link:$("lnk").value,name:$("nm").value,phone:$("ph").value})})'
         '.then(function(r){return r.json();}).then(function(j){if(j.ok){document.querySelectorAll(".rk .st").forEach(function(s){s.style.display="none";});'
         '$("done").textContent="✅ "+j.msg;$("done").style.display="block";scrollTo(0,0);}'
@@ -755,7 +755,7 @@ def sell_body(lang="ky"):
         'var st=document.createElement("style");st.textContent=".rk .cps{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 4px}.rk .cps button{border:1.5px solid #C9D4E3;background:#fff;border-radius:99px;padding:8px 13px;font:700 14px system-ui,sans-serif;color:#17304F}.rk .cps button.on{background:#1E4FA8;border-color:#1E4FA8;color:#fff}.rk .cps button em{font-style:normal;font-size:12px;color:#1E9E5A;margin-left:5px}.rk .cps button.on em{color:#CFF5DD}.rk .av{font-size:11.5px;font-weight:800;color:#1E7A46;margin-left:5px}.rk .av.bz{color:#B42318}.rk .cps button.on .av{color:#CFF5DD}.rk .cps button.on .av.bz{color:#FFD2CC}.rk .map{border:1.5px solid #C9D4E3;border-radius:16px;padding:8px;background:#F6F8FC;margin:6px 0 4px}.rk .mr{font-size:12px;color:#8A97AA;padding:4px 8px;margin:3px 0;border-radius:8px;background:#fff;border:1px solid #E6EBF2}.rk .slc{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 11px;margin:5px 0;border-radius:11px;border:1.5px dashed #9FD9B5;background:#EEFBF3;color:#155B33;font:700 14px system-ui,sans-serif;cursor:pointer}.rk .slc.bz{border-color:#D5DEEA;background:#fff;color:#6A7A90}.rk .slc.on{border:2px solid #1E4FA8;background:#EEF4FF;color:#17304F}.rk .slc small{font-weight:700;font-size:12.5px;text-align:right}.rk .wk small.wp{display:block;font-size:12px;font-weight:700;margin-top:2px;opacity:.9}.rk .pvw{font-size:14px;color:#17304F;margin:10px 0;line-height:1.45}.rk .pvr,.rk .pvrg,.rk .pvrt{display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0;color:#17304F}.rk .pvrg{color:#1E7A46}.rk .pvrt{border-top:1px solid #D5DEEA;margin-top:4px;padding-top:6px;font-weight:800;font-size:16px}";document.head.appendChild(st);'
         'function nf(n){return Number(n).toLocaleString("ru-RU");}'
         'var OFFS=window.TAPOFFS||{},SL=window.TAPSLOTS||{home:[],sec:{},names:[]},MUL={1:1,2:2,4:3},SOM=" сом";'
-        'var PG="home",SID="",OB="",AV=null,TD="";window.TAPSLOT="";'
+        'var PG="home",SID="",OB="",AV=null,TD="";window.TAPSLOT="";var MODE="img",VP=SL.vpct||50;window.TAPVIDEO="";'
         'var box=document.querySelector(".rk .st");var h2=box.querySelector("h2");'
         'document.querySelectorAll(".rk .pr").forEach(function(l){l.style.display="none";});'
         '$("secw").style.display="none";var ob=$("obl");ob.style.display="none";'
@@ -763,7 +763,7 @@ def sell_body(lang="ky"):
         'if(ob.nextElementSibling&&ob.nextElementSibling.classList.contains("hint"))ob.nextElementSibling.style.display="none";'
         'function lab(t){var e=document.createElement("label");e.className="l";e.textContent=t;return e;}'
         'function sp(s){var r={};SL.home.forEach(function(x){r[x[0]]=x[1];});return r[s]!==undefined?r[s]:SL.sec[s.split(":")[1]];}'
-        'function price(s,w,o){var t=sp(s)*MUL[w];var ro=OFFS[o]||0;if(ro)t=Math.round(t*(100-ro)/1000)*10;return t;}'
+        'function price(s,w,o){var t=sp(s)*MUL[w];if(MODE==="video")t=Math.round(t*(100+VP)/1000)*10;var ro=OFFS[o]||0;if(ro)t=Math.round(t*(100-ro)/1000)*10;return t;}'
         'function fr(s,o){return AV&&AV[s]?AV[s][o||""]:null;}'
         'function nm(c){var r="";SL.names.forEach(function(x){if(x[0]===c)r=x[1];});return r;}'
         'function slab(s){if(s.charAt(0)==="h")return "Б-"+s.slice(1);var k=s.split(":")[1];return k==="top"?T("Эң үстү","Самый верх"):k==="g1"?T("1-ара · 6-жарыядан кийин","1-й · после 6-го объявл."):T("2-ара · 12-жарыядан кийин","2-й · после 12-го объявл.");}'
@@ -806,6 +806,26 @@ def sell_body(lang="ky"):
         'document.querySelectorAll("input[name=prod]").forEach(function(r){r.checked=(r.value===k);});$("sec").value=PG!=="home"&&SID?PG:"";ob.value=OB;calc();paint();}'
         'function loadAv(){fetch("/reklama/avail?weeks="+W).then(function(r){return r.json();}).then(function(j){if(j&&j.ok){AV=j.s||{};TD=j.today;paint();}}).catch(function(){});}'
         'document.querySelectorAll("#wk button").forEach(function(b){b.addEventListener("click",function(){setTimeout(function(){paint();loadAv();},0);});});'
+        '(function(){var imf=$("imf");if(!imf)return;var hint=imf.nextElementSibling,lb=imf.previousElementSibling;'
+        'var tg=document.createElement("div");tg.className="wk";tg.style.margin="6px 0 8px";'
+        'var bI=document.createElement("button");bI.type="button";bI.className="on";bI.textContent=T("🖼 Сүрөт","🖼 Картинка");'
+        'var bV=document.createElement("button");bV.type="button";bV.textContent=T("🎬 Видео (+","🎬 Видео (+")+VP+"%%)";tg.appendChild(bI);tg.appendChild(bV);'
+        'lb.parentNode.insertBefore(tg,lb);'
+        'var vw=document.createElement("div");vw.style.display="none";'
+        'var vl=document.createElement("label");vl.className="l";vl.textContent=T("Видео (5–20 сек., туурасына; басканда үнү менен ойнойт)","Видео (5–20 сек., горизонтальное; играет со звуком по нажатию)");'
+        'var vf=document.createElement("input");vf.type="file";vf.accept="video/*";vf.className="f";'
+        'var vs=document.createElement("div");vs.className="hint";vs.style.fontWeight="700";'
+        'var vp=document.createElement("video");vp.controls=true;vp.playsInline=true;vp.className="prev";'
+        'vw.appendChild(vl);vw.appendChild(vf);vw.appendChild(vs);vw.appendChild(vp);hint.parentNode.insertBefore(vw,$("imp").nextSibling);'
+        'function mode(m){MODE=m;bI.classList.toggle("on",m==="img");bV.classList.toggle("on",m==="video");'
+        'imf.style.display=lb.style.display=hint.style.display=m==="img"?"":"none";$("imp").style.display=(m==="img"&&IMG)?"block":"none";vw.style.display=m==="video"?"block":"none";'
+        'IMG="";window.TAPVIDEO="";vp.style.display="none";vp.removeAttribute("src");vs.textContent="";$("imp").style.display="none";imf.value="";vf.value="";paint();}'
+        'bI.onclick=function(){mode("img");};bV.onclick=function(){mode("video");};'
+        'vf.onchange=function(){var f=vf.files[0];if(!f)return;if(f.size>60*1024*1024){vs.textContent=T("Видео өтө чоң (60 МБ чейин)","Видео слишком большое (до 60 МБ)");return;}'
+        'vs.style.color="#4A5A70";vs.textContent=T("⏳ Видео жүктөлүүдө жана даярдалууда… (1 мүнөткө чейин)","⏳ Видео загружается и обрабатывается… (до 1 минуты)");IMG="";window.TAPVIDEO="";'
+        'fetch("/reklama/video",{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:f}).then(function(r){return r.json();}).then(function(j){'
+        'if(j.ok){IMG=j.poster;window.TAPVIDEO=j.video;vp.src="/media/"+j.video;vp.style.display="block";vs.style.color="#1E7A46";vs.textContent=T("✅ Видео даяр","✅ Видео готово");}'
+        'else{vs.style.color="#B42318";vs.textContent=j.msg||T("Ката","Ошибка");}}).catch(function(){vs.style.color="#B42318";vs.textContent=T("Байланыш катасы","Ошибка связи");});};})();'
         'drawMap();loadAv();'
         '})();'
         '/* SLOTSUI */'
@@ -831,7 +851,7 @@ def serve_qr(h):
 
 def _orders(k):
     rows = core.query("SELECT id, place, section, oblast, link, title, owner, starts, ends, price, "
-                      "product, weeks, receipt FROM banners WHERE status='pending' ORDER BY id",
+                      "product, weeks, receipt, video FROM banners WHERE status='pending' ORDER BY id",
                       fetch="all") or []
     if not rows:
         return ""
@@ -852,7 +872,7 @@ def _orders(k):
              (" · " + E(dict(SECTIONS).get(b.get("section") or "", ""))) if b.get("section") else "",
              E(b.get("oblast") or "Бүт Кыргызстан"), E(b.get("starts") or ""), E(b.get("ends") or ""),
              b.get("weeks") or "?", b.get("price") or "?", E(b.get("title") or "—"), E(b.get("owner") or "—"),
-             ("<div class='am'>🔗 %s</div>" % E(b["link"])) if b.get("link") else "",
+             (("<div class='am'>🔗 %s</div>" % E(b["link"])) if b.get("link") else "") + (("<div class='am'>🎬 Видео:</div><video src='/media/%s' controls playsinline style='width:100%%;border-radius:10px'></video>" % E(b["video"])) if b.get("video") else ""),
              ("<div class='am'>🧾 Чек:</div><img src='data:image/jpeg;base64,%s' style='aspect-ratio:auto;max-width:100%%;object-fit:contain'>"
               % b["receipt"]) if b.get("receipt") else "<div class='am'>🧾 Чек жүктөлгөн эмес</div>",
              a, b["id"], a, b["id"])
@@ -908,7 +928,7 @@ def _cfg_save(h, uid, k):
             _cfg_set("cap_" + key, int(v))
     for k, v in (d.get("sprices") or {}).items():   # SLOTS
         v = str(v or "").strip()
-        if (k in slot_ids() or k in SEC_PRICES) and v.isdigit() and 0 < int(v) < 10_000_000:
+        if (k in slot_ids() or k in SEC_PRICES or k == "video_pct") and v.isdigit() and 0 <= int(v) < 10_000_000:
             _cfg_set("sprice_" + k, int(v))
     for k in REGION_OFFS:   # ROFF
         v = str((d.get("offs") or {}).get(k) or "").strip()
@@ -1167,6 +1187,8 @@ def slot_calc(sid, weeks, obl):
 
 
 def _html(b, lang, cls):
+    if b.get("video"):   # VIDBAN
+        return _vhtml(b, lang, cls)
     lbl = "Реклама" if lang == "ru" else "Жарнама"
     img = ('<img src="/bimg/%d.jpg?v=%s" alt="%s" loading="lazy">'
            % (b["id"], E(str(b.get("updated") or "0")[-8:].replace(":", "")), lbl))
@@ -1200,7 +1222,7 @@ def slots_js(lang="ky"):
     pr, base = slot_prices()
     d = {"home": [["h%d" % i, pr["h%d" % i]] for i in range(1, HOME_N + 1)],
          "sec": base,
-         "names": [[c, n] for c, n in SECTIONS]}
+         "names": [[c, n] for c, n in SECTIONS], "vpct": video_pct()}
     try:
         _sr = {"trade": "Торговля", "wholesale": "Оптовая торговля", "property": "Продажа недвижимости",
                "vehicle": "Продажа транспорта", "service": "Услуги", "rental": "Аренда",
@@ -1222,6 +1244,8 @@ def _slot_rows():
     for k, v in base.items():
         out += ("<label>Ар бир бөлүм: %s</label><input class='sp' data-k='%s' inputmode='numeric' value='%d'>"
                 % (E(_SECN[k][0]), k, v))
+    out += ("<label>Видео баннер үстөк баасы, %%%%</label><input class='sp' data-k='video_pct' "
+            "inputmode='numeric' value='%d'>" % video_pct())   # VIDBAN
     return out
 
 
@@ -1259,16 +1283,25 @@ def _order_slot(h, d, ru, ip, hits, now):
     if start < ff:
         return _json(h, {"ok": False, "msg": t("Бул орун тандалган күндөрү бош эмес. Эң жакынкы бош күн: %s." % _fdate(ff, False),
                                                "На выбранные даты место занято. Ближайшая свободная дата: %s." % _fdate(ff, True))})
-    total = slot_calc(sid, weeks, obl)
+    vid = str(d.get("video") or "")   # VIDBAN
+    if vid and not _video_ok(vid):
+        return _json(h, {"ok": False, "msg": t("Видео табылган жок, кайра жүктөңүз", "Видео не найдено, загрузите снова")})
+    _pr, _b = slot_prices()
+    total = _pr[sid] * dict(WEEKS)[weeks]
+    if vid:
+        total = int(round(total * (100 + video_pct()) / 100.0 / 10.0)) * 10
+    _off = region_offs().get(obl, 0) if obl else 0
+    if _off:
+        total = int(round(total * (100 - _off) / 100.0 / 10.0)) * 10
     end = (datetime.strptime(start, "%Y-%m-%d") + timedelta(days=7 * weeks - 1)).strftime("%Y-%m-%d")
     place, sec = _slot_place(sid)
     title = str(d.get("name") or "").strip()[:120]
     bid = core.query(
         "INSERT INTO banners (place, section, oblast, link, title, owner, starts, ends, updated, img, "
-        "active, shows, clicks, created_at, status, price, receipt, product, weeks, slot) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,0,0,0,?,?,?,?,?,?,?)",
+        "active, shows, clicks, created_at, status, price, receipt, product, weeks, slot, video) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,0,0,0,?,?,?,?,?,?,?,?)",
         (place, sec, obl, link, title, phone, start, end, core.now_str(), img,
-         core.now_str(), "pending", total, rec or "", sid, weeks, sid), fetch="id")
+         core.now_str(), "pending", total, rec or "", sid, weeks, sid, vid), fetch="id")
     _RATE[ip] = hits + [now]
     _SAVC.clear()
     site = (__import__("os").environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
@@ -1377,3 +1410,103 @@ def _slotmap(q):
     except Exception as e:
         print("slotmap:", e, flush=True)
         return ""
+
+
+# ══ VIDBAN: видео баннер (басканда үнү менен ойнойт) ═══════════════════
+_VRATE = {}
+
+
+def video_pct():
+    try:
+        return max(0, int(cfg().get("sprice_video_pct") or 50))
+    except Exception:
+        return 50
+
+
+def upload_video(h):
+    import os
+    import re as _re
+    import secrets
+    import subprocess
+    try:
+        import vidopt
+        ff = vidopt.ffmpeg()
+    except Exception:
+        ff = None
+    ip = (h.headers.get("X-Forwarded-For") or h.client_address[0] or "").split(",")[0].strip()
+    now = time.time()
+    hits = [x for x in _VRATE.get(ip, []) if now - x < 3600]
+    if len(hits) >= 10:
+        return _json(h, {"ok": False, "msg": "Өтө көп аракет / Слишком много попыток"})
+    n = int(h.headers.get("Content-Length") or 0)
+    if not 0 < n <= 60 * 1024 * 1024:
+        try:
+            h.rfile.read(n) if 0 < n < 200 * 1024 * 1024 else None
+        except Exception:
+            pass
+        return _json(h, {"ok": False, "msg": "Видео 60 МБ чейин болсун / Видео до 60 МБ"})
+    raw = h.rfile.read(n)
+    if raw[4:8] != b"ftyp":
+        return _json(h, {"ok": False, "msg": "MP4/MOV видео гана / Только видео MP4/MOV"})
+    if not ff:
+        return _json(h, {"ok": False, "msg": "Сервер видеону иштете албайт / Сервер не может обработать видео"})
+    _VRATE[ip] = hits + [now]
+    media = core.MEDIA
+    os.makedirs(media, exist_ok=True)
+    tag = secrets.token_hex(5)
+    src = os.path.join(media, "bnv_%s.src" % tag)
+    out = os.path.join(media, "bnv_%s.mp4" % tag)
+    pst = os.path.join(media, "bnv_%s.jpg" % tag)
+    with open(src, "wb") as f:
+        f.write(raw)
+    try:
+        r = subprocess.run([ff, "-y", "-v", "error", "-i", src, "-t", "20",
+                            "-vf", "scale=1280:640:force_original_aspect_ratio=increase,crop=1280:640",
+                            "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-pix_fmt", "yuv420p",
+                            "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-movflags", "+faststart", out],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=180)
+        ok = r.returncode == 0 and os.path.isfile(out)
+        if ok:
+            subprocess.run([ff, "-y", "-v", "error", "-ss", "0.5", "-i", out, "-frames:v", "1",
+                            "-q:v", "3", pst], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           timeout=60)
+            if not os.path.isfile(pst):
+                subprocess.run([ff, "-y", "-v", "error", "-i", out, "-frames:v", "1", "-q:v", "3", pst],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+    except Exception as e:
+        print("upload_video:", e, flush=True)
+        ok = False
+    try:
+        os.remove(src)
+    except Exception:
+        pass
+    if not ok or not os.path.isfile(pst):
+        return _json(h, {"ok": False, "msg": "Видеону иштетүү мүмкүн болбоду / Не удалось обработать видео"})
+    with open(pst, "rb") as f:
+        poster = "data:image/jpeg;base64," + base64.b64encode(f.read()).decode()
+    try:
+        os.remove(pst)
+    except Exception:
+        pass
+    _json(h, {"ok": True, "video": "bnv_%s.mp4" % tag, "poster": poster})
+
+
+def _video_ok(name):
+    import os
+    import re as _re
+    return bool(name and _re.match(r"^bnv_[0-9a-f]{10}\.mp4$", name)
+                and os.path.isfile(os.path.join(core.MEDIA, name)))
+
+
+def _vhtml(b, lang, cls):
+    ru = lang == "ru"
+    lbl = "Реклама" if ru else "Жарнама"
+    v = E(b.get("video") or "")
+    more = ""
+    if b.get("link"):
+        tgt = ("" if str(b.get("link")).startswith("/")
+               else ' target="_blank" rel="nofollow sponsored noopener"')
+        more = '<a class="vmore" href="/bn/%d"%s>%s</a>' % (b["id"], tgt, "Подробнее ›" if ru else "Кененирээк ›")
+    return ('<div class="%s pb vb" data-v="/media/%s"><img src="/bimg/%d.jpg?v=%s" alt="%s" loading="lazy">'
+            '<span class="adl">%s</span><button class="vpl" type="button" aria-label="play">▶</button>%s</div>'
+            % (cls, v, b["id"], E(str(b.get("updated") or "0")[-8:].replace(":", "")), lbl, lbl, more))

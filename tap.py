@@ -465,6 +465,8 @@ EXTRA_CSS += chr(10) + 'body .hsec .hg{margin-top:4px}body .hmore{display:block;
 EXTRA_CSS += chr(10) + '.hban:not(.pb),.gban:not(.pb){position:relative;cursor:pointer}.hban:not(.pb)::after,.gban:not(.pb)::after{content:"📢 Бул жерде сиздин жарнамаңыз ›";position:absolute;left:10px;bottom:10px;background:rgba(11,27,48,.78);color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:99px}html[lang=ru] .hban:not(.pb)::after,html[lang=ru] .gban:not(.pb)::after{content:"📢 Здесь может быть ваша реклама ›"}' + chr(10)
 PWA_JS += '<script>document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".hban:not(.pb),.gban:not(.pb)");if(b)location.href="/reklama";});</script>'
 EXTRA_CSS += chr(10) + '.hb-free::after,.gb-free::after{display:none!important}.hban.hb-free img,.gban.gb-free img{width:100%;height:auto;display:block}/* FREEBAN */' + chr(10)
+EXTRA_CSS += chr(10) + '.vb{position:relative}.vb .vpl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:26px;padding-left:5px;cursor:pointer}.vb video{width:100%;height:100%;object-fit:cover;display:block;background:#000}.vb .vmore{position:absolute;right:8px;bottom:8px;background:#fff;color:#17304F;border-radius:99px;padding:5px 11px;font-size:12px;font-weight:800;text-decoration:none;z-index:2}/* VIDBAN */' + chr(10)
+PWA_JS += '<script>/* VIDBAN */(function(){function stop(x){document.querySelectorAll(".vb video").forEach(function(v){if(v!==x)v.pause();});}document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".vb");if(!b||e.target.closest(".vmore"))return;var v=b.querySelector("video");if(!v){v=document.createElement("video");v.src=b.dataset.v;v.controls=true;v.playsInline=true;v.setAttribute("playsinline","");var im=b.querySelector("img");if(im)im.style.display="none";var pl=b.querySelector(".vpl");if(pl)pl.style.display="none";b.insertBefore(v,b.firstChild);if(window.IntersectionObserver){new IntersectionObserver(function(es){es.forEach(function(en){if(!en.isIntersecting)v.pause();});},{threshold:0.3}).observe(b);}v.addEventListener("play",function(){stop(v);});}stop(v);v.play();});})();</script>'
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */'
 EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */'
@@ -3516,6 +3518,14 @@ class H(BaseHTTPRequestHandler):
             except Exception as e:
                 print("web_my:", e, flush=True)
                 _json_out(self, {"ok": False, "err": "server"})
+            return
+
+        if u.path == "/reklama/video":   # VIDBAN
+            try:
+                banners.upload_video(self)
+            except Exception as e:
+                print("reklama video:", e, flush=True)
+                _json_out(self, {"ok": False, "msg": "Ката / Ошибка"})
             return
 
         if u.path == "/reklama/order":   # BANSELL
