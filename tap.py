@@ -2281,7 +2281,7 @@ def _shelves(lang="ky", ob=None):
         _ns = sum(1 for _x in out if _x.startswith('<section'))   # HBAN
         _bl = [b for b in ("ban1", "ban3", "ban2", "brand") if secimg.has(b)]   # EVERYBAN
         _bn = _bl[(_ns - 1) % len(_bl)] if _bl else None
-        _pb = banners.slot("home", code, ob, _ns - 1, lang, "hban")   # BANADM
+        _pb = banners.slot_at("h%d" % _ns, ob, lang, "hban") or banners.slot("home", code, ob, _ns - 1, lang, "hban")   # BANADM SLOTS
         if _pb:
             out.append(_pb)
         elif _bn and secimg.has(_bn):
@@ -2314,7 +2314,7 @@ def _role_chips(link, rl, lang="ky", ob=None):   # TAXIROLE: айдоочу/жү
 
 
 def _topban(at=None, ob=None, lang="ky"):   # TOPBAN: ар бир бөлүмгө туруктуу бир баннер
-    _pb = banners.slot("top", at, ob, 0, lang, "gban gtop")   # BANADM
+    _pb = (banners.slot_at("%s:top" % at, ob, lang, "gban gtop") if at else "") or banners.slot("top", at, ob, 0, lang, "gban gtop")   # BANADM SLOTS
     if _pb:
         return _pb
     bans = [b for b in ("ban1", "ban3", "ban2", "brand") if secimg.has(b)]
@@ -2335,7 +2335,7 @@ def _gcards(rows, lang="ky", at=None, ob=None):   # GBANS: 2-жарыядан к
         if bans and i % 6 == 0 and i < len(rows):   # TOPBAN: биринчиси үстүндө
             nm = bans[k % len(bans)]
             k += 1
-            _pb = banners.slot("grid", at, ob, k, lang, "gban")   # BANADM
+            _pb = (banners.slot_at("%s:g%d" % (at, k), ob, lang, "gban") if at and k <= 2 else "") or banners.slot("grid", at, ob, k, lang, "gban")   # BANADM SLOTS
             if _pb:
                 out.append(_pb)
                 continue

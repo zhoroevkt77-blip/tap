@@ -73,7 +73,7 @@ def _active():
         return _CACHE["rows"]
     try:
         _ensure()
-        rows = core.query("SELECT id, place, section, oblast, link, starts, ends, updated "
+        rows = core.query("SELECT id, place, section, oblast, link, starts, ends, updated, slot "
                           "FROM banners WHERE COALESCE(active,1)=1", fetch="all") or []
         d = _today()
         rows = [r for r in rows
@@ -115,7 +115,7 @@ def slot(place, at=None, ob=None, k=0, lang="ky", cls="hban"):
     try:
         sec, obl = at or "", ob or ""
         c = [b for b in _active()
-             if (b.get("place") or "all") in (place, "all")
+             if not b.get("slot") and (b.get("place") or "all") in (place, "all")
              and (b.get("section") or "") in ("", sec)
              and (b.get("oblast") or "") in ("", obl)]
         if not c:
@@ -457,7 +457,7 @@ _RATE = {}
 def _cfg_ensure():
     core.query("CREATE TABLE IF NOT EXISTS banner_cfg (k TEXT PRIMARY KEY, v TEXT)")
     for col, typ in (("status", "TEXT"), ("price", "INTEGER"), ("receipt", "TEXT"),
-                     ("product", "TEXT"), ("weeks", "INTEGER")):
+                     ("product", "TEXT"), ("weeks", "INTEGER"), ("slot", "TEXT")):
         try:
             if getattr(core, "IS_PG", False):
                 core.query("ALTER TABLE banners ADD COLUMN IF NOT EXISTS %s %s" % (col, typ))
@@ -545,6 +545,8 @@ def order(h, lang="ky"):
         d = json.loads(h.rfile.read(n).decode("utf-8"))
     except Exception:
         return _json(h, {"ok": False, "msg": "Ката" if not ru else "Ошибка"})
+    if d.get("slot"):   # SLOTS
+        return _order_slot(h, d, ru, ip, hits, now)
     prod = {p[0]: p for p in PRODUCTS}.get(d.get("product"))
     try:
         weeks = int(d.get("weeks") or 0)
@@ -672,7 +674,7 @@ def sell_body(lang="ky"):
             "Буйрутманы жөнөтүңүз — админ сиз менен байланышып, төлөмдү айтат.",
             "Отправьте заказ — администратор свяжется с вами насчёт оплаты.")
     js_pr = json.dumps(pr)
-    return _SELL_CSS + '<script>window.TAPOFFS=%s;</script>' % json.dumps(region_offs()) + (   # ROFF
+    return _SELL_CSS + '<script>window.TAPOFFS=%s;</script>' % json.dumps(region_offs()) + slots_js(lang) + (   # ROFF
         '<main class="rk"><h1>📢 %s</h1><p class="lead">%s</p>'
         '<div class="st"><h2>1. %s</h2>%s'
         '<div id="secw" style="display:none"><label class="l">%s</label><select id="sec" class="f">'
@@ -723,7 +725,7 @@ def sell_body(lang="ky"):
         'function calc(){var p=prod(),m={1:1,2:2,4:3}[W];document.querySelectorAll(".pr").forEach(function(l){'
         'l.classList.toggle("on",l.dataset.k===p);});var l=document.querySelector(".pr.on");'
         '$("secw").style.display="none";'
-        'if(!p){$("tot").textContent="—";$("fr").textContent="";return;}chk(p);var t=PR[p]*m;var ro=(window.TAPOFFS||{})[$("obl").value]||0;if(ro)t=Math.round(t*(100-ro)/1000)*10;'
+        'if(!p){$("tot").textContent="—";$("fr").textContent="";return;}if(!window.TAPSLOT)chk(p);var t=PR[p]*m;var ro=(window.TAPOFFS||{})[$("obl").value]||0;if(ro)t=Math.round(t*(100-ro)/1000)*10;'
         '$("tot").textContent=t.toLocaleString("ru-RU").replace(/,/g," ")+" "+T("сом","сом");}'
         'document.querySelectorAll("input[name=prod]").forEach(function(r){r.onchange=calc;});'
         '$("obl").onchange=calc;$("sec").onchange=calc;$("start").onchange=function(){this.dataset.m=1;};/* BANCAP2 */document.querySelectorAll("#wk button").forEach(function(b){b.onclick=function(){'
@@ -743,72 +745,70 @@ def sell_body(lang="ky"):
         'if(MB&&!RC){$("er").textContent=T("Төлөм чегинин сүрөтүн жүктөңүз","Загрузите фото чека");return;}'
         'b.disabled=true;b.textContent=T("Жөнөтүлүүдө…","Отправка…");'
         'fetch("/reklama/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({'
-        'product:prod(),section:$("sec").value,oblast:$("obl").value,weeks:W,start:$("start").value,'
+        'product:prod(),slot:window.TAPSLOT||"",section:$("sec").value,oblast:$("obl").value,weeks:W,start:$("start").value,'
         'img:IMG,receipt:RC,link:$("lnk").value,name:$("nm").value,phone:$("ph").value})})'
         '.then(function(r){return r.json();}).then(function(j){if(j.ok){document.querySelectorAll(".rk .st").forEach(function(s){s.style.display="none";});'
         '$("done").textContent="✅ "+j.msg;$("done").style.display="block";scrollTo(0,0);}'
         'else{$("er").textContent=j.msg||T("Ката","Ошибка");b.disabled=false;b.textContent=T("Буйрутма берүү","Отправить заказ");}})'
         '.catch(function(){$("er").textContent=T("Байланыш катасы","Ошибка связи");b.disabled=false;b.textContent=T("Буйрутма берүү","Отправить заказ");});};'
         '(function(){'
-        'var st=document.createElement("style");st.textContent=".rk .tl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:6px 0 4px}.rk .tl button{text-align:left;border:1.5px solid #C9D4E3;background:#fff;border-radius:14px;padding:11px 12px;color:#17304F;font:700 15px system-ui,sans-serif}.rk .tl button small{display:block;font-weight:600;font-size:12.5px;color:#1E4FA8;margin-top:3px}.rk .tl button.on{border-color:#1E4FA8;background:#EEF4FF}.rk .cps{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 4px}.rk .cps button{border:1.5px solid #C9D4E3;background:#fff;border-radius:99px;padding:8px 13px;font:700 14px system-ui,sans-serif;color:#17304F}.rk .cps button.on{background:#1E4FA8;border-color:#1E4FA8;color:#fff}.rk .cps button em{font-style:normal;font-size:12px;color:#1E9E5A;margin-left:5px}.rk .cps button.on em{color:#CFF5DD}.rk .wk small.wp{display:block;font-size:12px;font-weight:700;margin-top:2px;opacity:.9}.rk .pv{display:grid;grid-template-columns:140px minmax(0,1fr);gap:12px;margin-top:14px;align-items:start}.rk .pvp{border:1.5px solid #C9D4E3;border-radius:16px;padding:7px;background:#F6F8FC}.rk .pvp p{font-size:11px;color:#5A6B82;margin:6px 2px 3px;font-weight:700}.rk .bk{border-radius:7px;font-size:11px;padding:5px 6px;margin:3px 0;background:#fff;color:#8A97AA;border:1px solid #E1E7F0}.rk .bka{border-radius:7px;font-size:11px;padding:5px 6px;margin:3px 0;background:#FFF4CC;border-color:#E3A008;color:#7A4B00;font-weight:800}.rk .pvl{font-size:12.5px;color:#4A5A70;font-weight:700;margin:0 0 3px}.rk .pvw{font-size:14px;color:#17304F;margin:0 0 10px;line-height:1.45}.rk .pvr{display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0;color:#17304F}.rk .pvrg{display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0;color:#1E7A46}.rk .av{display:block;font-size:11.5px;font-weight:800;color:#1E7A46;margin-top:3px}.rk .cps .av{display:inline;margin-left:5px}.rk .av.bz{color:#B42318}.rk .cps button.on .av{color:#CFF5DD}.rk .cps button.on .av.bz{color:#FFD2CC}.rk .pvrt{display:flex;justify-content:space-between;color:#17304F;border-top:1px solid #D5DEEA;margin-top:4px;padding-top:6px;font-weight:800;font-size:16px}";document.head.appendChild(st);'
+        'var st=document.createElement("style");st.textContent=".rk .cps{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 4px}.rk .cps button{border:1.5px solid #C9D4E3;background:#fff;border-radius:99px;padding:8px 13px;font:700 14px system-ui,sans-serif;color:#17304F}.rk .cps button.on{background:#1E4FA8;border-color:#1E4FA8;color:#fff}.rk .cps button em{font-style:normal;font-size:12px;color:#1E9E5A;margin-left:5px}.rk .cps button.on em{color:#CFF5DD}.rk .av{font-size:11.5px;font-weight:800;color:#1E7A46;margin-left:5px}.rk .av.bz{color:#B42318}.rk .cps button.on .av{color:#CFF5DD}.rk .cps button.on .av.bz{color:#FFD2CC}.rk .map{border:1.5px solid #C9D4E3;border-radius:16px;padding:8px;background:#F6F8FC;margin:6px 0 4px}.rk .mr{font-size:12px;color:#8A97AA;padding:4px 8px;margin:3px 0;border-radius:8px;background:#fff;border:1px solid #E6EBF2}.rk .slc{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 11px;margin:5px 0;border-radius:11px;border:1.5px dashed #9FD9B5;background:#EEFBF3;color:#155B33;font:700 14px system-ui,sans-serif;cursor:pointer}.rk .slc.bz{border-color:#D5DEEA;background:#fff;color:#6A7A90}.rk .slc.on{border:2px solid #1E4FA8;background:#EEF4FF;color:#17304F}.rk .slc small{font-weight:700;font-size:12.5px;text-align:right}.rk .wk small.wp{display:block;font-size:12px;font-weight:700;margin-top:2px;opacity:.9}.rk .pvw{font-size:14px;color:#17304F;margin:10px 0;line-height:1.45}.rk .pvr,.rk .pvrg,.rk .pvrt{display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0;color:#17304F}.rk .pvrg{color:#1E7A46}.rk .pvrt{border-top:1px solid #D5DEEA;margin-top:4px;padding-top:6px;font-weight:800;font-size:16px}";document.head.appendChild(st);'
         'function nf(n){return Number(n).toLocaleString("ru-RU");}'
-        'var OFFS=window.TAPOFFS||{},MUL={1:1,2:2,4:3},SOM=T(" сом"," сом");'
-        'var PL="",SC="",OB="";'
+        'var OFFS=window.TAPOFFS||{},SL=window.TAPSLOTS||{home:[],sec:{},names:[]},MUL={1:1,2:2,4:3},SOM=" сом";'
+        'var PG="home",SID="",OB="",AV=null,TD="";window.TAPSLOT="";'
         'var box=document.querySelector(".rk .st");var h2=box.querySelector("h2");'
         'document.querySelectorAll(".rk .pr").forEach(function(l){l.style.display="none";});'
         '$("secw").style.display="none";var ob=$("obl");ob.style.display="none";'
         'if(ob.previousElementSibling)ob.previousElementSibling.style.display="none";'
         'if(ob.nextElementSibling&&ob.nextElementSibling.classList.contains("hint"))ob.nextElementSibling.style.display="none";'
         'function lab(t){var e=document.createElement("label");e.className="l";e.textContent=t;return e;}'
-        'function key(){return PL==="top"?(SC?"top_sec":"top_all"):PL==="grid"?(SC?"grid_sec":"grid_all"):PL;}'
-        'function price(k,w,o){var t=PR[k]*MUL[w];var ro=OFFS[o]||0;if(ro)t=Math.round(t*(100-ro)/1000)*10;return t;}'
+        'function sp(s){var r={};SL.home.forEach(function(x){r[x[0]]=x[1];});return r[s]!==undefined?r[s]:SL.sec[s.split(":")[1]];}'
+        'function price(s,w,o){var t=sp(s)*MUL[w];var ro=OFFS[o]||0;if(ro)t=Math.round(t*(100-ro)/1000)*10;return t;}'
+        'function fr(s,o){return AV&&AV[s]?AV[s][o||""]:null;}'
+        'function nm(c){var r="";SL.names.forEach(function(x){if(x[0]===c)r=x[1];});return r;}'
+        'function slab(s){if(s.charAt(0)==="h")return "Б-"+s.slice(1);var k=s.split(":")[1];return k==="top"?T("Эң үстү","Самый верх"):k==="g1"?T("1-ара · 6-жарыядан кийин","1-й · после 6-го объявл."):T("2-ара · 12-жарыядан кийин","2-й · после 12-го объявл.");}'
         'var wrap=document.createElement("div");'
-        'wrap.appendChild(lab(T("Орду (баалар 1 жума үчүн)","Место (цены за 1 неделю)")));'
-        'var tl=document.createElement("div");tl.className="tl";wrap.appendChild(tl);'
-        'var places=[["all",T("Бардык орундар","Все места"),[nf(PR.all)+SOM]],["home",T("Башкы бет","Главная"),[nf(PR.home)+SOM]],'
-        '["top",T("Бөлүмдүн эң үстү","Верх раздела"),[T("1 бөлүм: ","1 раздел: ")+nf(PR.top_sec)+SOM,T("Бардыгы: ","Все: ")+nf(PR.top_all)+SOM]],'
-        '["grid",T("Жарыялардын арасы","Между объявлениями"),[T("1 бөлүм: ","1 раздел: ")+nf(PR.grid_sec)+SOM,T("Бардыгы: ","Все: ")+nf(PR.grid_all)+SOM]]];'
-        'places.forEach(function(p){var b=document.createElement("button");b.type="button";b.dataset.p=p[0];'
-        'b.appendChild(document.createTextNode(p[1]));p[2].forEach(function(x){var sm=document.createElement("small");sm.textContent=x;b.appendChild(sm);});'
-        'b.onclick=function(){PL=p[0];tl.querySelectorAll("button").forEach(function(x){x.classList.toggle("on",x===b);});sw.style.display=(PL==="top"||PL==="grid")?"block":"none";apply();};tl.appendChild(b);});'
-        'var sw=document.createElement("div");sw.style.display="none";sw.appendChild(lab(T("Бөлүм","Раздел")));'
-        'var sc=document.createElement("div");sc.className="cps";sw.appendChild(sc);wrap.appendChild(sw);'
-        'function chip(cont,txt,val,cb,on){var b=document.createElement("button");b.type="button";b.dataset.v=val;b.appendChild(document.createTextNode(txt));var e=document.createElement("em");b.appendChild(e);'
-        'if(on)b.classList.add("on");b.onclick=function(){cont.querySelectorAll("button").forEach(function(x){x.classList.toggle("on",x===b);});cb(val);};cont.appendChild(b);return b;}'
-        'chip(sc,T("Бардык бөлүмдөр","Все разделы"),"",function(v){SC=v;apply();},true);'
-        'Array.prototype.forEach.call($("sec").options,function(o){if(o.value)chip(sc,o.textContent,o.value,function(v){SC=v;apply();});});'
-        'wrap.appendChild(lab(T("Шаар / облус","Город / область")));'
+        'wrap.appendChild(lab(T("1) Кайсы бет","1) Страница")));'
+        'var pc=document.createElement("div");pc.className="cps";wrap.appendChild(pc);'
+        'wrap.appendChild(lab(T("2) Орунду тандаңыз — жашыл орундар бош (баалар 1 жума үчүн)","2) Выберите место — зелёные свободны (цены за 1 неделю)")));'
+        'var mp=document.createElement("div");mp.className="map";wrap.appendChild(mp);'
+        'wrap.appendChild(lab(T("3) Шаар / облус","3) Город / область")));'
         'var oc=document.createElement("div");oc.className="cps";wrap.appendChild(oc);'
+        'var pw=document.createElement("div");box.appendChild(pw);'
+        'function chip(cont,txt,val,cb,on){var b=document.createElement("button");b.type="button";b.dataset.v=val;b.appendChild(document.createTextNode(txt));var e=document.createElement("em");b.appendChild(e);var a=document.createElement("span");a.className="av";b.appendChild(a);'
+        'if(on)b.classList.add("on");b.onclick=function(){cont.querySelectorAll("button").forEach(function(x){x.classList.toggle("on",x===b);});cb(val);};cont.appendChild(b);return b;}'
+        'chip(pc,T("Башкы бет","Главная"),"home",function(v){PG=v;SID="";drawMap();apply();},true);'
+        'SL.names.forEach(function(x){chip(pc,x[1],x[0],function(v){PG=v;SID="";drawMap();apply();});});'
         'chip(oc,T("Бүт Кыргызстан","Весь Кыргызстан"),"",function(v){OB=v;apply();},true);'
         'Array.prototype.forEach.call(ob.options,function(o){if(o.value)chip(oc,o.textContent,o.value,function(v){OB=v;apply();});});'
         'h2.parentNode.insertBefore(wrap,h2.nextSibling);'
-        'var pv=document.createElement("div");pv.className="pv";pv.innerHTML="<div><p class=pvl></p><div class=pvp></div></div><div><p class=pvl></p><p class=pvw></p><p class=pvl></p><div class=pvc></div></div>";box.appendChild(pv);'
-        'var PVL=pv.querySelectorAll(".pvl");PVL[0].textContent=T("Сайтта кайда чыгат","Где на сайте");PVL[1].textContent=T("Ким көрөт","Кто увидит");PVL[2].textContent=T("Баасы","Цена");'
-        'function cname(cont){var b=cont.querySelector("button.on");return b?b.firstChild.textContent:"";}'
-        'function bk(on,txt){return "<div class="+(on?"bka":"bk")+">"+(on?T("Сиздин баннер","Ваш баннер"):txt)+"</div>";}'
-        'function pvw(){var k=key();var H=PL==="home"||PL==="all",TP=PL==="top"||PL==="all",G=PL==="grid"||PL==="all";var tb=T("ТАП! баннери","Баннер ТАП!");var sn=(PL==="top"||PL==="grid")&&SC?cname(sc):T("Ар бир бөлүм","Любой раздел");'
-        'pv.querySelector(".pvp").innerHTML="<p>"+T("Башкы бет","Главная")+"</p>"+bk(0,T("Бөлүм: 4 жарыя","Раздел: 4 объявл."))+bk(H,tb)+bk(0,T("Бөлүм: 4 жарыя","Раздел: 4 объявл."))+"<p>"+sn+"</p>"+bk(TP,tb)+bk(0,T("6 жарыя","6 объявл."))+bk(G,tb)+bk(0,T("6 жарыя","6 объявл."));'
-        'var rn=OB?cname(oc):"";var w=OB?T(rn+" тандаган колдонуучулар гана","Только пользователи, выбравшие «"+rn+"»"):T("Бүт Кыргызстандагы бардык колдонуучулар","Все пользователи Кыргызстана");'
-        'if(PL==="top"||PL==="grid")w+=SC?T(", «"+sn+"» бөлүмүн ачканда",", при открытии раздела «"+sn+"»"):T(", каалаган бөлүмдү ачканда",", при открытии любого раздела");'
-        'pv.querySelector(".pvw").textContent=PL?w+".":T("Жогорудан орунду тандаңыз.","Выберите место выше.");'
-        'var c=pv.querySelector(".pvc");if(!k){c.innerHTML="";return;}var p=PR[k],m=MUL[W],sub=p*m,ro=OFFS[OB]||0,tot=price(k,W,OB);'
-        'c.innerHTML="<div class=pvr><span>1 "+T("жума","нед.")+"</span><span>"+nf(p)+SOM+"</span></div><div class=pvr><span>× "+W+" "+T("жума","нед.")+(W===4?T(" (1 бекер)"," (1 в подарок)"):"")+"</span><span>"+nf(sub)+SOM+"</span></div>"+(ro?"<div class=pvrg><span>−"+ro+"%% "+T("аймак","регион")+"</span><span>−"+nf(sub-tot)+SOM+"</span></div>":"")+"<div class=pvrt><span>"+T("Төлөйсүз","К оплате")+"</span><span>"+nf(tot)+SOM+"</span></div>";}'
-        'var AV=null,TD="";function loadAv(){fetch("/reklama/avail?weeks="+W).then(function(r){return r.json();}).then(function(j){if(j&&j.ok){AV=j.m;TD=j.today;refresh();}}).catch(function(){});}'
-        'function fr(k,s,o){if(!AV||!AV[k])return null;var a=AV[k][s||""];return a?a[o||""]:null;}'
-        'function badge(b,f,big){var e=b.querySelector(".av");if(!e){e=document.createElement("span");e.className="av";b.appendChild(e);}if(!f){e.textContent="";return;}var bz=f>TD;e.className="av"+(bz?" bz":"");e.textContent=bz?(big?T("🔒 Бош эмес, бошойт: ","🔒 Занято, свободно с ")+fd(f):"🔒 "+fd(f)):(big?T("✓ Бош","✓ Свободно"):"✓");}'
-        'function avs(){tl.querySelectorAll("button").forEach(function(b){var p=b.dataset.p,tg=p==="top"||p==="grid";var k=tg?(SC?p+"_sec":p+"_all"):p;badge(b,fr(k,tg?SC:"",OB),true);});'
-        'if(PL==="top"||PL==="grid")sc.querySelectorAll("button").forEach(function(b){var v=b.dataset.v;badge(b,fr(v?PL+"_sec":PL+"_all",v,OB));});'
-        'var k=key();oc.querySelectorAll("button").forEach(function(b){badge(b,k?fr(k,(PL==="top"||PL==="grid")?SC:"",b.dataset.v):null);});}'
-        'function refresh(){avs();var k=key();'
-        'oc.querySelectorAll("button").forEach(function(b){var ro=OFFS[b.dataset.v]||0,s=ro?"−"+ro+"%%":"";if(k){s=(s?s+" · ":"")+nf(price(k,1,b.dataset.v))+SOM;}b.querySelector("em").textContent=s;});'
-        'document.querySelectorAll("#wk button").forEach(function(b){var w=+b.dataset.w,sm=b.querySelector("small.wp");if(!sm){sm=document.createElement("small");sm.className="wp";b.appendChild(sm);}'
-        'sm.textContent=k?nf(price(k,w,OB))+SOM:"";});pvw();}'
-        'function apply(){refresh();if(!PL)return;var k=key();'
-        'var r=document.querySelector("input[name=prod][value="+k+"]");if(r)r.checked=true;$("sec").value=(PL==="top"||PL==="grid")?SC:"";ob.value=OB;calc();}'
-        'loadAv();document.querySelectorAll("#wk button").forEach(function(b){b.addEventListener("click",function(){setTimeout(function(){refresh();loadAv();},0);});});'
-        'refresh();'
+        'function row(t){var d=document.createElement("div");d.className="mr";d.textContent=t;mp.appendChild(d);}'
+        'function card(s){var d=document.createElement("div");d.className="slc";d.dataset.s=s;var b=document.createElement("span");b.textContent=slab(s);var m=document.createElement("small");d.appendChild(b);d.appendChild(m);'
+        'd.onclick=function(){SID=s;apply();};mp.appendChild(d);}'
+        'function drawMap(){mp.innerHTML="";if(PG==="home"){SL.names.forEach(function(x,i){if(i<SL.home.length){row((i+1)+T("-бөлүм · 4 жарыя","-й раздел · 4 объявл."));card(SL.home[i][0]);}});}'
+        'else{row(T("«","«")+nm(PG)+T("» бөлүмү ачылганда","» — при открытии раздела"));card(PG+":top");row(T("6 жарыя","6 объявлений"));card(PG+":g1");row(T("6 жарыя","6 объявлений"));card(PG+":g2");row("…");}'
+        'paint();}'
+        'function stat(f){if(!f)return "";return f>TD?"🔒 "+fd(f):"✓";}'
+        'function paint(){mp.querySelectorAll(".slc").forEach(function(d){var s=d.dataset.s,f=fr(s,OB),bz=f&&f>TD;d.classList.toggle("bz",!!bz);d.classList.toggle("on",s===SID);'
+        'd.querySelector("small").textContent=nf(price(s,1,OB))+SOM+(f?" · "+(bz?"🔒 "+fd(f):T("бош","свободно")):"");});'
+        'oc.querySelectorAll("button").forEach(function(b){var v=b.dataset.v,ro=OFFS[v]||0,t=ro?"−"+ro+"%%":"";if(SID)t=(t?t+" · ":"")+nf(price(SID,1,v))+SOM;b.querySelector("em").textContent=t;var a=b.querySelector(".av"),f=SID?fr(SID,v):null;a.className="av"+(f&&f>TD?" bz":"");a.textContent=SID?stat(f):"";});'
+        'pc.querySelectorAll("button").forEach(function(b){b.querySelector(".av").textContent="";});'
+        'document.querySelectorAll("#wk button").forEach(function(b){var w=+b.dataset.w,sm=b.querySelector("small.wp");if(!sm){sm=document.createElement("small");sm.className="wp";b.appendChild(sm);}sm.textContent=SID?nf(price(SID,w,OB))+SOM:"";});'
+        'over();}'
+        'function over(){if(!SID){pw.innerHTML="";return;}var p=sp(SID),m=MUL[W],sub=p*m,ro=OFFS[OB]||0,tot=price(SID,W,OB);$("tot").textContent=nf(tot)+SOM;'
+        'var f=fr(SID,OB);if(f){var s=$("start");s.min=f;if(!s.dataset.m||!s.value||s.value<f)s.value=f;$("fr").style.color=f>TD?"#B42318":"#1E7A46";$("fr").textContent=f>TD?T("🔒 Бош эмес. Эң жакынкы бош күн: ","🔒 Занято. Ближайшая свободная дата: ")+fd(f):T("✅ Бош — бүгүндөн баштаса болот","✅ Свободно — можно начать сегодня");}'
+        'var on=OB?(oc.querySelector("button.on")||{}).firstChild:null,rn=on?on.textContent:"";'
+        'var w=OB?T(rn+" тандаган колдонуучулар гана","Только пользователи, выбравшие «"+rn+"»"):T("Бүт Кыргызстандагы бардык колдонуучулар","Все пользователи Кыргызстана");'
+        'w+=SID.charAt(0)==="h"?T(", башкы беттин "+SID.slice(1)+"-баннери",", баннер №"+SID.slice(1)+" на главной"):T(", «"+nm(PG)+"» бөлүмүндө: "+slab(SID),", раздел «"+nm(PG)+"»: "+slab(SID));'
+        'pw.innerHTML="<p class=pvw></p><div class=pvc></div>";pw.querySelector(".pvw").textContent=T("Ким көрөт: ","Кто увидит: ")+w+".";'
+        'pw.querySelector(".pvc").innerHTML="<div class=pvr><span>1 "+T("жума","нед.")+"</span><span>"+nf(p)+SOM+"</span></div><div class=pvr><span>× "+W+" "+T("жума","нед.")+(W===4?T(" (1 бекер)"," (1 в подарок)"):"")+"</span><span>"+nf(sub)+SOM+"</span></div>"+(ro?"<div class=pvrg><span>−"+ro+"%% "+T("аймак","регион")+"</span><span>−"+nf(sub-tot)+SOM+"</span></div>":"")+"<div class=pvrt><span>"+T("Төлөйсүз","К оплате")+"</span><span>"+nf(tot)+SOM+"</span></div>";}'
+        'function apply(){window.TAPSLOT=SID;var k=!SID?"":SID.charAt(0)==="h"?"home":SID.indexOf(":top")>0?"top_sec":"grid_sec";'
+        'document.querySelectorAll("input[name=prod]").forEach(function(r){r.checked=(r.value===k);});$("sec").value=PG!=="home"&&SID?PG:"";ob.value=OB;calc();paint();}'
+        'function loadAv(){fetch("/reklama/avail?weeks="+W).then(function(r){return r.json();}).then(function(j){if(j&&j.ok){AV=j.s||{};TD=j.today;paint();}}).catch(function(){});}'
+        'document.querySelectorAll("#wk button").forEach(function(b){b.addEventListener("click",function(){setTimeout(function(){paint();loadAv();},0);});});'
+        'drawMap();loadAv();'
         '})();'
-        '/* CHIPUI4 */'
+        '/* SLOTSUI */'
         'calc();})();</script>'
     ) % (js_pr, REGION_OFF, "true" if c.get("mbank") else "false", "true" if ru else "false")
 
@@ -836,6 +836,7 @@ def _orders(k):
     if not rows:
         return ""
     pn = {p[0]: p[1] for p in PRODUCTS}
+    pn.update(slot_labels())   # SLOTS
     out = "<h2>🆕 Төлөм күтүүдө (%d)</h2>" % len(rows)
     for b in rows:
         a = "/admin/banners/act?k=%s&id=%d&a=" % (k, b["id"])
@@ -869,7 +870,7 @@ def _cfg_form(k):
                    for key, kn, _r, _p, _n, _b in PRODUCTS)
     return (
         "<details class='bf ad' style='margin-bottom:12px'><summary class='ah'>💰 Баалар жана төлөм маалыматы</summary>"
-        + rows +
+        + rows + _slot_rows() +
         "<div class='ah' style='margin-top:14px'>Аймак боюнча арзандатуу, %%</div>"
         + "".join("<label>%s</label><input id='o_%d' data-k='%s' class='roff' inputmode='numeric' value='%d'>"
                   % (E(k), i, E(k), v) for i, (k, v) in enumerate(region_offs().items())) +
@@ -882,7 +883,7 @@ def _cfg_form(k):
         "var c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);var g=c.getContext('2d');"
         "g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);QR=c.toDataURL('image/jpeg',0.9);};im.src=r.result;};r.readAsDataURL(x);};"
         "document.getElementById('c_sv').onclick=function(){var P={},C={};%s.forEach(function(k){P[k]=document.getElementById('p_'+k).value;C[k]=document.getElementById('cap_'+k).value;});"
-        "fetch('/admin/banners/cfg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k:'%s',prices:P,caps:C,offs:(function(){var O={};document.querySelectorAll('.roff').forEach(function(e){O[e.dataset.k]=e.value;});return O;})(),"
+        "fetch('/admin/banners/cfg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k:'%s',prices:P,caps:C,sprices:(function(){var S={};document.querySelectorAll('.sp').forEach(function(e){S[e.dataset.k]=e.value;});return S;})(),offs:(function(){var O={};document.querySelectorAll('.roff').forEach(function(e){O[e.dataset.k]=e.value;});return O;})(),"
         "mbank:document.getElementById('c_mb').value,mname:document.getElementById('c_mn').value,qr:QR})})"
         ".then(function(r){return r.json();}).then(function(j){location.href='/admin/banners?m='+encodeURIComponent(j.msg||'');});};})();</script>"
     ) % (E(c.get("mbank", "")), E(c.get("mname", "")), "(жүктөлгөн ✅)" if c.get("qr") else "",
@@ -905,6 +906,10 @@ def _cfg_save(h, uid, k):
         v = str((d.get("caps") or {}).get(key) or "").strip()
         if v.isdigit() and 0 < int(v) <= 20:
             _cfg_set("cap_" + key, int(v))
+    for k, v in (d.get("sprices") or {}).items():   # SLOTS
+        v = str(v or "").strip()
+        if (k in slot_ids() or k in SEC_PRICES) and v.isdigit() and 0 < int(v) < 10_000_000:
+            _cfg_set("sprice_" + k, int(v))
     for k in REGION_OFFS:   # ROFF
         v = str((d.get("offs") or {}).get(k) or "").strip()
         if v.isdigit() and 0 <= int(v) <= 90:
@@ -944,7 +949,7 @@ def _dt(x):
 def _occupied():
     """Орунду ээлеген баннерлер: төлөнгөн+күйүк, же 48 сааттан жаңы буйрутма.
     Админдин өз баннерлери (статусу жок) эсептелбейт."""
-    rows = core.query("SELECT place, section, oblast, starts, ends, status, active, created_at "
+    rows = core.query("SELECT place, section, oblast, starts, ends, status, active, created_at, slot "
                       "FROM banners WHERE status IN ('paid','pending')", fetch="all") or []
     now = _dt(core.now_str())
     out = []
@@ -1053,4 +1058,226 @@ def avail_api(h, q):
         w = 1
     if w not in dict(WEEKS):
         w = 1
-    _json(h, {"ok": True, "today": _today(), "m": avail(w)})
+    _json(h, {"ok": True, "today": _today(), "m": avail(w), "s": avail_slots(w)})
+
+
+# ══ SLOTS: ар бир баннер орду өзүнчө сатылат (номерленген орундар) ══════
+HOME_N = 13
+HOME_PRICES = [1000, 800, 700, 600, 500, 400, 400, 300, 300, 300, 250, 250, 250]
+SEC_PRICES = {"top": 500, "g1": 300, "g2": 200}
+_SECN = {"top": ("Эң үстү", "Самый верх"),
+         "g1": ("1-ара (6-жарыядан кийин)", "1-й (после 6-го объявления)"),
+         "g2": ("2-ара (12-жарыядан кийин)", "2-й (после 12-го объявления)")}
+
+
+def slot_ids():
+    out = ["h%d" % i for i in range(1, HOME_N + 1)]
+    for code, _n in SECTIONS:
+        out += ["%s:%s" % (code, k) for k in ("top", "g1", "g2")]
+    return out
+
+
+def slot_prices():
+    c = cfg()
+    out = {}
+    for i in range(1, HOME_N + 1):
+        k = "h%d" % i
+        try:
+            out[k] = int(c.get("sprice_" + k) or HOME_PRICES[i - 1])
+        except Exception:
+            out[k] = HOME_PRICES[i - 1]
+    base = {}
+    for k, v in SEC_PRICES.items():
+        try:
+            base[k] = int(c.get("sprice_" + k) or v)
+        except Exception:
+            base[k] = v
+    for code, _n in SECTIONS:
+        for k in SEC_PRICES:
+            out["%s:%s" % (code, k)] = base[k]
+    return out, base
+
+
+def slot_label(sid, ru=False):
+    if sid.startswith("h") and sid[1:].isdigit():
+        return ("Главная, баннер Б-%s" if ru else "Башкы бет, Б-%s") % sid[1:]
+    code, _, k = sid.partition(":")
+    nm = dict(SECTIONS).get(code, code)
+    return "%s · %s" % (nm, _SECN.get(k, (k, k))[1 if ru else 0])
+
+
+def slot_labels():
+    return {s: slot_label(s) for s in slot_ids()}
+
+
+def _slot_place(sid):
+    if sid.startswith("h"):
+        return "home", ""
+    code, _, k = sid.partition(":")
+    return ("top" if k == "top" else "grid"), code
+
+
+def slot_free_from(sid, obl, weeks, occ=None):
+    occ = _occupied() if occ is None else occ
+    rows = [r for r in occ if (r.get("slot") or "") == sid
+            and (not obl or not r.get("oblast") or r.get("oblast") == obl)]
+    t0 = datetime.strptime(_today(), "%Y-%m-%d")
+    span = 7 * max(1, int(weeks or 1))
+    if not rows:
+        return _today()
+    for i in range(0, 400):
+        ok = True
+        for j in range(span):
+            day = (t0 + timedelta(days=i + j)).strftime("%Y-%m-%d")
+            if any((r.get("starts") or "0000") <= day <= (r.get("ends") or "9999") for r in rows):
+                ok = False
+                break
+        if ok:
+            return (t0 + timedelta(days=i)).strftime("%Y-%m-%d")
+    return (t0 + timedelta(days=400)).strftime("%Y-%m-%d")
+
+
+_SAVC = {}
+
+
+def avail_slots(weeks):
+    ck = (weeks, _today())
+    c = _SAVC.get(ck)
+    if c and time.time() - c[0] < 20:
+        return c[1]
+    occ = _occupied()
+    obls = [""] + [x for x, _n in _oblasts()]
+    m = {s: {o: slot_free_from(s, o, weeks, occ) for o in obls} for s in slot_ids()}
+    _SAVC.clear()
+    _SAVC[ck] = (time.time(), m)
+    return m
+
+
+def slot_calc(sid, weeks, obl):
+    pr, _b = slot_prices()
+    p = pr.get(sid)
+    mult = dict(WEEKS).get(weeks)
+    if p is None or mult is None:
+        return None
+    total = p * mult
+    off = region_offs().get(obl, 0) if obl else 0
+    if off:
+        total = int(round(total * (100 - off) / 100.0 / 10.0)) * 10
+    return total
+
+
+def _html(b, lang, cls):
+    lbl = "Реклама" if lang == "ru" else "Жарнама"
+    img = ('<img src="/bimg/%d.jpg?v=%s" alt="%s" loading="lazy">'
+           % (b["id"], E(str(b.get("updated") or "0")[-8:].replace(":", "")), lbl))
+    inner = img + '<span class="adl">%s</span>' % lbl
+    if b.get("link"):
+        tgt = ("" if str(b.get("link")).startswith("/")
+               else ' target="_blank" rel="nofollow sponsored noopener"')
+        return '<a class="%s pb" href="/bn/%d"%s>%s</a>' % (cls, b["id"], tgt, inner)
+    return '<div class="%s pb">%s</div>' % (cls, inner)
+
+
+def slot_at(sid, ob=None, lang="ky", cls="hban"):
+    # Ушул номерленген орунга сатылган баннер (аймагы дал келгени биринчи).
+    try:
+        obl = ob or ""
+        c = [b for b in _active() if (b.get("slot") or "") == sid
+             and (b.get("oblast") or "") in ("", obl)]
+        if not c:
+            return ""
+        c.sort(key=lambda b: (0 if (b.get("oblast") or "") == obl and obl else 1, b["id"]))
+        b = c[0]
+        _count(b["id"])
+        return _html(b, lang, cls)
+    except Exception as e:
+        print("banners slot_at:", e, flush=True)
+        return ""
+
+
+def slots_js(lang="ky"):
+    ru = lang == "ru"
+    pr, base = slot_prices()
+    d = {"home": [["h%d" % i, pr["h%d" % i]] for i in range(1, HOME_N + 1)],
+         "sec": base,
+         "names": [[c, n] for c, n in SECTIONS]}
+    try:
+        _sr = {"trade": "Торговля", "wholesale": "Оптовая торговля", "property": "Продажа недвижимости",
+               "vehicle": "Продажа транспорта", "service": "Услуги", "rental": "Аренда",
+               "delivery": "Доставка", "cargo": "Грузоперевозки", "jobseek": "Поиск работы",
+               "job": "Работа", "markets": "Рынки", "malls": "Торговые центры", "taxi": "Такси"}
+        if ru:
+            d["names"] = [[c, _sr.get(c, n)] for c, n in SECTIONS]
+    except Exception:
+        pass
+    return "<script>window.TAPSLOTS=%s;</script>" % json.dumps(d, ensure_ascii=False)
+
+
+def _slot_rows():
+    pr, base = slot_prices()
+    out = "<div class='ah' style='margin-top:14px'>Номерленген орундардын баасы (сом/жума)</div>"
+    for i in range(1, HOME_N + 1):
+        out += ("<label>Башкы бет Б-%d</label><input class='sp' data-k='h%d' inputmode='numeric' value='%d'>"
+                % (i, i, pr["h%d" % i]))
+    for k, v in base.items():
+        out += ("<label>Ар бир бөлүм: %s</label><input class='sp' data-k='%s' inputmode='numeric' value='%d'>"
+                % (E(_SECN[k][0]), k, v))
+    return out
+
+
+def _order_slot(h, d, ru, ip, hits, now):
+    sid = str(d.get("slot") or "")
+    t = lambda a, b: b if ru else a
+    if sid not in slot_ids():
+        return _json(h, {"ok": False, "msg": t("Орунду тандаңыз", "Выберите место")})
+    try:
+        weeks = int(d.get("weeks") or 0)
+    except Exception:
+        weeks = 0
+    if weeks not in dict(WEEKS):
+        return _json(h, {"ok": False, "msg": t("Мөөнөттү тандаңыз", "Выберите срок")})
+    obl = str(d.get("oblast") or "")
+    if obl and obl not in [x for x, _ in _oblasts()]:
+        obl = ""
+    img = _jpeg(d.get("img"))
+    if not img:
+        return _json(h, {"ok": False, "msg": t("Баннердин сүрөтүн жүктөңүз", "Загрузите изображение баннера")})
+    phone = "".join(ch for ch in str(d.get("phone") or "") if ch.isdigit() or ch == "+")[:16]
+    if len(phone.replace("+", "")) < 9:
+        return _json(h, {"ok": False, "msg": t("Телефон номериңизди жазыңыз", "Укажите номер телефона")})
+    link = str(d.get("link") or "").strip()[:500]
+    if link and not _safe_link(link):
+        link = ("https://" + link.lstrip("/")) if "." in link else ""
+    c = cfg()
+    rec = _jpeg(d.get("receipt"))
+    if c.get("mbank") and not rec:
+        return _json(h, {"ok": False, "msg": t("Төлөм чегинин сүрөтүн жүктөңүз", "Загрузите фото чека об оплате")})
+    start = _date(d.get("start")) or _today()
+    if start < _today():
+        start = _today()
+    ff = slot_free_from(sid, obl, weeks)
+    if start < ff:
+        return _json(h, {"ok": False, "msg": t("Бул орун тандалган күндөрү бош эмес. Эң жакынкы бош күн: %s." % _fdate(ff, False),
+                                               "На выбранные даты место занято. Ближайшая свободная дата: %s." % _fdate(ff, True))})
+    total = slot_calc(sid, weeks, obl)
+    end = (datetime.strptime(start, "%Y-%m-%d") + timedelta(days=7 * weeks - 1)).strftime("%Y-%m-%d")
+    place, sec = _slot_place(sid)
+    title = str(d.get("name") or "").strip()[:120]
+    bid = core.query(
+        "INSERT INTO banners (place, section, oblast, link, title, owner, starts, ends, updated, img, "
+        "active, shows, clicks, created_at, status, price, receipt, product, weeks, slot) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,0,0,0,?,?,?,?,?,?,?)",
+        (place, sec, obl, link, title, phone, start, end, core.now_str(), img,
+         core.now_str(), "pending", total, rec or "", sid, weeks, sid), fetch="id")
+    _RATE[ip] = hits + [now]
+    _SAVC.clear()
+    site = (__import__("os").environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
+    _notify("💰 <b>Жаңы баннер буйрутмасы №%s</b>\n\n📍 %s%s\n📅 %s → %s (%d жума)\n💵 %s сом%s\n"
+            "👤 %s\n☎️ %s\n\n🛠 <a href=\"%s/admin/banners\">Админде текшерүү</a>"
+            % (bid, E(slot_label(sid)), (" · " + E(obl)) if obl else "", start, end, weeks, total,
+               " · чек жүктөлдү" if rec else "", E(title or "—"), E(phone), site))
+    msg = t("Буйрутма №%s кабыл алынды. Админ төлөмдү текшерип, баннериңизди иштетет — "
+            "адатта бир нече сааттын ичинде." % bid,
+            "Заказ №%s принят. Администратор проверит оплату и запустит баннер — "
+            "обычно в течение нескольких часов." % bid)
+    _json(h, {"ok": True, "msg": msg, "id": bid})
