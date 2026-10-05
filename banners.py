@@ -420,7 +420,7 @@ def admin(h, uid, q, p, msg, page, k):
     if ed.isdigit():
         b = core.query("SELECT id, place, section, oblast, link, title, owner, starts, ends "
                        "FROM banners WHERE id=?", (int(ed),), fetch="one")
-    body = _orders(k) + _cfg_form(k) + _form(b, k) + _list(k)   # BANSELL
+    body = _slotmap(q) + _orders(k) + _cfg_form(k) + _form(b, k) + _list(k)   # BANSELL SLOTMAP
     h._send(page("Баннерлер", body, "bn", msg))
 
 
@@ -841,13 +841,13 @@ def _orders(k):
     for b in rows:
         a = "/admin/banners/act?k=%s&id=%d&a=" % (k, b["id"])
         out += (
-            "<div class='bn' style='border-color:#E3A008'><img src='/bimg/%d.jpg?v=o' alt=''>"
+            "<div class='bn' id='o%d' style='border-color:#E3A008;scroll-margin-top:70px'><img src='/bimg/%d.jpg?v=o' alt=''>"
             "<div class='ah' style='margin-top:8px'>№%d · %s</div>"
             "<div class='am'>📍 %s%s · %s</div><div class='am'>📅 %s → %s (%s жума)</div>"
             "<div class='am'>💵 <b>%s сом</b> · 👤 %s · ☎️ %s</div>%s%s"
             "<div class='ab'><a href='%spaid' onclick=\"return confirm('Төлөм келдиби? №%d иштетилсинби?')\">✅ Төлөм келди, иштетүү</a>"
             "<a class='del' href='%srej' onclick=\"return confirm('№%d четке кагылсынбы?')\">❌ Четке кагуу</a></div></div>"
-        ) % (b["id"], b["id"], E(pn.get(b.get("product"), "")),
+        ) % (b["id"], b["id"], b["id"], E(pn.get(b.get("product"), "")),
              E(_name(PLACES, b.get("place"), "")),
              (" · " + E(dict(SECTIONS).get(b.get("section") or "", ""))) if b.get("section") else "",
              E(b.get("oblast") or "Бүт Кыргызстан"), E(b.get("starts") or ""), E(b.get("ends") or ""),
@@ -1273,11 +1273,107 @@ def _order_slot(h, d, ru, ip, hits, now):
     _SAVC.clear()
     site = (__import__("os").environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
     _notify("💰 <b>Жаңы баннер буйрутмасы №%s</b>\n\n📍 %s%s\n📅 %s → %s (%d жума)\n💵 %s сом%s\n"
-            "👤 %s\n☎️ %s\n\n🛠 <a href=\"%s/admin/banners\">Админде текшерүү</a>"
+            "👤 %s\n☎️ %s\n\n🛠 <a href=\"%s\">Админде текшерүү</a>"
             % (bid, E(slot_label(sid)), (" · " + E(obl)) if obl else "", start, end, weeks, total,
-               " · чек жүктөлдү" if rec else "", E(title or "—"), E(phone), site))
+               " · чек жүктөлдү" if rec else "", E(title or "—"), E(phone), "%s/admin/banners?pg=%s#o%s" % (site, "home" if sid.startswith("h") else sid.split(":")[0], bid)))
     msg = t("Буйрутма №%s кабыл алынды. Админ төлөмдү текшерип, баннериңизди иштетет — "
             "адатта бир нече сааттын ичинде." % bid,
             "Заказ №%s принят. Администратор проверит оплату и запустит баннер — "
             "обычно в течение нескольких часов." % bid)
     _json(h, {"ok": True, "msg": msg, "id": bid})
+
+
+# ══ SLOTMAP: админде номерленген орундардын картасы ══════════════════
+def _slotmap(q):
+    try:
+        _ensure()
+        pg = (q.get("pg") or ["home"])[0]
+        codes = [c for c, _n in SECTIONS]
+        if pg != "home" and pg not in codes:
+            pg = "home"
+        d = _today()
+        rows = core.query("SELECT id, slot, oblast, title, owner, starts, ends, status, active, price, "
+                          "shows, clicks, created_at FROM banners WHERE slot IS NOT NULL AND slot<>'' "
+                          "AND status IN ('pending','paid')", fetch="all") or []
+        rows = [r for r in rows if r.get("status") == "pending"
+                or (int(r.get("active") or 0) == 1 and (r.get("ends") or "9999") >= d)]
+        by = {}
+        for r in rows:
+            by.setdefault(r["slot"], []).append(r)
+        ids = slot_ids()
+        n_free = sum(1 for s in ids if s not in by)
+        n_pend = sum(1 for r in rows if r.get("status") == "pending")
+        n_paid = sum(1 for r in rows if r.get("status") == "paid")
+        month = d[:7]
+        try:
+            allp = core.query("SELECT price, created_at FROM banners WHERE status='paid'", fetch="all") or []
+            rev = sum(int(r.get("price") or 0) for r in allp if str(r.get("created_at") or "")[:7] == month)
+        except Exception:
+            rev = 0
+
+        def pcount(page):
+            return sum(1 for r in rows if r.get("status") == "pending"
+                       and ((page == "home" and r["slot"].startswith("h"))
+                            or r["slot"].startswith(page + ":")))
+
+        css = ("<style>.smx{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:6px 0 10px}"
+               ".smx div{border-radius:12px;padding:8px 4px;text-align:center;font-size:12px;font-weight:700}"
+               ".smx b{display:block;font-size:19px}.smf{background:#E9F8EF;color:#155B33}"
+               ".smp{background:#FFF4CC;color:#7A4B00}.smd{background:#E8F0FE;color:#17407A}"
+               ".smr{background:#F1F4F8;color:#33425A}"
+               ".pgc{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}"
+               ".pgc a{font-size:13px;font-weight:700;padding:6px 11px;border-radius:99px;border:1.5px solid #C9D4E3;"
+               "color:#17304F;text-decoration:none;background:#fff}.pgc a.on{background:#1E4FA8;border-color:#1E4FA8;color:#fff}"
+               ".pgc em{font-style:normal;background:#F2C230;color:#3A2A00;border-radius:99px;padding:0 6px;margin-left:5px;font-size:11px}"
+               ".smap{border:1.5px solid #C9D4E3;border-radius:16px;padding:8px;background:#F6F8FC;margin-bottom:14px}"
+               ".smr2{font-size:12px;color:#8A97AA;padding:3px 8px}"
+               ".scd{border-radius:12px;padding:9px 11px;margin:5px 0;font-size:13px;display:flex;justify-content:space-between;gap:10px}"
+               ".scd>b{font-size:15px;white-space:nowrap}.scd .ln{text-align:right;line-height:1.45}"
+               ".scd.f{background:#E9F8EF;color:#155B33}.scd.p{background:#FFF4CC;color:#7A4B00;border:2px solid #E3A008}"
+               ".scd.d{background:#E8F0FE;color:#17407A}.scd a{color:inherit;font-weight:800}</style>")
+        out = css + "<h2>🗺 Орундар картасы</h2>"
+        out += ("<div class='smx'><div class='smf'><b>%d</b>Бош</div><div class='smp'><b>%d</b>Заявка</div>"
+                "<div class='smd'><b>%d</b>Сатылган</div><div class='smr'><b>%s</b>сом / ай</div></div>"
+                % (n_free, n_pend, n_paid, "{:,}".format(rev).replace(",", " ")))
+        chips = [("home", "Башкы бет")] + [(c, n) for c, n in SECTIONS]
+        out += "<div class='pgc'>" + "".join(
+            "<a href='/admin/banners?pg=%s'%s>%s%s</a>"
+            % (c, " class='on'" if c == pg else "", E(n), ("<em>%d</em>" % pcount(c)) if pcount(c) else "")
+            for c, n in chips) + "</div>"
+
+        def card(sid, label):
+            es = by.get(sid, [])
+            pend = [r for r in es if r.get("status") == "pending"]
+            paid = [r for r in es if r.get("status") == "paid"]
+            cls = "p" if pend else ("d" if paid else "f")
+            lines = []
+            for r in paid:
+                lines.append("✅ %s · %s · %s–%s · 👁 %d · 👆 %d"
+                             % (E(r.get("title") or r.get("owner") or "—"), E(r.get("oblast") or "Бүт КР"),
+                                E(_fdate(r.get("starts") or "", False)), E(_fdate(r.get("ends") or "", False)),
+                                int(r.get("shows") or 0), int(r.get("clicks") or 0)))
+            for r in pend:
+                lines.append("🆕 Заявка <a href='#o%d'>№%d</a> · %s · %s сом · <a href='#o%d'>Чекти көрүү ›</a>"
+                             % (r["id"], r["id"], E(r.get("oblast") or "Бүт КР"), r.get("price") or "?", r["id"]))
+            if es and any(not (r.get("oblast") or "") for r in es):
+                pass
+            elif es:
+                lines.append("🟢 Калган аймактар бош")
+            return ("<div class='scd %s'><b>%s</b><div class='ln'>%s</div></div>"
+                    % (cls, E(label), "<br>".join(lines) if lines else "бош"))
+
+        out += "<div class='smap'>"
+        if pg == "home":
+            for i in range(1, HOME_N + 1):
+                out += "<div class='smr2'>%d-бөлүм · 4 жарыя</div>" % i
+                out += card("h%d" % i, "Б-%d" % i)
+        else:
+            out += "<div class='smr2'>«%s» бөлүмү</div>" % E(dict(SECTIONS).get(pg, pg))
+            out += card(pg + ":top", "Эң үстү")
+            out += "<div class='smr2'>6 жарыя</div>" + card(pg + ":g1", "1-ара")
+            out += "<div class='smr2'>6 жарыя</div>" + card(pg + ":g2", "2-ара")
+        out += "</div>"
+        return out
+    except Exception as e:
+        print("slotmap:", e, flush=True)
+        return ""
