@@ -33,6 +33,12 @@ FONTS = FONTS + ('<link href="https://fonts.googleapis.com/css2?family=Inter:wgh
 from scenes import SCENES
 import secimg
 import banners   # BANADM
+
+
+def _HOUSE(t):   # FREEBAN: бош орунда «Сиздин жарыяңыздын орду» гана
+    return ("free",) if secimg.has("free") else t
+
+
 import vidopt   # VIDOPT: видео 720p + faststart
 try:
     vidopt.start(MEDIA)
@@ -458,6 +464,7 @@ EXTRA_CSS += chr(10) + 'body .hsec .hg{margin-top:4px}body .hmore{display:block;
 # BANSELL: ТАП!'тын өз баннерлери «Жарнама берүү» бетине алып барат
 EXTRA_CSS += chr(10) + '.hban:not(.pb),.gban:not(.pb){position:relative;cursor:pointer}.hban:not(.pb)::after,.gban:not(.pb)::after{content:"📢 Бул жерде сиздин жарнамаңыз ›";position:absolute;left:10px;bottom:10px;background:rgba(11,27,48,.78);color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:99px}html[lang=ru] .hban:not(.pb)::after,html[lang=ru] .gban:not(.pb)::after{content:"📢 Здесь может быть ваша реклама ›"}' + chr(10)
 PWA_JS += '<script>document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".hban:not(.pb),.gban:not(.pb)");if(b)location.href="/reklama";});</script>'
+EXTRA_CSS += chr(10) + '.hb-free::after,.gb-free::after{display:none!important}.hban.hb-free img,.gban.gb-free img{width:100%;height:auto;display:block}/* FREEBAN */' + chr(10)
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */'
 EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */'
@@ -2279,7 +2286,7 @@ def _shelves(lang="ky", ob=None):
             + (f'<a class="hmore" href="/?at={code}{_obq(ob)}">{mtxt}</a>' if more > 0 else '')
             + '</section>')
         _ns = sum(1 for _x in out if _x.startswith('<section'))   # HBAN
-        _bl = [b for b in ("ban1", "ban3", "ban2", "brand") if secimg.has(b)]   # EVERYBAN
+        _bl = [b for b in _HOUSE(("ban1", "ban3", "ban2", "brand")) if secimg.has(b)]   # EVERYBAN
         _bn = _bl[(_ns - 1) % len(_bl)] if _bl else None
         _pb = banners.slot_at("h%d" % _ns, ob, lang, "hban") or banners.slot("home", code, ob, _ns - 1, lang, "hban")   # BANADM SLOTS
         if _pb:
@@ -2317,7 +2324,7 @@ def _topban(at=None, ob=None, lang="ky"):   # TOPBAN: ар бир бөлүмгө
     _pb = (banners.slot_at("%s:top" % at, ob, lang, "gban gtop") if at else "") or banners.slot("top", at, ob, 0, lang, "gban gtop")   # BANADM SLOTS
     if _pb:
         return _pb
-    bans = [b for b in ("ban1", "ban3", "ban2", "brand") if secimg.has(b)]
+    bans = [b for b in _HOUSE(("ban1", "ban3", "ban2", "brand")) if secimg.has(b)]
     if not bans:
         return ""
     codes = [c for c, _i, _n in SECTIONS]
@@ -2329,7 +2336,7 @@ def _topban(at=None, ob=None, lang="ky"):   # TOPBAN: ар бир бөлүмгө
 
 def _gcards(rows, lang="ky", at=None, ob=None):   # GBANS: 2-жарыядан кийин, анан ар 6 жарыядан кийин баннер
     out, k = [], 0
-    bans = [b for b in ("ban1", "ban3", "brand", "ban2") if secimg.has(b)]
+    bans = [b for b in _HOUSE(("ban1", "ban3", "brand", "ban2")) if secimg.has(b)]
     for i, r in enumerate(rows, 1):
         out.append(card(r, lang))
         if bans and i % 6 == 0 and i < len(rows):   # TOPBAN: биринчиси үстүндө
