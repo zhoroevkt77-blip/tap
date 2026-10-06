@@ -1557,7 +1557,7 @@ function draw(j){var h='';
   var key=JSON.stringify(j.msgs);if(key===last)return;last=key;
   document.getElementById('chl').innerHTML=h;window.scrollTo(0,document.body.scrollHeight);}
 function load(first){fetch('/api/chat?t='+encodeURIComponent(tok)+'&lid='+lid+'&b='+bb).then(function(r){return r.json();}).then(function(j){
-  if(!j.ok){if(j.err==='verify'){try{localStorage.removeItem('tap_vok');}catch(e){}need();}else if(j.err==='owner'){location.href='/chats';}else{box.innerHTML='<p class="che">'+T('Жарыя табылган жок.','Объявление не найдено.')+'</p>';}return;}
+  if(!j.ok){if(j.err==='verify'){try{localStorage.removeItem('tap_vok');}catch(e){}need();}else if(j.err==='owner'){box.innerHTML='<p class="che">'+T('Бул — өзүңүздүн жарыяңыз. Кардарлар жазганда, алардын билдирүүлөрү «💬 Билдирүүлөр» бөлүмүндө чыгат.','Это ваше объявление. Когда покупатели напишут, их сообщения появятся в разделе «💬 Сообщения».')+'</p><a class="chbtn" href="/chats">'+T('💬 Билдирүүлөргө өтүү','💬 Перейти к сообщениям')+'</a>';}/* CHATOWN */else{box.innerHTML='<p class="che">'+T('Жарыя табылган жок.','Объявление не найдено.')+'</p>';}return;}
   if(first){box.innerHTML='<div class="chh"><a class="bk" href="/chats">‹</a><div class="tt"><a href="/e/'+j.lid+'">'+esc(j.title)+'</a></div></div><div class="chl" id="chl"></div>'
     +'<div class="chf"><div class="in"><textarea id="cht" maxlength="1000" placeholder="'+esc(j.hint||T('Билдирүү жазыңыз…','Напишите сообщение…'))+'"></textarea><button id="chs" type="button">➤</button></div></div>';
     document.getElementById('chs').onclick=send;}
@@ -1579,7 +1579,7 @@ var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
 if(!tok){try{localStorage.setItem('tap_back','/chats');}catch(e){}box.innerHTML='<p class="che">'+T('Билдирүүлөрдү көрүү үчүн номериңизди ырастаңыз.','Подтвердите номер, чтобы видеть сообщения.')+'</p><a class="chbtn" href="/verify?next=back">'+T('🔐 Номерди ырастоо','🔐 Подтвердить номер')+'</a>';return;}
 fetch('/api/chats?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){
   if(!j.ok){box.innerHTML='<p class="che">'+T('Ката чыкты.','Ошибка.')+'</p>';return;}
-  if(!j.items.length){box.innerHTML='<p class="che">'+T('Азырынча билдирүү жок. Жарыяны ачып «💬 Сатуучуга жазуу» басыңыз.','Сообщений пока нет. Откройте объявление и нажмите «💬 Написать продавцу».')+'</p>';return;}
+  if(!j.items.length){box.innerHTML='<p class="che">'+T('Азырынча билдирүү жок. Кардарлар сиздин жарыяңызга жазса же сиз башка жарыяга «💬 … жазуу» баскычы менен жазсаңыз, ушул жерде чыгат.','Сообщений пока нет. Здесь появятся переписки — когда покупатели напишут по вашему объявлению или вы напишете автору другого объявления.')+'</p>';return;}
   var h='';j.items.forEach(function(it){
     h+='<a class="chi" href="/chat?lid='+it.lid+(it.b?'&b='+encodeURIComponent(it.b):'')+'">'+(it.photo?'<img src="/media/'+esc(it.photo)+'" alt="">':'<span class="np"></span>')
      +'<span class="tx"><span class="rl">'+(it.role==='o'?T('Сиздин жарыяңыз — кардар','Ваше объявление — покупатель'):T('Жарыянын ээси менен','С автором объявления'))+'</span><b>'+esc(it.title)+'</b><small>'+(it.mine?T('Сиз: ','Вы: '):'')+esc(it.last)+'</small></span>'
