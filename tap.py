@@ -506,6 +506,7 @@ x.onclick=cl;i.onclick=cl;
 EXTRA_CSS += chr(10) + '.vb .vcap{position:absolute;right:10px;bottom:10px;max-width:72%;background:rgba(0,0,0,.62);color:#fff;font-weight:800;font-size:14px;line-height:1.3;padding:6px 12px;border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;z-index:1}.vb .vmore{top:8px;bottom:auto}.vfc{position:absolute;left:16px;right:16px;bottom:calc(140px + env(safe-area-inset-bottom,0px));color:#fff;font-weight:800;font-size:19px;text-align:center;text-shadow:0 1px 6px rgba(0,0,0,.9);z-index:2;pointer-events:none}/* VIDCAP */' + chr(10)
 EXTRA_CSS += chr(10) + 'nav.cats .catpromo{cursor:pointer}nav.cats .catpromo.pb>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}nav.cats .catpromo.pb .vcap{font-size:12px;padding:4px 9px}/* PREMSLOT */' + chr(10)
 PWA_JS += '<script>/* PREMSLOT */document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".catpromo:not(.pb)");if(b)location.href="/reklama?slot=p1";});</script>'
+EXTRA_CSS += chr(10) + 'header.top .tin{display:flex;align-items:center;justify-content:space-between;gap:10px}header.top button.pin.pinw{display:flex!important;align-items:center;gap:10px;width:100%;box-sizing:border-box;margin:12px 0 2px;padding:13px 18px;border:0;border-radius:16px;background:#1E4FA8;color:#fff!important;font-size:19px!important;font-weight:800!important;line-height:1.2;text-align:left;cursor:pointer;box-shadow:0 6px 16px rgba(30,79,168,.28);white-space:nowrap;overflow:hidden}header.top button.pinw .pwi{font-size:20px;flex:none}header.top button.pinw .pwt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}header.top button.pinw .pwa{flex:none;font-size:16px;opacity:.85}header.top button.pinw:active{transform:scale(.98)}header.top button.pinw + form.s{margin-top:10px}/* PINWIDE */' + chr(10)
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */'
 EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */'
@@ -1542,8 +1543,9 @@ def header(q="", at=None, reg=None, lang="ky"):
     hidden = f'<input type="hidden" name="at" value="{esc(at)}">' if at else ""
     return f"""<header class="top"><div class="wrap">
 <div class="tin"><a href="/" class="logo"><img class="lgi lgi3" src="/si/brand.jpg?v={secimg.VERSION}" alt=""><span>ТАП!</span><!--HDRICON--></a><style>.logo .lgi{{width:30px;height:30px;border-radius:9px;margin-right:7px;display:block;object-fit:cover}}</style>
-<button type="button" class="pin" onclick="var s=document.getElementById('rsheet');document.body.appendChild(s);s.classList.add('on')"><b>&#9679;</b>{esc(_short_place(_place_name(reg, lang)) if reg else T("all_kg", lang))} ▾</button>{_region_sheet(lang)}
+{_region_sheet(lang)}
 {_lang_switch(lang)}</div>
+<button type="button" class="pin pinw" onclick="var s=document.getElementById('rsheet');document.body.appendChild(s);s.classList.add('on')"><span class="pwi">📍</span><span class="pwt">{esc(_short_place(_place_name(reg, lang)) if reg else T("all_kg", lang))}</span><span class="pwa">▾</span></button><!--PINWIDE-->
 <form class="s" action="/">{hidden}
 <span class="mg">{_EMPTY}</span>
 <input type="search" name="q" value="{esc(q)}" placeholder="{T("search_ph", lang)}">
