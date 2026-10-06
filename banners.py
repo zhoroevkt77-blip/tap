@@ -73,7 +73,7 @@ def _active():
         return _CACHE["rows"]
     try:
         _ensure()
-        rows = core.query("SELECT id, place, section, oblast, link, starts, ends, updated, slot, video "
+        rows = core.query("SELECT id, place, section, oblast, link, starts, ends, updated, slot, video, caption "
                           "FROM banners WHERE COALESCE(active,1)=1", fetch="all") or []
         d = _today()
         rows = [r for r in rows
@@ -457,7 +457,7 @@ _RATE = {}
 def _cfg_ensure():
     core.query("CREATE TABLE IF NOT EXISTS banner_cfg (k TEXT PRIMARY KEY, v TEXT)")
     for col, typ in (("status", "TEXT"), ("price", "INTEGER"), ("receipt", "TEXT"),
-                     ("product", "TEXT"), ("weeks", "INTEGER"), ("slot", "TEXT"), ("video", "TEXT")):
+                     ("product", "TEXT"), ("weeks", "INTEGER"), ("slot", "TEXT"), ("video", "TEXT"), ("caption", "TEXT")):
         try:
             if getattr(core, "IS_PG", False):
                 core.query("ALTER TABLE banners ADD COLUMN IF NOT EXISTS %s %s" % (col, typ))
@@ -741,12 +741,13 @@ def sell_body(lang="ky"):
         '$("go").onclick=function(){var b=this;$("er").textContent="";'
         'if(!prod()){$("er").textContent=T("Орунду тандаңыз","Выберите место");return;}'
         'if(window.TAPVBUSY){$("er").textContent=T("⏳ Видео али даярдалып жатат, бир аз күтүңүз","⏳ Видео ещё обрабатывается, подождите");return;}'
+        'if(window.TAPVMODE==="video"&&!((document.getElementById("vcap")||{}).value||"").trim()){$("er").textContent=T("Жарнаманын аталышын жазыңыз","Укажите название рекламы");return;}'
         'if(!IMG){$("er").textContent=window.TAPVMODE==="video"?T("Видеону жүктөңүз","Загрузите видео"):T("Баннердин сүрөтүн жүктөңүз","Загрузите изображение баннера");return;}'
         'if($("ph").value.replace(/\\D/g,"").length<9){$("er").textContent=T("Телефон номериңизди жазыңыз","Укажите номер телефона");return;}'
         'if(MB&&!RC){$("er").textContent=T("Төлөм чегинин сүрөтүн жүктөңүз","Загрузите фото чека");return;}'
         'b.disabled=true;b.textContent=T("Жөнөтүлүүдө…","Отправка…");'
         'fetch("/reklama/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({'
-        'product:prod(),slot:window.TAPSLOT||"",video:window.TAPVIDEO||"",section:$("sec").value,oblast:$("obl").value,weeks:W,start:$("start").value,'
+        'product:prod(),slot:window.TAPSLOT||"",video:window.TAPVIDEO||"",caption:(document.getElementById("vcap")||{}).value||"",section:$("sec").value,oblast:$("obl").value,weeks:W,start:$("start").value,'
         'img:IMG,receipt:RC,link:$("lnk").value,name:$("nm").value,phone:$("ph").value})})'
         '.then(function(r){return r.json();}).then(function(j){if(j.ok){document.querySelectorAll(".rk .st").forEach(function(s){s.style.display="none";});'
         '$("done").textContent="✅ "+j.msg;$("done").style.display="block";scrollTo(0,0);}'
@@ -817,7 +818,7 @@ def sell_body(lang="ky"):
         'var vf=document.createElement("input");vf.type="file";vf.accept="video/*";vf.className="f";'
         'var vs=document.createElement("div");vs.className="hint";vs.style.fontWeight="700";'
         'var vp=document.createElement("video");vp.controls=true;vp.playsInline=true;vp.className="prev";'
-        'vw.appendChild(vl);vw.appendChild(vf);vw.appendChild(vs);vw.appendChild(vp);hint.parentNode.insertBefore(vw,$("imp").nextSibling);'
+        'var cl=document.createElement("label");cl.className="l";cl.textContent=T("Жарнаманын аталышы (баннерде көрүнөт)","Название рекламы (видно на баннере)");var ci=document.createElement("input");ci.className="f";ci.id="vcap";ci.maxLength=60;ci.placeholder=T("Мис: Портер кызматы · 0777 77 31 12","Напр.: Услуги Портера · 0777 77 31 12");vw.appendChild(vl);vw.appendChild(vf);vw.appendChild(vs);vw.appendChild(vp);vw.appendChild(cl);vw.appendChild(ci);/* VIDCAP */hint.parentNode.insertBefore(vw,$("imp").nextSibling);'
         'function mode(m){MODE=m;window.TAPVMODE=m;window.TAPVBUSY=0;bI.classList.toggle("on",m==="img");bV.classList.toggle("on",m==="video");'
         'imf.style.display=lb.style.display=hint.style.display=m==="img"?"":"none";$("imp").style.display=(m==="img"&&IMG)?"block":"none";vw.style.display=m==="video"?"block":"none";'
         'IMG="";window.TAPVIDEO="";vp.style.display="none";vp.removeAttribute("src");vs.textContent="";$("imp").style.display="none";imf.value="";vf.value="";paint();}'
@@ -856,7 +857,7 @@ def serve_qr(h):
 
 def _orders(k):
     rows = core.query("SELECT id, place, section, oblast, link, title, owner, starts, ends, price, "
-                      "product, weeks, receipt, video FROM banners WHERE status='pending' ORDER BY id",
+                      "product, weeks, receipt, video, caption FROM banners WHERE status='pending' ORDER BY id",
                       fetch="all") or []
     if not rows:
         return ""
@@ -877,7 +878,7 @@ def _orders(k):
              (" · " + E(dict(SECTIONS).get(b.get("section") or "", ""))) if b.get("section") else "",
              E(b.get("oblast") or "Бүт Кыргызстан"), E(b.get("starts") or ""), E(b.get("ends") or ""),
              b.get("weeks") or "?", b.get("price") or "?", E(b.get("title") or "—"), E(b.get("owner") or "—"),
-             (("<div class='am'>🔗 %s</div>" % E(b["link"])) if b.get("link") else "") + (("<div class='am'>🎬 Видео:</div><video src='/media/%s' controls playsinline style='width:100%%;border-radius:10px'></video>" % E(b["video"])) if b.get("video") else ""),
+             (("<div class='am'>🔗 %s</div>" % E(b["link"])) if b.get("link") else "") + (("<div class='am'>🎬 Видео: <b>" + E(b.get("caption") or "") + "</b></div><video src='/media/%s' controls playsinline style='width:100%%;border-radius:10px'></video>" % E(b["video"])) if b.get("video") else ""),
              ("<div class='am'>🧾 Чек:</div><img src='data:image/jpeg;base64,%s' style='aspect-ratio:auto;max-width:100%%;object-fit:contain'>"
               % b["receipt"]) if b.get("receipt") else "<div class='am'>🧾 Чек жүктөлгөн эмес</div>",
              a, b["id"], a, b["id"])
@@ -1289,6 +1290,9 @@ def _order_slot(h, d, ru, ip, hits, now):
         return _json(h, {"ok": False, "msg": t("Бул орун тандалган күндөрү бош эмес. Эң жакынкы бош күн: %s." % _fdate(ff, False),
                                                "На выбранные даты место занято. Ближайшая свободная дата: %s." % _fdate(ff, True))})
     vid = str(d.get("video") or "")   # VIDBAN
+    cap = " ".join(str(d.get("caption") or "").split())[:60]   # VIDCAP
+    if vid and not cap:
+        return _json(h, {"ok": False, "msg": t("Жарнаманын аталышын жазыңыз", "Укажите название рекламы")})
     if vid and not _video_ok(vid):
         return _json(h, {"ok": False, "msg": t("Видео табылган жок, кайра жүктөңүз", "Видео не найдено, загрузите снова")})
     _pr, _b = slot_prices()
@@ -1303,10 +1307,10 @@ def _order_slot(h, d, ru, ip, hits, now):
     title = str(d.get("name") or "").strip()[:120]
     bid = core.query(
         "INSERT INTO banners (place, section, oblast, link, title, owner, starts, ends, updated, img, "
-        "active, shows, clicks, created_at, status, price, receipt, product, weeks, slot, video) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,0,0,0,?,?,?,?,?,?,?,?)",
+        "active, shows, clicks, created_at, status, price, receipt, product, weeks, slot, video, caption) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,0,0,0,?,?,?,?,?,?,?,?,?)",
         (place, sec, obl, link, title, phone, start, end, core.now_str(), img,
-         core.now_str(), "pending", total, rec or "", sid, weeks, sid, vid), fetch="id")
+         core.now_str(), "pending", total, rec or "", sid, weeks, sid, vid, cap if vid else ""), fetch="id")
     _RATE[ip] = hits + [now]
     _SAVC.clear()
     site = (__import__("os").environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
@@ -1524,11 +1528,16 @@ def _vhtml(b, lang, cls):
                else ' target="_blank" rel="nofollow sponsored noopener"')
         more = '<a class="vmore" href="/bn/%d"%s>%s</a>' % (b["id"], tgt, "Подробнее ›" if ru else "Кененирээк ›")
     return ('<div class="%s pb vb" data-v="/media/%s" data-f="%s"><img src="/bimg/%d.jpg?v=%s" alt="%s" loading="lazy">'
-            '<span class="adl">%s</span><button class="vpl" type="button" aria-label="play">▶</button>%s</div>'
-            % (cls, v, _vfull(b.get("video")), b["id"], E(str(b.get("updated") or "0")[-8:].replace(":", "")), lbl, lbl, more))
+            '<span class="adl">%s</span><button class="vpl" type="button" aria-label="play">▶</button>%s%s</div>'
+            % (cls, v, _vfull(b.get("video")), b["id"], E(str(b.get("updated") or "0")[-8:].replace(":", "")), lbl, lbl, more, _vcap(b)))
 
 
 def _vfull(name):   # VIDFULL
     import os
     f = str(name or "").replace(".mp4", "_f.mp4")
     return E("/media/" + f) if f and os.path.isfile(os.path.join(core.MEDIA, f)) else ""
+
+
+def _vcap(b):   # VIDCAP
+    c = str(b.get("caption") or "").strip()
+    return '<span class="vcap">%s</span>' % E(c) if c else ""

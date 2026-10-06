@@ -475,7 +475,7 @@ e.preventDefault();e.stopPropagation();document.querySelectorAll(".vb video").fo
 var o=document.createElement("div");o.className="vfs";var v=document.createElement("video");
 v.src=b.dataset.f||b.dataset.v;v.controls=true;v.playsInline=true;v.setAttribute("playsinline","");
 var x=document.createElement("button");x.type="button";x.className="vfx";x.setAttribute("aria-label","close");x.textContent="✕";
-o.appendChild(v);o.appendChild(x);var m=b.querySelector(".vmore");if(m){var a=m.cloneNode(true);a.className="vfm";o.appendChild(a);}
+o.appendChild(v);o.appendChild(x);var cp=b.querySelector(".vcap");if(cp){var c2=document.createElement("div");c2.className="vfc";c2.textContent=cp.textContent;o.appendChild(c2);}/* VIDCAP */var m=b.querySelector(".vmore");if(m){var a=m.cloneNode(true);a.className="vfm";o.appendChild(a);}
 document.body.appendChild(o);document.body.style.overflow="hidden";
 var shut=false;function done(){if(shut)return;shut=true;v.pause();v.removeAttribute("src");o.remove();document.body.style.overflow="";}
 try{history.pushState({vfs:1},"");}catch(_){}
@@ -503,6 +503,7 @@ function cl(){if(history.state&&history.state.vfs)history.back();else done();}
 x.onclick=cl;i.onclick=cl;
 },true);
 })();</script>"""
+EXTRA_CSS += chr(10) + '.vb .vcap{position:absolute;right:10px;bottom:10px;max-width:72%;background:rgba(0,0,0,.62);color:#fff;font-weight:800;font-size:14px;line-height:1.3;padding:6px 12px;border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;z-index:1}.vb .vmore{top:8px;bottom:auto}.vfc{position:absolute;left:16px;right:16px;bottom:calc(140px + env(safe-area-inset-bottom,0px));color:#fff;font-weight:800;font-size:19px;text-align:center;text-shadow:0 1px 6px rgba(0,0,0,.9);z-index:2;pointer-events:none}/* VIDCAP */' + chr(10)
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */'
 EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */'
