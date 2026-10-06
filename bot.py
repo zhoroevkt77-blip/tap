@@ -466,6 +466,16 @@ def flow_kb(view, picked=None, lang="ky", back=False):
             _su = SITE_URL if (SITE_URL and "localhost" not in SITE_URL) else "https://tapmeni.up.railway.app"
             rows.append([{"text": label[:64], "url": _su.rstrip("/") + "/post"}])
             continue
+        # SITEALL: башкы менюнун баскычтары сайтты ачат
+        _mu = None
+        for _pf, _pth in (("📢 Жарыя берем", "/post"), ("🔍 Жарыя издеймин", "/"),
+                          ("📋 Менин жарыяларым", "/my"), ("💰 Менин балансым", "/bal")):
+            if str(o.get("label") or "").startswith(_pf):
+                _mu = _pth
+        if _mu:
+            _su = SITE_URL if (SITE_URL and "localhost" not in SITE_URL) else "https://tapmeni.up.railway.app"
+            rows.append([{"text": label[:64], "url": _su.rstrip("/") + _mu}])
+            continue
         if o["value"] == "tap_site" and SITE_URL and "localhost" not in SITE_URL:
             rows.append([{"text": label[:64], "url": SITE_URL}])
             continue
@@ -1452,17 +1462,18 @@ def expire_worker():
     """
     while True:
         # Мөөнөт бүтөрдөн бир күн мурун эскертебиз
+        # SITEALL: эскертүүлөрдүн баскычы сайтка алып барат
+        _su = SITE_URL if (SITE_URL and "localhost" not in SITE_URL) else "https://tapmeni.up.railway.app"
+        _su = _su.rstrip("/")
         try:
-            for r in core.expiring_soon():
+            for r in core.expiring_soon(hours=48):
                 kb = {"inline_keyboard": [[
-                    {"text": "🔄 Узартуу / Продлить",
-                     "callback_data": f"revive:{r['id']}"},  #ACTUAL2
-                     {"text": "❌ Жок, жаап кой / Закрыть",
-                      "callback_data": f"del:{r['id']}"}]]}
+                    {"text": "🌐 Узартуу же жабуу / Продлить", "url": _su + "/my?f=soon"}]]}
                 send(r["tg_id"],
-                     "⏳ <b>Жарыяңыздын мөөнөтү жакында бүтөт</b>\n\n"
+                     "⏳ <b>Жарыяңыздын мөөнөтү 2 күндөн кийин бүтөт</b>\n\n"
                      f"№{r['id']} — {esc(r['title'])}\n\n"
-                     "Керек болсо, бир баскыч менен узартсаңыз болот.",
+                     "Сайттагы «Менин жарыяларым» бөлүмүнөн бир баскыч менен узартып же жаап койсоңуз болот.\n"
+                     "<i>Срок истекает через 2 дня — продлите или закройте объявление на сайте.</i>",
                      kb)
         except Exception as e:
             print("  Эскертүү катасы:", e, flush=True)
@@ -1470,14 +1481,12 @@ def expire_worker():
         try:
             for r in core.expire_old():
                 kb = {"inline_keyboard": [[
-                    {"text": "🔄 Кайра жандыруу / Возобновить",
-                     "callback_data": f"revive:{r['id']}"},  #ACTUAL2
-                     {"text": "❌ Жок, жаап кой / Закрыть",
-                      "callback_data": f"del:{r['id']}"}]]}
+                    {"text": "🌐 Кайра жандыруу / Возобновить", "url": _su + "/my"}]]}
                 send(r["tg_id"],
                      "⏳ <b>Жарыяңыздын мөөнөтү бүттү</b>\n\n"
                      f"№{r['id']} — {esc(r['title'])}\n\n"
-                     "Керек болсо, бир баскыч менен кайра жандырсаңыз болот.",
+                     "Керек болсо, сайттагы «Менин жарыяларым» бөлүмүнөн кайра жандырсаңыз болот.\n"
+                     "<i>Срок истёк — возобновить можно на сайте.</i>",
                      kb)
         except Exception as e:
             print("  Мөөнөт текшерүү катасы:", e, flush=True)

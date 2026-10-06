@@ -1203,6 +1203,74 @@ def balance_page(lang="ky"):
     return page(body, title=ttl, lang=lang)
 
 
+# SITEALL: «Актуалдуубу?» сайттан — ээсине бот аркылуу кабар
+_ACT_SEEN = {}
+
+
+def _tg_tok():
+    tok = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    if not tok:
+        try:
+            tf = os.path.join(core.BASE, "token.txt")
+            if os.path.exists(tf):
+                tok = open(tf, encoding="utf-8").read().strip()
+        except Exception:
+            tok = ""
+    return tok
+
+
+def _actual_ask(h, b):
+    try:
+        lid = int(b.get("id"))
+    except Exception:
+        return {"ok": False}
+    ip = ((h.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+          or h.client_address[0])
+    day = _t.strftime("%Y-%m-%d")
+    k, lk = "%s|%d|%s" % (ip, lid, day), "L|%d|%s" % (lid, day)
+    if len(_ACT_SEEN) > 20000:
+        _ACT_SEEN.clear()
+    if k in _ACT_SEEN or _ACT_SEEN.get(lk, 0) >= 5:
+        return {"ok": True, "dup": True}
+    r = core.query("SELECT id, tg_id, title FROM listings WHERE id=? AND is_active=1",
+                   (lid,), fetch="one")
+    tok = _tg_tok()
+    if not r or not r["tg_id"] or not tok:
+        return {"ok": False}
+    _ACT_SEEN[k] = 1
+    _ACT_SEEN[lk] = _ACT_SEEN.get(lk, 0) + 1
+    site = (os.environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
+    if "localhost" in site:
+        site = "https://tapmeni.up.railway.app"
+    txt = ("❓ <b>Кардар сурап жатат:</b> жарыяңыз актуалдуубу?\n\n"
+           "№%d — %s\n\n"
+           "Сатылган болсо — сайттагы «Менин жарыяларым» бөлүмүнөн жаап коюңуз.\n"
+           "<i>Покупатель спрашивает, актуально ли объявление. "
+           "Если продано — закройте его на сайте.</i>"
+           % (lid, html.escape(str(r["title"] or ""))))
+    kb = json.dumps({"inline_keyboard": [
+        [{"text": "✅ Ооба, актуалдуу", "callback_data": "okact:%d" % lid}],
+        [{"text": "🌐 Сатылды — сайтта жабуу", "url": site + "/my"}]]})
+    data = urllib.parse.urlencode({"chat_id": r["tg_id"], "text": txt,
+                                   "parse_mode": "HTML",
+                                   "disable_web_page_preview": "true",
+                                   "reply_markup": kb}).encode()
+
+    def _go():
+        import urllib.request
+        try:
+            urllib.request.urlopen("https://api.telegram.org/bot%s/sendMessage" % tok,
+                                   data=data, timeout=15).read()
+        except Exception as ex:
+            print("actual_ask:", ex, flush=True)
+    import threading
+    threading.Thread(target=_go, daemon=True).start()
+    return {"ok": True}
+
+
+_ASK_JS = r"""<style>.askb{width:100%;font-family:inherit;font-size:15px;cursor:pointer}.askb:disabled{opacity:.8}.asks{font-size:12.5px;color:#5A6B82;text-align:center;margin-top:6px}</style><script>(function(){var b=document.querySelector('.askb[data-id]');if(!b)return;b.onclick=function(){b.disabled=true;fetch('/api/actual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:+b.getAttribute('data-id')})}).then(function(r){return r.json();}).then(function(j){if(j.ok){b.textContent=b.getAttribute('data-ok');}else{b.disabled=false;alert(b.getAttribute('data-er'));}}).catch(function(){b.disabled=false;});};})();</script>"""
+
+
 # WEB_MY: Менин жарыяларым жана админге кабар
 def _web_notify_admins(lid, row, uid, hits):
     tok = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
@@ -1298,7 +1366,7 @@ function load(){
       h+='<div class="mit"><a class="mimg" href="/e/'+it.id+'">'+(it.photo?'<img src="/media/'+esc(it.photo)+'" alt="" loading="lazy">':'')+'</a>'
         +'<div class="minf"><a class="mttl" href="/e/'+it.id+'">'+esc(it.title)+'</a><div class="mpr">'+esc(it.price)+'</div>'+st(it)
         +'<div class="mact"><button data-op="revive" data-id="'+it.id+'">'+(it.active?T('🔄 Узартуу','🔄 Продлить'):T('🔄 Кайра жандыруу','🔄 Возобновить'))+'</button>'
-        +(it.active?'<button class="mx" data-op="close" data-id="'+it.id+'">'+T('Жабуу','Закрыть')+'</button>':'')+'</div></div></div>';});
+        +(it.active?'<button class="mx" data-op="close" data-id="'+it.id+'">'+T('✅ Сатылды / Жабуу','✅ Продано / Закрыть')+'</button>':'')+'</div></div></div>';});
     box.innerHTML=h;
     box.querySelectorAll('[data-op]').forEach(function(b){b.onclick=function(){
       var op=b.getAttribute('data-op');
@@ -2873,9 +2941,16 @@ def detail(r, lang="ky"):
                'color:#17693A;font-weight:700;font-size:13px}</style>') + tel
     _ask_t = ("Актуально ли объявление?" if lang == "ru"  #ASKBTN
               else "Жарыя актуалдуубу?")
-    tel += ('<div class="askw"><a class="askb" target="_blank" rel="noopener" '
-            f'href="https://t.me/TapmeniBot?start=ask_{r["id"]}">'
-            f'❓ {_ask_t}</a></div>'
+    _ask_ok = ("✅ Отправлено! Автор получит уведомление." if lang == "ru"
+               else "✅ Жөнөтүлдү! Ээсине кабар барат.")
+    _ask_er = ("Объявление закрыто или ошибка." if lang == "ru"
+               else "Жарыя жабылган же ката чыкты.")
+    _ask_s = ("Автор получит уведомление в Telegram" if lang == "ru"
+              else "Ээсине Telegram аркылуу кабар барат")
+    tel += ('<div class="askw"><button type="button" class="askb" data-id="%d" data-ok="%s" data-er="%s">'
+            % (r["id"], esc(_ask_ok), esc(_ask_er))
+            + f'❓ {_ask_t}</button><div class="asks">{esc(_ask_s)}</div></div>'
+            + _ASK_JS +   # SITEALL
             '<style>.askw{margin:10px 0}.askb{display:block;text-align:center;'
             'padding:11px;border-radius:12px;border:1px solid #d7dbe3;'
             'background:#fff;color:#1b3a5c;font-weight:600;text-decoration:none}'
@@ -3569,6 +3644,16 @@ class H(BaseHTTPRequestHandler):
             admin.report(self)
             return
         
+        if u.path == "/api/actual":   # SITEALL
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(n).decode("utf-8")) if 0 < n < 2000 else {}
+                _json_out(self, _actual_ask(self, body))
+            except Exception as e:
+                print("actual:", e, flush=True)
+                _json_out(self, {"ok": False})
+            return
+
         if u.path == "/api/my":   # WEB_MY
             try:
                 n = int(self.headers.get("Content-Length") or 0)
