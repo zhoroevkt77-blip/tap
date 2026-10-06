@@ -73,7 +73,7 @@ def _active():
         return _CACHE["rows"]
     try:
         _ensure()
-        rows = core.query("SELECT id, place, section, oblast, link, starts, ends, updated, slot, video, caption "
+        rows = core.query("SELECT id, place, section, oblast, link, starts, ends, updated, slot, video, caption, (CASE WHEN imgfull IS NULL OR imgfull='' THEN 0 ELSE 1 END) AS hasfull "
                           "FROM banners WHERE COALESCE(active,1)=1", fetch="all") or []
         d = _today()
         rows = [r for r in rows
@@ -126,7 +126,7 @@ def slot(place, at=None, ob=None, k=0, lang="ky", cls="hban"):
         lbl = "Реклама" if lang == "ru" else "Жарнама"
         img = ('<img src="/bimg/%d.jpg?v=%s" alt="%s" loading="lazy">'
                % (b["id"], E(str(b.get("updated") or "0")[-8:].replace(":", "")), lbl))
-        inner = img + '<span class="adl">%s</span>' % lbl
+        inner = img + '<span class="adl">%s</span>' % lbl + _pbf(b)   # IMGORIG
         if b.get("link"):   # ADLINKS: сайттын ичиндеги шилтеме ошол эле өтмөктө
             tgt = ("" if str(b.get("link")).startswith("/")
                    else ' target="_blank" rel="nofollow sponsored noopener"')
@@ -238,17 +238,17 @@ def _form(b, k):
         '<div class="row"><div><label>Башталышы</label><input type="date" id="bstart" value="%s"></div>'
         '<div><label>Бүтүшү</label><input type="date" id="bend" value="%s"></div></div>'
         '<button type="button" id="bsave">%s</button></div>'
-        '<script>(function(){var IMG="",f=document.getElementById("bfile"),pv=document.getElementById("bprev");'
+        '<script>(function(){var IMG="",FULL="",f=document.getElementById("bfile"),pv=document.getElementById("bprev");'
         'f.onchange=function(){var x=f.files[0];if(!x)return;var r=new FileReader();r.onload=function(){'
         'var im=new Image();im.onload=function(){var sw=Math.min(im.width,im.height*2),sh=sw/2,w=Math.min(1200,Math.round(sw)),hh=Math.round(w/2);'
         'var c=document.createElement("canvas");c.width=w;c.height=hh;var g=c.getContext("2d");'
         'g.fillStyle="#fff";g.fillRect(0,0,w,hh);g.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,0,0,w,hh);'
-        'IMG=c.toDataURL("image/jpeg",0.85);pv.src=IMG;pv.style.display="block";};im.src=r.result;};r.readAsDataURL(x);};'
+        'var k2=Math.min(1,1600/Math.max(im.width,im.height)),c2=document.createElement("canvas");c2.width=Math.round(im.width*k2);c2.height=Math.round(im.height*k2);var g2=c2.getContext("2d");g2.fillStyle="#fff";g2.fillRect(0,0,c2.width,c2.height);g2.drawImage(im,0,0,c2.width,c2.height);FULL=c2.toDataURL("image/jpeg",0.85);IMG=c.toDataURL("image/jpeg",0.85);pv.src=IMG;pv.style.display="block";};im.src=r.result;};r.readAsDataURL(x);};'
         'function v(i){return document.getElementById(i).value;}'
         'document.getElementById("bsave").onclick=function(){var t=this;'
         'if(!IMG&&!%s){alert("Сүрөт тандаңыз");return;}t.disabled=true;t.textContent="Сакталууда…";'
         'fetch("/admin/banners/save",{method:"POST",headers:{"Content-Type":"application/json"},'
-        'body:JSON.stringify({k:"%s",id:"%s",img:IMG,title:v("btitle"),owner:v("bowner"),link:v("blink"),'
+        'body:JSON.stringify({k:"%s",id:"%s",img:IMG,imgfull:FULL,title:v("btitle"),owner:v("bowner"),link:v("blink"),'
         'place:v("bplace"),section:v("bsec"),oblast:v("bobl"),starts:v("bstart"),ends:v("bend")})})'
         '.then(function(r){return r.json();}).then(function(j){if(j.ok){location.href="/admin/banners?m="+encodeURIComponent(j.msg);}'
         'else{alert(j.msg||"Ката");t.disabled=false;t.textContent="Сактоо";}})'
@@ -359,6 +359,8 @@ def _save(h, uid, k):
                    "starts=?, ends=?, updated=? WHERE id=?", f + (int(bid),))
         if img:
             core.query("UPDATE banners SET img=? WHERE id=?", (img, int(bid)))
+            core.query("UPDATE banners SET imgfull=? WHERE id=?",   # IMGORIG
+                       (_jpeg(d.get("imgfull"), 6000000) or "", int(bid)))
         msg = "№%s сакталды" % bid
     else:
         if not img:
@@ -368,6 +370,9 @@ def _save(h, uid, k):
                          "VALUES (?,?,?,?,?,?,?,?,?,?,1,0,0,?)",
                          f + (img, core.now_str()), fetch="id")
         bid, msg = new, "№%s кошулду" % new
+        _f = _jpeg(d.get("imgfull"), 6000000)   # IMGORIG
+        if _f:
+            core.query("UPDATE banners SET imgfull=? WHERE id=?", (_f, int(new)))
     _reset()
     try:
         core.log_event("adm:banner", int(bid), uid, "admin", note=msg)
@@ -457,7 +462,7 @@ _RATE = {}
 def _cfg_ensure():
     core.query("CREATE TABLE IF NOT EXISTS banner_cfg (k TEXT PRIMARY KEY, v TEXT)")
     for col, typ in (("status", "TEXT"), ("price", "INTEGER"), ("receipt", "TEXT"),
-                     ("product", "TEXT"), ("weeks", "INTEGER"), ("slot", "TEXT"), ("video", "TEXT"), ("caption", "TEXT")):
+                     ("product", "TEXT"), ("weeks", "INTEGER"), ("slot", "TEXT"), ("video", "TEXT"), ("caption", "TEXT"), ("imgfull", "TEXT")):
         try:
             if getattr(core, "IS_PG", False):
                 core.query("ALTER TABLE banners ADD COLUMN IF NOT EXISTS %s %s" % (col, typ))
@@ -735,7 +740,7 @@ def sell_body(lang="ky"):
         'if(crop){sw=Math.min(im.width,im.height*2);sh=sw/2;sx=(im.width-sw)/2;sy=(im.height-sh)/2;}'
         'var k=Math.min(1,mx/Math.max(sw,sh));c.width=Math.round(sw*k);c.height=Math.round(sh*k);'
         'g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(im,sx,sy,sw,sh,0,0,c.width,c.height);'
-        'cb(c.toDataURL("image/jpeg",0.85));};im.src=r.result;};r.readAsDataURL(f);}'
+        'if(crop){var k2=Math.min(1,1600/Math.max(im.width,im.height)),c2=document.createElement("canvas");c2.width=Math.round(im.width*k2);c2.height=Math.round(im.height*k2);var g2=c2.getContext("2d");g2.fillStyle="#fff";g2.fillRect(0,0,c2.width,c2.height);g2.drawImage(im,0,0,c2.width,c2.height);window.TAPFULL=c2.toDataURL("image/jpeg",0.85);}cb(c.toDataURL("image/jpeg",0.85));};im.src=r.result;};r.readAsDataURL(f);}'
         '$("imf").onchange=function(){var f=this.files[0];if(f)rd(f,true,1200,function(u){IMG=u;$("imp").src=u;$("imp").style.display="block";});};'
         'if($("rcf"))$("rcf").onchange=function(){var f=this.files[0];if(f)rd(f,false,1400,function(u){RC=u;$("rcp").src=u;$("rcp").style.display="block";});};'
         '$("go").onclick=function(){var b=this;$("er").textContent="";'
@@ -748,7 +753,7 @@ def sell_body(lang="ky"):
         'b.disabled=true;b.textContent=T("Жөнөтүлүүдө…","Отправка…");'
         'fetch("/reklama/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({'
         'product:prod(),slot:window.TAPSLOT||"",video:window.TAPVIDEO||"",caption:(document.getElementById("vcap")||{}).value||"",section:$("sec").value,oblast:$("obl").value,weeks:W,start:$("start").value,'
-        'img:IMG,receipt:RC,link:$("lnk").value,name:$("nm").value,phone:$("ph").value})})'
+        'img:IMG,imgfull:(window.TAPVMODE==="video"?"":(window.TAPFULL||"")),receipt:RC,link:$("lnk").value,name:$("nm").value,phone:$("ph").value})})'
         '.then(function(r){return r.json();}).then(function(j){if(j.ok){document.querySelectorAll(".rk .st").forEach(function(s){s.style.display="none";});'
         '$("done").textContent="✅ "+j.msg;$("done").style.display="block";scrollTo(0,0);}'
         'else{$("er").textContent=j.msg||T("Ката","Ошибка");b.disabled=false;b.textContent=T("Буйрутма берүү","Отправить заказ");}})'
@@ -833,6 +838,9 @@ def sell_body(lang="ky"):
         'x.ontimeout=function(){fail(T("Убакыт бүттү — кыскараак видео жүктөп көрүңүз","Время истекло — попробуйте видео короче"));};'
         'x.send(f);};})();'
         'drawMap();loadAv();'
+        '(function(){var q=new URLSearchParams(location.search).get("slot")||"";if(!q||sp(q)===undefined)return;/* SLOTLINK */'
+        'var pg=q.charAt(0)==="h"?"home":q.split(":")[0];pc.querySelectorAll("button").forEach(function(x){x.classList.toggle("on",x.dataset.v===pg);});'
+        'PG=pg;SID=q;drawMap();apply();setTimeout(function(){var c=mp.querySelector(".slc.on")||mp;c.scrollIntoView({block:"center",behavior:"smooth"});},300);})();'
         '})();'
         '/* SLOTSUI */'
         'calc();})();</script>'
@@ -1198,7 +1206,7 @@ def _html(b, lang, cls):
     lbl = "Реклама" if lang == "ru" else "Жарнама"
     img = ('<img src="/bimg/%d.jpg?v=%s" alt="%s" loading="lazy">'
            % (b["id"], E(str(b.get("updated") or "0")[-8:].replace(":", "")), lbl))
-    inner = img + '<span class="adl">%s</span>' % lbl
+    inner = img + '<span class="adl">%s</span>' % lbl + _pbf(b)   # IMGORIG
     if b.get("link"):
         tgt = ("" if str(b.get("link")).startswith("/")
                else ' target="_blank" rel="nofollow sponsored noopener"')
@@ -1313,6 +1321,9 @@ def _order_slot(h, d, ru, ip, hits, now):
          core.now_str(), "pending", total, rec or "", sid, weeks, sid, vid, cap if vid else ""), fetch="id")
     _RATE[ip] = hits + [now]
     _SAVC.clear()
+    _f = "" if vid else _jpeg(d.get("imgfull"), 6000000)   # IMGORIG
+    if _f:
+        core.query("UPDATE banners SET imgfull=? WHERE id=?", (_f, int(bid)))
     site = (__import__("os").environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
     _notify("💰 <b>Жаңы баннер буйрутмасы №%s</b>\n\n📍 %s%s\n📅 %s → %s (%d жума)\n💵 %s сом%s\n"
             "👤 %s\n☎️ %s\n\n🛠 <a href=\"%s\">Админде текшерүү</a>"
@@ -1541,3 +1552,29 @@ def _vfull(name):   # VIDFULL
 def _vcap(b):   # VIDCAP
     c = str(b.get("caption") or "").strip()
     return '<span class="vcap">%s</span>' % E(c) if c else ""
+
+
+def _pbf(b):   # IMGORIG: толук экран үчүн кесилбеген сүрөттүн дареги
+    if not b.get("hasfull"):
+        return ""
+    return '<i class="pbf" hidden data-f="/bimgf/%d.jpg?v=%s"></i>' % (
+        b["id"], E(str(b.get("updated") or "0")[-8:].replace(":", "")))
+
+
+def serve_full(h, u):
+    try:
+        bid = int(u.path[7:].split(".")[0])
+        _ensure()
+        r = core.query("SELECT imgfull, img FROM banners WHERE id=?", (bid,), fetch="one")
+        raw = (r.get("imgfull") or r.get("img")) if r else ""
+        data = base64.b64decode(raw) if raw else b""
+        if not data:
+            return _404(h)
+        h.send_response(200)
+        h.send_header("Content-Type", "image/jpeg")
+        h.send_header("Content-Length", str(len(data)))
+        h.send_header("Cache-Control", "max-age=86400")
+        h.end_headers()
+        h.wfile.write(data)
+    except Exception:
+        _404(h)

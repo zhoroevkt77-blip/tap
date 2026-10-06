@@ -463,7 +463,7 @@ if(IOS&&/Safari/i.test(ua)&&!/CriOS|FxiOS|EdgiOS/i.test(ua)&&!seen("tap_ios",7))
 EXTRA_CSS += chr(10) + 'body .hsec .hg{margin-top:4px}body .hmore{display:block;margin:14px 0 6px;text-align:center;padding:11px;border:1.5px solid #D5DEEA;border-radius:99px;color:#17304F;font-weight:700;font-size:14px;text-decoration:none;background:#fff}body .g .c .csh{display:none!important}body .g .c .p{font-size:17px!important;font-weight:800!important;color:#0B1B30!important;margin:0 0 2px!important}body .g .c .t{font-size:14.5px!important;font-weight:500!important;color:#1E2B3C!important;-webkit-line-clamp:1!important;line-height:1.35!important}body .g .c .rgl{font-size:13px!important;color:#7A889C!important;margin-top:2px!important}/* HGRID */' + chr(10)
 # BANSELL: ТАП!'тын өз баннерлери «Жарнама берүү» бетине алып барат
 EXTRA_CSS += chr(10) + '.hban:not(.pb),.gban:not(.pb){position:relative;cursor:pointer}.hban:not(.pb)::after,.gban:not(.pb)::after{content:"📢 Бул жерде сиздин жарнамаңыз ›";position:absolute;left:10px;bottom:10px;background:rgba(11,27,48,.78);color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:99px}html[lang=ru] .hban:not(.pb)::after,html[lang=ru] .gban:not(.pb)::after{content:"📢 Здесь может быть ваша реклама ›"}' + chr(10)
-PWA_JS += '<script>document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".hban:not(.pb),.gban:not(.pb)");if(b)location.href="/reklama";});</script>'
+PWA_JS += '<script>document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".hban:not(.pb),.gban:not(.pb)");if(b){var s="",q=new URLSearchParams(location.search),at=q.get("at")||"";/* SLOTLINK */if(b.classList.contains("hban")){s="h"+(Array.prototype.indexOf.call(document.querySelectorAll(".hban"),b)+1);}else if(at){if(b.classList.contains("gtop"))s=at+":top";else{var n=Array.prototype.indexOf.call(document.querySelectorAll(".g .gban:not(.gtop)"),b)+1;if(n>0&&n<3)s=at+":g"+n;}}location.href="/reklama"+(s?"?slot="+encodeURIComponent(s):"");}});</script>'
 EXTRA_CSS += chr(10) + '.hb-free::after,.gb-free::after{display:none!important}.hban.hb-free img,.gban.gb-free img{width:100%;height:auto;display:block}/* FREEBAN */' + chr(10)
 EXTRA_CSS += chr(10) + '.vb{position:relative}.vb .vpl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:26px;padding-left:5px;cursor:pointer}.vb video{width:100%;height:100%;object-fit:cover;display:block;background:#000}.vb .vmore{position:absolute;right:8px;bottom:8px;background:#fff;color:#17304F;border-radius:99px;padding:5px 11px;font-size:12px;font-weight:800;text-decoration:none;z-index:2}/* VIDBAN */' + chr(10)
 PWA_JS += '<script>/* VIDBAN */(function(){function stop(x){document.querySelectorAll(".vb video").forEach(function(v){if(v!==x)v.pause();});}document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".vb");if(!b||e.target.closest(".vmore"))return;var v=b.querySelector("video");if(!v){v=document.createElement("video");v.src=b.dataset.v;v.controls=true;v.playsInline=true;v.setAttribute("playsinline","");var im=b.querySelector("img");if(im)im.style.display="none";var pl=b.querySelector(".vpl");if(pl)pl.style.display="none";b.insertBefore(v,b.firstChild);if(window.IntersectionObserver){new IntersectionObserver(function(es){es.forEach(function(en){if(!en.isIntersecting)v.pause();});},{threshold:0.3}).observe(b);}v.addEventListener("play",function(){stop(v);});}stop(v);v.play();});})();</script>'
@@ -490,7 +490,7 @@ PWA_JS += r"""<script>/* IMGFULL */(function(){
 document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".pb");if(!b||b.classList.contains("vb"))return;
 if(b.tagName==="A"&&!b.getAttribute("target"))return;
 var im=b.querySelector("img");if(!im)return;e.preventDefault();e.stopPropagation();
-var o=document.createElement("div");o.className="vfs";var i=document.createElement("img");i.className="vfi";i.src=im.currentSrc||im.src;i.alt="";
+var o=document.createElement("div");o.className="vfs";var i=document.createElement("img");i.className="vfi";var ff=b.querySelector(".pbf");i.src=ff?ff.getAttribute("data-f"):(im.currentSrc||im.src);/* IMGORIG */i.alt="";
 var x=document.createElement("button");x.type="button";x.className="vfx";x.setAttribute("aria-label","close");x.textContent="✕";
 o.appendChild(i);o.appendChild(x);
 if(b.tagName==="A"){var a=document.createElement("a");a.className="vfm";a.href=b.href;a.target="_blank";a.rel="nofollow sponsored noopener";
@@ -3873,6 +3873,9 @@ class H(BaseHTTPRequestHandler):
                 self.send_response(404)
                 self.send_header("Content-Length", "0")
                 self.end_headers()
+
+        elif u.path.startswith("/bimgf/"):   # IMGORIG
+            banners.serve_full(self, u)
 
         elif u.path.startswith("/bimg/"):   # BANADM
             banners.serve_img(self, u)
