@@ -3613,31 +3613,47 @@ def me_page(lang="ky"):
                 f'<span>{esc("Язык: Кыргызча" if ru else "Тил: Русский")}'
                 f'</span></a>')
 
-    # ── Негизги тизме ──
-    rows = [
-        ("grid",   ("Объявления" if ru else "Жарыялар"),          "/"),
-        ("search", ("Поиск" if ru else "Издөө"),                  "/?q="),
-        ("add",    ("Разместить объявление" if ru else "Жарыя берүү"), "/add"),
-        ("list",   ("Мои объявления" if ru else "Менин жарыяларым"),   "/my"),
-        ("fav",    ("Избранное" if ru else "Тандалгандар"),       "/fav"),
-        ("wallet", ("Мой баланс" if ru else "Менин балансым"),  "/bal"),
-        ("help",   ("Помощь" if ru else "Жардам"),                "/msg"),
-    ]
-    items = ""
-    for ic, label, href in rows:
-        items += (f'<a class="mrow2" href="{href}">{NAV_ICONS[ic]}'
-                  f'<span>{esc(label)}</span></a>')
+    # CABGROUP: Кабинеттин тизмеси топторго бөлүндү, кайталангандар алынды
+    _ar = '<span class="mear">›</span>'
 
-    items += ('<a class="mrow2" href="/reklama"><span style="font-size:20px;width:24px;'   # ADLINKS
-              'text-align:center;flex:none">📢</span><span>%s</span></a>'
-              % esc("Реклама на сайте" if ru else "Жарнама берүү (баннер)"))
-    terms = "Условия использования" if ru else "Колдонуу шарттары"
-    items += (f'<a class="mrow2" href="/terms">{NAV_ICONS["doc"]}'
-              f'<span>{esc(terms)}</span></a>')
-    for _h, _l in (("/privacy", "Политика конфиденциальности" if ru else "Купуялык саясаты"),
-                   ("/about", "О ТАП!" if ru else "ТАП! жөнүндө")):
-        items += (f'<a class="mrow2" href="{_h}">{NAV_ICONS["doc"]}'
-                  f'<span>{esc(_l)}</span></a>')
+    def _row(ic, label, href, tail=_ar):
+        icon = NAV_ICONS[ic] if ic in NAV_ICONS else (
+            '<span style="font-size:20px;width:24px;text-align:center;flex:none">%s</span>' % ic)
+        return (f'<a class="mrow2" href="{href}">{icon}'
+                f'<span>{esc(label)}</span>{tail}</a>')
+
+    def _grp(title, rows_html, cls=""):
+        return (f'<div class="megt">{esc(title)}</div>'
+                f'<div class="mesec{cls}">{rows_html}</div>')
+
+    items = _grp("Моё" if ru else "Менин",
+                 _row("list", "Мои объявления" if ru else "Менин жарыяларым", "/my",
+                      '<span class="mebd" id="mybd" style="display:none"></span>' + _ar)
+                 + _row("fav", "Избранное" if ru else "Тандалгандар", "/fav")
+                 + _row("wallet", "Мой баланс" if ru else "Менин балансым", "/bal"))
+    items += _grp("Бизнес",
+                  _row("📢", "Реклама на сайте (баннер)" if ru else "Жарнама берүү (баннер)", "/reklama"))
+    items += _grp("Помощь и настройки" if ru else "Жардам жана жөндөө",
+                  _row("help", "Помощь" if ru else "Жардам", "/msg")
+                  + _row("globe", "Язык: Кыргызча" if ru else "Тил: Русский",
+                         "/lang/" + ("ky" if ru else "ru")))
+    items += _grp("Информация" if ru else "Маалымат",
+                  _row("doc", "О ТАП!" if ru else "ТАП! жөнүндө", "/about", "")
+                  + _row("doc", "Условия использования" if ru else "Колдонуу шарттары", "/terms", "")
+                  + _row("doc", "Политика конфиденциальности" if ru else "Купуялык саясаты", "/privacy", ""),
+                  " mesm")
+    items += ('<style>.megt{font-size:11.5px;font-weight:800;letter-spacing:.8px;color:#5A6B82;'
+              'margin:18px 6px 6px;text-transform:uppercase}'
+              '.mewrap .mrow2 .mear{margin-left:auto;color:#98A2B3;font-size:24px;line-height:1;font-weight:400}'
+              '.mewrap .mrow2 .mebd{margin-left:auto;background:#E5322D;color:#fff;border-radius:10px;'
+              'font-size:12px;font-weight:800;padding:2px 8px;line-height:1.3}'
+              '.mewrap .mrow2 .mebd+.mear{margin-left:8px}'
+              '.mesm .mrow2{font-size:14px!important;font-weight:600!important;color:#3A4E6B!important}'
+              '.mesm .mrow2 svg{opacity:.7}</style>'
+              '<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}if(!t)return;'
+              'fetch("/api/vme?t="+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){'
+              'if(j.ok&&j.asks){var b=document.getElementById("mybd");if(b){b.textContent=j.asks;b.style.display="inline-block";}}'
+              '}).catch(function(){});})();</script>')
 
     # ── Расмий баракчалар ──
     wa_num = "".join(c for c in os.environ.get("WA_NUMBER", "") if c.isdigit())
@@ -3674,9 +3690,8 @@ def me_page(lang="ky"):
 
     body = f"""<main class="wrap mewrap">
 {top}
-<div class="mesec">{lang_row}</div>
-<div class="mesec">{items}</div>
-<div class="mesec">{social}</div>
+{items}
+<div class="megt">{esc("Официальные страницы" if ru else "Расмий баракчалар")}</div><div class="mesec mesm">{social}</div>
 <p class="meabout">{esc(about)}</p></main>""" + _HELP_CSS + _ME_CSS
     return page(header("", None, None, lang) + body,
                 head + " — ТАП!", "me", lang)
