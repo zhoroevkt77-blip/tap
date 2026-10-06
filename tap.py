@@ -1235,10 +1235,13 @@ def _actual_ask(h, b):
     r = core.query("SELECT id, tg_id, title FROM listings WHERE id=? AND is_active=1",
                    (lid,), fetch="one")
     tok = _tg_tok()
-    if not r or not r["tg_id"] or not tok:
-        return {"ok": False}
-    _ACT_SEEN[k] = 1
-    _ACT_SEEN[lk] = _ACT_SEEN.get(lk, 0) + 1
+    if not r:
+        return {"ok": False, "err": "no listing"}
+    if not tok:
+        print("actual_ask: TELEGRAM_BOT_TOKEN жок", flush=True)
+        return {"ok": False, "err": "no token"}
+    if not str(r["tg_id"] or "").strip().lstrip("-").isdigit():
+        return {"ok": False, "err": "no telegram owner"}
     site = (os.environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
     if "localhost" in site:
         site = "https://tapmeni.up.railway.app"
@@ -1256,19 +1259,29 @@ def _actual_ask(h, b):
                                    "disable_web_page_preview": "true",
                                    "reply_markup": kb}).encode()
 
-    def _go():
-        import urllib.request
+    # ACTFIX: жиберүү натыйжасын текшеребиз, ийгиликтүү болсо гана белгилейбиз
+    import urllib.request as _ureq, urllib.error as _uerr
+    try:
+        res = json.loads(_ureq.urlopen(
+            "https://api.telegram.org/bot%s/sendMessage" % tok,
+            data=data, timeout=12).read().decode("utf-8"))
+    except _uerr.HTTPError as ex:
         try:
-            urllib.request.urlopen("https://api.telegram.org/bot%s/sendMessage" % tok,
-                                   data=data, timeout=15).read()
-        except Exception as ex:
-            print("actual_ask:", ex, flush=True)
-    import threading
-    threading.Thread(target=_go, daemon=True).start()
+            res = json.loads(ex.read().decode("utf-8"))
+        except Exception:
+            res = {"ok": False, "description": str(ex)}
+    except Exception as ex:
+        res = {"ok": False, "description": str(ex)}
+    if not res.get("ok"):
+        print("actual_ask:", lid, r["tg_id"], res, flush=True)
+        return {"ok": False, "err": str(res.get("description") or "telegram")[:120]}
+    _ACT_SEEN[k] = 1
+    _ACT_SEEN[lk] = _ACT_SEEN.get(lk, 0) + 1
+    print("actual_ask: жөнөтүлдү", lid, flush=True)
     return {"ok": True}
 
 
-_ASK_JS = r"""<style>.askb{width:100%;font-family:inherit;font-size:15px;cursor:pointer}.askb:disabled{opacity:.8}.asks{font-size:12.5px;color:#5A6B82;text-align:center;margin-top:6px}</style><script>(function(){var b=document.querySelector('.askb[data-id]');if(!b)return;b.onclick=function(){b.disabled=true;fetch('/api/actual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:+b.getAttribute('data-id')})}).then(function(r){return r.json();}).then(function(j){if(j.ok){b.textContent=b.getAttribute('data-ok');}else{b.disabled=false;alert(b.getAttribute('data-er'));}}).catch(function(){b.disabled=false;});};})();</script>"""
+_ASK_JS = r"""<style>.askb{width:100%;font-family:inherit;font-size:15px;cursor:pointer}.askb:disabled{opacity:.8}.asks{font-size:12.5px;color:#5A6B82;text-align:center;margin-top:6px}</style><script>(function(){var b=document.querySelector('.askb[data-id]');if(!b)return;b.onclick=function(){b.disabled=true;fetch('/api/actual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:+b.getAttribute('data-id')})}).then(function(r){return r.json();}).then(function(j){if(j.ok){b.textContent=b.getAttribute('data-ok');}else{b.disabled=false;alert(b.getAttribute('data-er')+(j.err?' ('+j.err+')':''));}}).catch(function(){b.disabled=false;});};})();</script>"""
 
 
 # WEB_MY: Менин жарыяларым жана админге кабар
