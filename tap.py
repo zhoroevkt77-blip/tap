@@ -504,6 +504,8 @@ x.onclick=cl;i.onclick=cl;
 },true);
 })();</script>"""
 EXTRA_CSS += chr(10) + '.vb .vcap{position:absolute;right:10px;bottom:10px;max-width:72%;background:rgba(0,0,0,.62);color:#fff;font-weight:800;font-size:14px;line-height:1.3;padding:6px 12px;border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;z-index:1}.vb .vmore{top:8px;bottom:auto}.vfc{position:absolute;left:16px;right:16px;bottom:calc(140px + env(safe-area-inset-bottom,0px));color:#fff;font-weight:800;font-size:19px;text-align:center;text-shadow:0 1px 6px rgba(0,0,0,.9);z-index:2;pointer-events:none}/* VIDCAP */' + chr(10)
+EXTRA_CSS += chr(10) + 'nav.cats .catpromo{cursor:pointer}nav.cats .catpromo.pb>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}nav.cats .catpromo.pb .vcap{font-size:12px;padding:4px 9px}/* PREMSLOT */' + chr(10)
+PWA_JS += '<script>/* PREMSLOT */document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".catpromo:not(.pb)");if(b)location.href="/reklama?slot=p1";});</script>'
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */'
 EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */'
@@ -2075,7 +2077,8 @@ def _sections_strip(link, at, lang, ob=None):
                      f'<span class="lb">{esc(section_name(code, lang))}</span>')
             cls = f"cat{on}"
         cats += f'<a href="{link(at=code, cid=None)}" class="{cls}">{inner}</a>'
-    cats += ('<div class="catpromo" aria-hidden="true"><video autoplay muted loop playsinline '
+    _pp = banners.slot_at("p1", getattr(_RS, "cob", None), lang, "catpromo pb")   # PREMSLOT
+    cats += _pp or ('<div class="catpromo" aria-hidden="true"><video autoplay muted loop playsinline '
              'preload="auto" poster="/media/promo.jpg" src="/media/promo.mp4"></video></div>')   # PROMOVID
     nav = f'<nav class="cats">{cats}</nav>'
     if not at:   # SECFOLD: башкы бетте баары көрүнөт

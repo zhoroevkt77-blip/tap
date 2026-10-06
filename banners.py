@@ -769,11 +769,11 @@ def sell_body(lang="ky"):
         'if(ob.previousElementSibling)ob.previousElementSibling.style.display="none";'
         'if(ob.nextElementSibling&&ob.nextElementSibling.classList.contains("hint"))ob.nextElementSibling.style.display="none";'
         'function lab(t){var e=document.createElement("label");e.className="l";e.textContent=t;return e;}'
-        'function sp(s){var r={};SL.home.forEach(function(x){r[x[0]]=x[1];});return r[s]!==undefined?r[s]:SL.sec[s.split(":")[1]];}'
+        'function sp(s){var r={};SL.home.concat(SL.prem||[]).forEach(function(x){r[x[0]]=x[1];});return r[s]!==undefined?r[s]:SL.sec[s.split(":")[1]];}'
         'function price(s,w,o){var t=sp(s)*MUL[w];if(MODE==="video")t=Math.round(t*(100+VP)/1000)*10;var ro=OFFS[o]||0;if(ro)t=Math.round(t*(100-ro)/1000)*10;return t;}'
         'function fr(s,o){return AV&&AV[s]?AV[s][o||""]:null;}'
         'function nm(c){var r="";SL.names.forEach(function(x){if(x[0]===c)r=x[1];});return r;}'
-        'function slab(s){if(s.charAt(0)==="h")return "Б-"+s.slice(1);var k=s.split(":")[1];return k==="top"?T("Эң үстү","Самый верх"):k==="g1"?T("1-ара · 6-жарыядан кийин","1-й · после 6-го объявл."):T("2-ара · 12-жарыядан кийин","2-й · после 12-го объявл.");}'
+        'function slab(s){if(s==="p1")return T("⭐ Башкы плитка","⭐ Главная плитка");if(s.charAt(0)==="h")return "Б-"+s.slice(1);var k=s.split(":")[1];return k==="top"?T("Эң үстү","Самый верх"):k==="g1"?T("1-ара · 6-жарыядан кийин","1-й · после 6-го объявл."):T("2-ара · 12-жарыядан кийин","2-й · после 12-го объявл.");}'
         'var wrap=document.createElement("div");'
         'wrap.appendChild(lab(T("1) Кайсы бет","1) Страница")));'
         'var pc=document.createElement("div");pc.className="cps";wrap.appendChild(pc);'
@@ -792,7 +792,7 @@ def sell_body(lang="ky"):
         'function row(t){var d=document.createElement("div");d.className="mr";d.textContent=t;mp.appendChild(d);}'
         'function card(s){var d=document.createElement("div");d.className="slc";d.dataset.s=s;var b=document.createElement("span");b.textContent=slab(s);var m=document.createElement("small");d.appendChild(b);d.appendChild(m);'
         'd.onclick=function(){SID=s;apply();};mp.appendChild(d);}'
-        'function drawMap(){mp.innerHTML="";if(PG==="home"){SL.names.forEach(function(x,i){if(i<SL.home.length){row((i+1)+T("-бөлүм · 4 жарыя","-й раздел · 4 объявл."));card(SL.home[i][0]);}});}'
+        'function drawMap(){mp.innerHTML="";if(PG==="home"){row(T("Бөлүмдөрдүн тактасы · эң көрүнүктүү орун","Сетка разделов · самое заметное место"));card("p1");SL.names.forEach(function(x,i){if(i<SL.home.length){row((i+1)+T("-бөлүм · 4 жарыя","-й раздел · 4 объявл."));card(SL.home[i][0]);}});}'
         'else{row(T("«","«")+nm(PG)+T("» бөлүмү ачылганда","» — при открытии раздела"));card(PG+":top");row(T("6 жарыя","6 объявлений"));card(PG+":g1");row(T("6 жарыя","6 объявлений"));card(PG+":g2");row("…");}'
         'paint();}'
         'function fdl(f){var p=f.split("-"),L=["январда","февралда","мартта","апрелде","майда","июнда","июлда","августта","сентябрда","октябрда","ноябрда","декабрда"];return RU?"🔒 свободно с "+fd(f):"🔒 "+(+p[2])+"-"+L[+p[1]-1]+" бошойт";}/* FREETXT */function stat(f){if(!f)return "";return f>TD?fdl(f):"✓";}'
@@ -806,7 +806,7 @@ def sell_body(lang="ky"):
         'var f=fr(SID,OB);if(f){var s=$("start");s.min=f;if(!s.dataset.m||!s.value||s.value<f)s.value=f;$("fr").style.color=f>TD?"#B42318":"#1E7A46";$("fr").textContent=f>TD?T("🔒 Бош эмес. Эң жакынкы бош күн: ","🔒 Занято. Ближайшая свободная дата: ")+fd(f):T("✅ Бош — бүгүндөн баштаса болот","✅ Свободно — можно начать сегодня");}'
         'var on=OB?(oc.querySelector("button.on")||{}).firstChild:null,rn=on?on.textContent:"";'
         'var w=OB?T(rn+" тандаган колдонуучулар гана","Только пользователи, выбравшие «"+rn+"»"):T("Бүт Кыргызстандагы бардык колдонуучулар","Все пользователи Кыргызстана");'
-        'w+=SID.charAt(0)==="h"?T(", башкы беттин "+SID.slice(1)+"-баннери",", баннер №"+SID.slice(1)+" на главной"):T(", «"+nm(PG)+"» бөлүмүндө: "+slab(SID),", раздел «"+nm(PG)+"»: "+slab(SID));'
+        'w+=SID==="p1"?T(", башкы беттеги бөлүмдөрдүн тактасында",", в сетке разделов на главной"):SID.charAt(0)==="h"?T(", башкы беттин "+SID.slice(1)+"-баннери",", баннер №"+SID.slice(1)+" на главной"):T(", «"+nm(PG)+"» бөлүмүндө: "+slab(SID),", раздел «"+nm(PG)+"»: "+slab(SID));'
         'pw.innerHTML="<p class=pvw></p><div class=pvc></div>";pw.querySelector(".pvw").textContent=T("Ким көрөт: ","Кто увидит: ")+w+".";'
         'pw.querySelector(".pvc").innerHTML="<div class=pvr><span>1 "+T("жума","нед.")+"</span><span>"+nf(p)+SOM+"</span></div><div class=pvr><span>× "+W+" "+T("жума","нед.")+(W===4?T(" (1 бекер)"," (1 в подарок)"):"")+"</span><span>"+nf(sub)+SOM+"</span></div>"+(ro?"<div class=pvrg><span>−"+ro+"%% "+T("аймак","регион")+"</span><span>−"+nf(sub-tot)+SOM+"</span></div>":"")+"<div class=pvrt><span>"+T("Төлөйсүз","К оплате")+"</span><span>"+nf(tot)+SOM+"</span></div>";}'
         'function apply(){window.TAPSLOT=SID;var k=!SID?"":SID.charAt(0)==="h"?"home":SID.indexOf(":top")>0?"top_sec":"grid_sec";'
@@ -839,7 +839,7 @@ def sell_body(lang="ky"):
         'x.send(f);};})();'
         'drawMap();loadAv();'
         '(function(){var q=new URLSearchParams(location.search).get("slot")||"";if(!q||sp(q)===undefined)return;/* SLOTLINK */'
-        'var pg=q.charAt(0)==="h"?"home":q.split(":")[0];pc.querySelectorAll("button").forEach(function(x){x.classList.toggle("on",x.dataset.v===pg);});'
+        'var pg=(q.charAt(0)==="h"||q==="p1")?"home":q.split(":")[0];pc.querySelectorAll("button").forEach(function(x){x.classList.toggle("on",x.dataset.v===pg);});'
         'PG=pg;SID=q;drawMap();apply();setTimeout(function(){var c=mp.querySelector(".slc.on")||mp;c.scrollIntoView({block:"center",behavior:"smooth"});},300);})();'
         '})();'
         '/* SLOTSUI */'
@@ -1105,7 +1105,7 @@ _SECN = {"top": ("Эң үстү", "Самый верх"),
 
 
 def slot_ids():
-    out = ["h%d" % i for i in range(1, HOME_N + 1)]
+    out = ["p1"] + ["h%d" % i for i in range(1, HOME_N + 1)]   # PREMSLOT
     for code, _n in SECTIONS:
         out += ["%s:%s" % (code, k) for k in ("top", "g1", "g2")]
     return out
@@ -1120,6 +1120,10 @@ def slot_prices():
             out[k] = int(c.get("sprice_" + k) or HOME_PRICES[i - 1])
         except Exception:
             out[k] = HOME_PRICES[i - 1]
+    try:   # PREMSLOT
+        out["p1"] = int(c.get("sprice_p1") or PREM_PRICE)
+    except Exception:
+        out["p1"] = PREM_PRICE
     base = {}
     for k, v in SEC_PRICES.items():
         try:
@@ -1133,6 +1137,8 @@ def slot_prices():
 
 
 def slot_label(sid, ru=False):
+    if sid == "p1":   # PREMSLOT
+        return "Главная плитка (под разделами)" if ru else "Башкы плитка (бөлүмдөрдүн астында)"
     if sid.startswith("h") and sid[1:].isdigit():
         return ("Главная, баннер Б-%s" if ru else "Башкы бет, Б-%s") % sid[1:]
     code, _, k = sid.partition(":")
@@ -1145,7 +1151,7 @@ def slot_labels():
 
 
 def _slot_place(sid):
-    if sid.startswith("h"):
+    if sid.startswith("h") or sid == "p1":   # PREMSLOT
         return "home", ""
     code, _, k = sid.partition(":")
     return ("top" if k == "top" else "grid"), code
@@ -1236,7 +1242,7 @@ def slots_js(lang="ky"):
     pr, base = slot_prices()
     d = {"home": [["h%d" % i, pr["h%d" % i]] for i in range(1, HOME_N + 1)],
          "sec": base,
-         "names": [[c, n] for c, n in SECTIONS], "vpct": video_pct()}
+         "names": [[c, n] for c, n in SECTIONS], "vpct": video_pct(), "prem": [["p1", pr["p1"]]]}
     try:
         _sr = {"trade": "Торговля", "wholesale": "Оптовая торговля", "property": "Продажа недвижимости",
                "vehicle": "Продажа транспорта", "service": "Услуги", "rental": "Аренда",
@@ -1252,6 +1258,7 @@ def slots_js(lang="ky"):
 def _slot_rows():
     pr, base = slot_prices()
     out = "<div class='ah' style='margin-top:14px'>Номерленген орундардын баасы (сом/жума)</div>"
+    out += ("<label>⭐ Башкы плитка (бөлүмдөрдүн астында)</label><input class='sp' data-k='p1' inputmode='numeric' value='%d'>" % pr["p1"])   # PREMSLOT
     for i in range(1, HOME_N + 1):
         out += ("<label>Башкы бет Б-%d</label><input class='sp' data-k='h%d' inputmode='numeric' value='%d'>"
                 % (i, i, pr["h%d" % i]))
@@ -1366,7 +1373,7 @@ def _slotmap(q):
 
         def pcount(page):
             return sum(1 for r in rows if r.get("status") == "pending"
-                       and ((page == "home" and r["slot"].startswith("h"))
+                       and ((page == "home" and (r["slot"].startswith("h") or r["slot"] == "p1"))
                             or r["slot"].startswith(page + ":")))
 
         css = ("<style>.smx{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:6px 0 10px}"
@@ -1417,6 +1424,7 @@ def _slotmap(q):
 
         out += "<div class='smap'>"
         if pg == "home":
+            out += "<div class='smr2'>Бөлүмдөрдүн тактасы</div>" + card("p1", "⭐ Башкы плитка")   # PREMSLOT
             for i in range(1, HOME_N + 1):
                 out += "<div class='smr2'>%d-бөлүм · 4 жарыя</div>" % i
                 out += card("h%d" % i, "Б-%d" % i)
@@ -1578,3 +1586,5 @@ def serve_full(h, u):
         h.wfile.write(data)
     except Exception:
         _404(h)
+
+PREM_PRICE = 2000   # PREMSLOT: бөлүмдөрдүн тактасындагы плитка, жумасына
