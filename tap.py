@@ -467,6 +467,23 @@ PWA_JS += '<script>document.addEventListener("click",function(e){var b=e.target.
 EXTRA_CSS += chr(10) + '.hb-free::after,.gb-free::after{display:none!important}.hban.hb-free img,.gban.gb-free img{width:100%;height:auto;display:block}/* FREEBAN */' + chr(10)
 EXTRA_CSS += chr(10) + '.vb{position:relative}.vb .vpl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:26px;padding-left:5px;cursor:pointer}.vb video{width:100%;height:100%;object-fit:cover;display:block;background:#000}.vb .vmore{position:absolute;right:8px;bottom:8px;background:#fff;color:#17304F;border-radius:99px;padding:5px 11px;font-size:12px;font-weight:800;text-decoration:none;z-index:2}/* VIDBAN */' + chr(10)
 PWA_JS += '<script>/* VIDBAN */(function(){function stop(x){document.querySelectorAll(".vb video").forEach(function(v){if(v!==x)v.pause();});}document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".vb");if(!b||e.target.closest(".vmore"))return;var v=b.querySelector("video");if(!v){v=document.createElement("video");v.src=b.dataset.v;v.controls=true;v.playsInline=true;v.setAttribute("playsinline","");var im=b.querySelector("img");if(im)im.style.display="none";var pl=b.querySelector(".vpl");if(pl)pl.style.display="none";b.insertBefore(v,b.firstChild);if(window.IntersectionObserver){new IntersectionObserver(function(es){es.forEach(function(en){if(!en.isIntersecting)v.pause();});},{threshold:0.3}).observe(b);}v.addEventListener("play",function(){stop(v);});}stop(v);v.play();});})();</script>'
+# VIDFULL: видео баннерди басканда толук экранда тик ойнойт
+EXTRA_CSS += chr(10) + '.vfs{position:fixed;inset:0;z-index:20000;background:#000;display:flex;align-items:center;justify-content:center}.vfs video{width:100%;height:100%;object-fit:contain;background:#000}.vfx{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:14px;width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,255,255,.2);color:#fff;font-size:22px;z-index:2}.vfm{position:absolute;left:50%;bottom:calc(80px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#fff;color:#17304F;border-radius:99px;padding:12px 24px;font-weight:800;font-size:15px;text-decoration:none;z-index:2;white-space:nowrap}/* VIDFULL */' + chr(10)
+PWA_JS += r"""<script>/* VIDFULL */(function(){
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".vb");if(!b||e.target.closest(".vmore"))return;
+e.preventDefault();e.stopPropagation();document.querySelectorAll(".vb video").forEach(function(x){x.pause();});
+var o=document.createElement("div");o.className="vfs";var v=document.createElement("video");
+v.src=b.dataset.f||b.dataset.v;v.controls=true;v.playsInline=true;v.setAttribute("playsinline","");
+var x=document.createElement("button");x.type="button";x.className="vfx";x.setAttribute("aria-label","close");x.textContent="✕";
+o.appendChild(v);o.appendChild(x);var m=b.querySelector(".vmore");if(m){var a=m.cloneNode(true);a.className="vfm";o.appendChild(a);}
+document.body.appendChild(o);document.body.style.overflow="hidden";
+var shut=false;function done(){if(shut)return;shut=true;v.pause();v.removeAttribute("src");o.remove();document.body.style.overflow="";}
+try{history.pushState({vfs:1},"");}catch(_){}
+window.addEventListener("popstate",done,{once:true});
+x.onclick=function(){if(history.state&&history.state.vfs)history.back();else done();};
+var p=v.play();if(p&&p.catch)p.catch(function(){});
+},true);
+})();</script>"""
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */'
 EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */'

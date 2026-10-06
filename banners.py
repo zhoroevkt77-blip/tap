@@ -1481,6 +1481,17 @@ def upload_video(h):
     except Exception as e:
         print("upload_video:", e, flush=True)
         ok = False
+    if ok:   # VIDFULL: толук экран үчүн түп форматтагы нуска
+        try:
+            subprocess.run([ff, "-y", "-v", "error", "-i", src, "-t", "20",
+                            "-vf", "scale=1280:1280:force_original_aspect_ratio=decrease,"
+                                   "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+                            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "27", "-pix_fmt", "yuv420p",
+                            "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-movflags", "+faststart",
+                            os.path.join(media, "bnv_%s_f.mp4" % tag)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=240)
+        except Exception as e:
+            print("upload_video full:", e, flush=True)
     try:
         os.remove(src)
     except Exception:
@@ -1512,6 +1523,12 @@ def _vhtml(b, lang, cls):
         tgt = ("" if str(b.get("link")).startswith("/")
                else ' target="_blank" rel="nofollow sponsored noopener"')
         more = '<a class="vmore" href="/bn/%d"%s>%s</a>' % (b["id"], tgt, "Подробнее ›" if ru else "Кененирээк ›")
-    return ('<div class="%s pb vb" data-v="/media/%s"><img src="/bimg/%d.jpg?v=%s" alt="%s" loading="lazy">'
+    return ('<div class="%s pb vb" data-v="/media/%s" data-f="%s"><img src="/bimg/%d.jpg?v=%s" alt="%s" loading="lazy">'
             '<span class="adl">%s</span><button class="vpl" type="button" aria-label="play">▶</button>%s</div>'
-            % (cls, v, b["id"], E(str(b.get("updated") or "0")[-8:].replace(":", "")), lbl, lbl, more))
+            % (cls, v, _vfull(b.get("video")), b["id"], E(str(b.get("updated") or "0")[-8:].replace(":", "")), lbl, lbl, more))
+
+
+def _vfull(name):   # VIDFULL
+    import os
+    f = str(name or "").replace(".mp4", "_f.mp4")
+    return E("/media/" + f) if f and os.path.isfile(os.path.join(core.MEDIA, f)) else ""
