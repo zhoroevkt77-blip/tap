@@ -813,7 +813,7 @@ def sell_body(lang="ky"):
         'var bV=document.createElement("button");bV.type="button";bV.textContent=T("🎬 Видео (+","🎬 Видео (+")+VP+"%%)";tg.appendChild(bI);tg.appendChild(bV);'
         'lb.parentNode.insertBefore(tg,lb);'
         'var vw=document.createElement("div");vw.style.display="none";'
-        'var vl=document.createElement("label");vl.className="l";vl.textContent=T("Видео (5–20 сек., туурасына; басканда үнү менен ойнойт)","Видео (5–20 сек., горизонтальное; играет со звуком по нажатию)");'
+        'var vl=document.createElement("label");vl.className="l";vl.textContent=T("Видео (5–20 сек.; тик болсо да толук көрүнөт; басканда үнү менен ойнойт)","Видео (5–20 сек.; вертикальное тоже покажется целиком; играет со звуком по нажатию)");'
         'var vf=document.createElement("input");vf.type="file";vf.accept="video/*";vf.className="f";'
         'var vs=document.createElement("div");vs.className="hint";vs.style.fontWeight="700";'
         'var vp=document.createElement("video");vp.controls=true;vp.playsInline=true;vp.className="prev";'
@@ -1466,7 +1466,7 @@ def upload_video(h):
         f.write(raw)
     try:
         r = subprocess.run([ff, "-y", "-v", "error", "-i", src, "-t", "20",
-                            "-vf", "scale=1280:640:force_original_aspect_ratio=increase,crop=1280:640",
+                            "-vf", "split=2[a][b];[a]scale=1280:640:force_original_aspect_ratio=increase,crop=1280:640,boxblur=20:2,eq=brightness=-0.08[bg];[b]scale=1280:640:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1",   # VIDFIT: видео кесилбейт, капталдары бүдөмүк
                             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p",
                             "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-movflags", "+faststart", out],
                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=240)
