@@ -2051,18 +2051,22 @@ def _sections_strip(link, at, lang, ob=None):
             return ""
         return f'<span class="secn">{ac.get(code, 0)}</span>'
 
+    try:   # ALLADS: «Бардык жарыялар» жалпы саны дайыма
+        _alln = sum((ac if ob else core.adtype_counts()).values())
+    except Exception:
+        _alln = 0
     if secimg.has("all"):
         cats = (f'<a href="{link(at=None, cid=None)}" '
                 f'class="cat pic s-all{"" if at else " on"}">'
                 f'<span class="picw">'
                 f'<img class="pic" src="/si/all.jpg?v={secimg.VERSION}" '
                 f'alt="{T("all", lang)}"></span>'
-                f'{f"<span class=\'secn\'>{sum(ac.values())}</span>" if ob else ""}'
-                f'<span class="pill">{T("all", lang)}</span></a>')
+                f'<span class="secn">{_alln}</span>'
+                f'<span class="pill">{T("all_ads", lang)}</span></a>')
     else:
         cats = (f'<a href="{link(at=None, cid=None)}" class="cat{"" if at else " on"}">'
                 f'<span class="ic">{SCENES["all"]}</span>'
-                f'<span class="lb">{T("all", lang)}</span></a>')
+                f'<span class="lb">{T("all_ads", lang)}</span></a>')
     for code, ic, _name in SECTIONS:
         on = " on" if at == code else ""
         if secimg.has(code):
