@@ -484,6 +484,25 @@ x.onclick=function(){if(history.state&&history.state.vfs)history.back();else don
 var p=v.play();if(p&&p.catch)p.catch(function(){});
 },true);
 })();</script>"""
+# IMGFULL: сүрөт баннерди басканда толук экранда ачылат
+EXTRA_CSS += chr(10) + '.pb:not(.vb){cursor:pointer}.vfs img.vfi{width:100%;height:100%;object-fit:contain;background:#000}/* IMGFULL */' + chr(10)
+PWA_JS += r"""<script>/* IMGFULL */(function(){
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".pb");if(!b||b.classList.contains("vb"))return;
+if(b.tagName==="A"&&!b.getAttribute("target"))return;
+var im=b.querySelector("img");if(!im)return;e.preventDefault();e.stopPropagation();
+var o=document.createElement("div");o.className="vfs";var i=document.createElement("img");i.className="vfi";i.src=im.currentSrc||im.src;i.alt="";
+var x=document.createElement("button");x.type="button";x.className="vfx";x.setAttribute("aria-label","close");x.textContent="✕";
+o.appendChild(i);o.appendChild(x);
+if(b.tagName==="A"){var a=document.createElement("a");a.className="vfm";a.href=b.href;a.target="_blank";a.rel="nofollow sponsored noopener";
+a.textContent=(document.documentElement.lang==="ru")?"Подробнее ›":"Кененирээк ›";o.appendChild(a);}
+document.body.appendChild(o);document.body.style.overflow="hidden";
+var shut=false;function done(){if(shut)return;shut=true;o.remove();document.body.style.overflow="";}
+try{history.pushState({vfs:1},"");}catch(_){}
+window.addEventListener("popstate",done,{once:true});
+function cl(){if(history.state&&history.state.vfs)history.back();else done();}
+x.onclick=cl;i.onclick=cl;
+},true);
+})();</script>"""
 # HBAN: баннерлер
 EXTRA_CSS += chr(10) + 'a.pb{display:block;text-decoration:none}.pb{position:relative}.pb .adl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}/* BANADM */'
 EXTRA_CSS += chr(10) + '.pb{border-radius:16px;overflow:hidden}.g .gban.pb{grid-column:auto;aspect-ratio:1/1}.hban.pb{width:46%;aspect-ratio:1/1}.gban.pb img,.hban.pb img{width:100%;height:100%;object-fit:cover}/* BANSZ */'
