@@ -890,6 +890,8 @@ def _web_publish(d, st, b):
     if not row.get("title"):
         row["title"] = "Жарыя"
     lid = core.add_listing(row, uid, str(d.get("personName") or "")[:60])
+    if b.get("hide"):   # PHONEHIDE
+        _ph_set(lid, True)
     for fn in (lambda: core.remember_phone(uid, row.get("contact")),
                lambda: core.log_event("post", lid, uid, "site"),
                lambda: core.query("UPDATE listings SET verified=1 WHERE id=?", (lid,)),
@@ -978,6 +980,7 @@ function draw(){
   h+='<div class="pq">'+v.text+'</div>';
   if(v.done){
     h+='<label class="plab" for="pt">'+T('Жарыянын аталышы (милдеттүү эмес)','Заголовок (необязательно)')+'</label><input id="pt" class="pfld" maxlength="120" placeholder="'+esc(v.atitle||'')+'">'+(v.ai?'<button class="pbtn pbtn2" id="pait">'+T('✨ Аталышты ИИ жазсын','✨ Заголовок от ИИ')+'</button>':'')+(v.preview||'')+'';
+    h+='<label class="phid"><input type="checkbox" id="phide"> '+T('📵 Номеримди жашыруу — кардарлар сайттагы чат аркылуу гана жазат','📵 Скрыть мой номер — покупатели пишут только через чат на сайте')+'</label>'+'<style>.phid{display:flex;gap:10px;align-items:flex-start;margin:14px 0 4px;padding:12px 14px;border:1.5px solid #C9D6E8;border-radius:14px;background:#F4F8FF;font-weight:700;color:#17304F;font-size:14px;line-height:1.35;cursor:pointer}.phid input{width:20px;height:20px;flex:none;margin-top:1px}</style>';
     h+='<button class="pbtn" id="pgo">'+T('Жарыялоо','Опубликовать')+'</button>';
   } else if(v.photo){
     var ph=S.data.webPhotos||[];
@@ -1023,7 +1026,7 @@ function draw(){
   var pai=document.getElementById('pai'); if(pai)pai.onclick=function(){aiGen('desc',pai);};   /* AIPOST */
   var pait=document.getElementById('pait'); if(pait)pait.onclick=function(){aiGen('title',pait);};
   var go=document.getElementById('pgo'); if(go)go.onclick=function(){go.disabled=true;
-    api({op:'publish',step:S.step,data:S.data,title:document.getElementById('pt').value}).then(function(j){
+    api({op:'publish',step:S.step,data:S.data,title:document.getElementById('pt').value,hide:(document.getElementById('phide')||{}).checked?1:0}).then(function(j){
       if(!j.ok){go.disabled=false;err(j.err);return;}dclr();
       box.innerHTML='<div class="pok">&#10003;</div><h2 style="text-align:center">'+T('Жарыяңыз жарыяланды!','Объявление опубликовано!')+'</h2><p style="text-align:center">№'+j.id+'</p><a class="pbtn" href="'+j.url+'">'+T('Жарыяны көрүү','Смотреть объявление')+'</a><a class="pbtn pbtn2" href="/post">'+T('Дагы жарыя берүү','Ещё объявление')+'</a>'+'<p style="text-align:center;margin-top:18px;font-size:14px;color:#4A5A70">'+T('Көбүрөөк адам көрсүн десеңиз — ','Хотите больше просмотров? — ')+'<a href="/reklama" style="font-weight:700">'+T('баннер жарнамасы ›','баннерная реклама ›')+'</a></p>';   /* ADLINKS */
     }).catch(function(){go.disabled=false;err();});};
@@ -1598,6 +1601,44 @@ def chat_page(lang="ky", lst=False):
     return page(body, title=ttl, lang=lang)
 
 
+# PHONEHIDE: «Номеримди жашыруу — чат аркылуу гана»
+_PH = {"t": 0.0, "set": set(), "init": False}
+
+
+def _ph_init():
+    if not _PH["init"]:
+        core.query("CREATE TABLE IF NOT EXISTS hide_phone (lid INTEGER)")
+        _PH["init"] = True
+
+
+def _ph_hidden(lid):
+    try:
+        lid = int(lid)
+    except Exception:
+        return False
+    now = _t.time()
+    if now - _PH["t"] > 30:
+        try:
+            _ph_init()
+            rows = core.query("SELECT lid FROM hide_phone", (), fetch="all") or []
+            _PH["set"] = {int(r["lid"]) for r in rows}
+        except Exception as e:
+            print("ph_hidden:", e, flush=True)
+        _PH["t"] = now
+    return lid in _PH["set"]
+
+
+def _ph_set(lid, on):
+    try:
+        _ph_init()
+        core.query("DELETE FROM hide_phone WHERE lid=?", (int(lid),))
+        if on:
+            core.query("INSERT INTO hide_phone (lid) VALUES (?)", (int(lid),))
+        _PH["t"] = 0.0
+    except Exception as e:
+        print("ph_set:", e, flush=True)
+
+
 _ASK_JS = r"""<style>.askb{width:100%;font-family:inherit;font-size:15px;cursor:pointer}.askb:disabled{opacity:.8}.asks{font-size:12.5px;color:#5A6B82;text-align:center;margin-top:6px}</style><script>(function(){var b=document.querySelector('.askb[data-id]');if(!b)return;var id=+b.getAttribute('data-id');function poll(since,n){if(n>30)return;setTimeout(function(){fetch('/api/actual?id='+id).then(function(r){return r.json();}).then(function(j){if(j.at&&j.at>since){b.textContent=b.getAttribute('data-yes');b.className+=' askyes';}else{poll(since,n+1);}}).catch(function(){poll(since,n+1);});},20000);}b.onclick=function(){b.disabled=true;var t=null;try{t=localStorage.getItem('tap_vok');}catch(e){}fetch('/api/actual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,token:t})}).then(function(r){return r.json();}).then(function(j){if(j.ok){b.textContent=b.getAttribute(j.tg?'data-ok2':'data-ok');if(j.now)poll(j.now,0);}else{b.disabled=false;alert(b.getAttribute('data-er')+(j.err?' ('+j.err+')':''));}}).catch(function(){b.disabled=false;});};})();</script>"""
 
 
@@ -1706,7 +1747,7 @@ def _web_ad_get(tok, lid):
             "price": "" if core.is_deal(price) else price,
             "description": str(row.get("description") or ""),
             "contact": str(row.get("contact") or ""),
-            "photos": core.photo_list(row)}
+            "photos": core.photo_list(row), "hide": _ph_hidden(row["id"])}
 
 
 def _web_ad_save(b):
@@ -1736,6 +1777,7 @@ def _web_ad_save(b):
         f["contact"] = contact
     if not core.update_listing(lid, st["tg_id"], f, phone=ph):
         return {"ok": False, "err": "owner"}
+    _ph_set(lid, bool(b.get("hide")))   # PHONEHIDE
     cur = core.photo_list(row)
     pre = "web_%s_" % tok[:8]
     out = []
@@ -1789,6 +1831,7 @@ fetch('/api/myad?t='+encodeURIComponent(tok)+'&id='+id).then(function(r){return 
    +'<label class="elab">'+T('Баасы (сом)','Цена (сом)')+'</label><input id="ep" class="efld" maxlength="40" inputmode="numeric" placeholder="'+T('Келишим баада','Договорная')+'" value="'+esc(j.price)+'">'
    +'<label class="elab">'+T('Сүрөттөмө','Описание')+'</label><textarea id="ed" class="efld" rows="6" maxlength="3000">'+esc(j.description)+'</textarea>'
    +'<label class="elab">'+T('Байланыш номери','Контактный номер')+'</label><input id="ec" class="efld" maxlength="40" inputmode="tel" value="'+esc(j.contact)+'">'
+   +'<label class="phid" style="display:flex;gap:10px;margin:14px 0 4px;padding:12px 14px;border:1.5px solid #C9D6E8;border-radius:14px;background:#F4F8FF;font-weight:700;color:#17304F;font-size:14px"><input type="checkbox" id="ehide" style="width:20px;height:20px;flex:none"'+(j.hide?' checked':'')+'> '+T('📵 Номеримди жашыруу — чат аркылуу гана','📵 Скрыть номер — только чат')+'</label>'
    +'<label class="elab">'+T('Сүрөттөр (10го чейин) — ⭐ башкы кылат, ✕ өчүрөт','Фото (до 10) — ⭐ сделать главным, ✕ удалить')+'</label><div id="eph" class="eph"></div>'
    +'<button type="button" class="ebtn" id="esave">'+T('💾 Сактоо','💾 Сохранить')+'</button><a class="ebck" href="/my">'+T('Жокко чыгаруу','Отмена')+'</a>';
   drawPh();
@@ -1796,7 +1839,7 @@ fetch('/api/myad?t='+encodeURIComponent(tok)+'&id='+id).then(function(r){return 
     var b=this;b.disabled=true;
     fetch('/api/myad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,id:+id,
       title:document.getElementById('et').value,price:document.getElementById('ep').value,description:document.getElementById('ed').value,
-      contact:document.getElementById('ec').value,photos:P})}).then(function(r){return r.json();}).then(function(x){
+      contact:document.getElementById('ec').value,photos:P,hide:document.getElementById('ehide').checked?1:0})}).then(function(r){return r.json();}).then(function(x){
       if(x.ok){alert(T('✅ Сакталды!','✅ Сохранено!'));location.href='/my';return;}
       b.disabled=false;
       alert(x.err==='title'?T('Аталышын жазыңыз.','Укажите заголовок.'):x.err==='contact'?T('Номер туура эмес.','Неверный номер.'):x.err==='bad'?T('Тыюу салынган сөз бар: ','Запрещённое слово: ')+(x.words||[]).join(', '):T('Ката чыкты.','Ошибка.'));
@@ -2289,6 +2332,8 @@ def _cta(r):
     """Карточкадагы баскыч: жарыя кайдан коюлса ошол. #SRC_CTA"""
     intl = _intl(r.get("contact"))
     if not intl:
+        return ""
+    if _ph_hidden(r.get("id")):   # PHONEHIDE
         return ""
     _h = lambda u: base64.b64encode(u.encode()).decode("ascii")  # NUMHIDE
     wa = ('<button class="cta wa" onclick="tapGo(event,this)"'
@@ -3461,6 +3506,11 @@ def detail(r, lang="ky"):
     tel = contact_block(
         r.get("contact"), lang, bridge.show_title(r),
         f"{core.SITE_URL}/e/{r['id']}" if core.SITE_URL else "")
+    if _ph_hidden(r['id']):   # PHONEHIDE
+        tel = ('<div class="phnote">📵 ' + esc('Автор скрыл номер — напишите ему через чат ниже.' if lang == 'ru'
+               else 'Ээси номерин жашырган — төмөнкү баскыч менен чат аркылуу жазыңыз.') + '</div>'
+               '<style>.phnote{margin:10px 0;padding:12px 14px;border-radius:12px;background:#F4F8FF;'
+               'border:1.5px solid #C9D6E8;color:#17304F;font-weight:700;font-size:14px;line-height:1.4}</style>')
     if str(r.get("verified") or "") == "1":  # VERIFY_PHONE
         tel = ('<div class="vbadge">✅ '
                + ("Номер подтверждён" if lang == "ru" else "Номер ырасталган")
