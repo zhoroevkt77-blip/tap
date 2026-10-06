@@ -399,6 +399,7 @@ EXTRA_CSS += chr(10) + '.hban.hb-brand{padding:8px 18%;background:linear-gradien
 # GBANS: жыйынтыктардагы баннерлер
 EXTRA_CSS += chr(10) + '.g .gban{grid-column:1/-1;border-radius:16px;overflow:hidden;box-shadow:0 6px 18px rgba(30,60,110,.16);background:#fff}.g .gban img{width:100%;height:auto;display:block}.g .gban.gb-brand{padding:8px 18%;background:linear-gradient(180deg,#EAF4FF,#fff)}.g .gban.gb-brand img{mix-blend-mode:multiply}/* GBANS */' + chr(10)
 # TGWARN: Telegram ичинде эскертүү, орнотуу баскычы
+PWA_JS += r'''<script>/* SITENOTE: Кабинетте жаңы билдирүү болсо — кызыл белги */window.addEventListener('load',function(){try{var t=localStorage.getItem('tap_vok');if(!t)return;fetch('/api/vme?t='+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){var n=(j.asks||0)+((j.replies||[]).length);if(!j.ok||!n)return;document.querySelectorAll('a[href="/me"]').forEach(function(a){if(a.querySelector('.ndot'))return;a.style.position='relative';var d=document.createElement('span');d.className='ndot';d.textContent=n;d.style.cssText='position:absolute;top:2px;right:22%;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#E5322D;color:#fff;font-size:11px;font-weight:800;line-height:18px;text-align:center;box-sizing:border-box;z-index:5';a.appendChild(d);});}).catch(function(){});}catch(e){}});</script>'''
 PWA_JS += r'''<script>/* TGWARN */(function(){
 var RU=(document.documentElement.lang||"ky")==="ru";
 function T(a,b){return RU?b:a;}
@@ -1234,50 +1235,11 @@ def _actual_ask(h, b):
         return {"ok": True, "dup": True, "now": core.now_str()}
     r = core.query("SELECT id, tg_id, title FROM listings WHERE id=? AND is_active=1",
                    (lid,), fetch="one")
-    tok = _tg_tok()
     if not r:
         return {"ok": False, "err": "no listing"}
-    if not tok:
-        print("actual_ask: TELEGRAM_BOT_TOKEN жок", flush=True)
-        return {"ok": False, "err": "no token"}
-    if not str(r["tg_id"] or "").strip().lstrip("-").isdigit():
-        return {"ok": False, "err": "no telegram owner"}
-    site = (os.environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
-    if "localhost" in site:
-        site = "https://tapmeni.up.railway.app"
-    txt = ("❓ <b>Кардар сурап жатат:</b> жарыяңыз актуалдуубу?\n\n"
-           "№%d — %s\n\n"
-           "Сатылган болсо — сайттагы «Менин жарыяларым» бөлүмүнөн жаап коюңуз.\n"
-           "<i>Покупатель спрашивает, актуально ли объявление. "
-           "Если продано — закройте его на сайте.</i>"
-           % (lid, html.escape(str(r["title"] or ""))))
-    kb = json.dumps({"inline_keyboard": [
-        [{"text": "✅ Ооба, актуалдуу", "callback_data": "okact:%d" % lid}],
-        [{"text": "🌐 Сатылды — сайтта жабуу", "url": site + "/my"}]]})
-    data = urllib.parse.urlencode({"chat_id": r["tg_id"], "text": txt,
-                                   "parse_mode": "HTML",
-                                   "disable_web_page_preview": "true",
-                                   "reply_markup": kb}).encode()
-
-    # ACTFIX: жиберүү натыйжасын текшеребиз, ийгиликтүү болсо гана белгилейбиз
-    import urllib.request as _ureq, urllib.error as _uerr
-    try:
-        res = json.loads(_ureq.urlopen(
-            "https://api.telegram.org/bot%s/sendMessage" % tok,
-            data=data, timeout=12).read().decode("utf-8"))
-    except _uerr.HTTPError as ex:
-        try:
-            res = json.loads(ex.read().decode("utf-8"))
-        except Exception:
-            res = {"ok": False, "description": str(ex)}
-    except Exception as ex:
-        res = {"ok": False, "description": str(ex)}
-    if not res.get("ok"):
-        print("actual_ask:", lid, r["tg_id"], res, flush=True)
-        return {"ok": False, "err": str(res.get("description") or "telegram")[:120]}
+    # SITENOTE: суроо ээсинин сайттагы кабинетине гана барат (ботко эмес)
     _ACT_SEEN[k] = 1
     _ACT_SEEN[lk] = _ACT_SEEN.get(lk, 0) + 1
-    print("actual_ask: жөнөтүлдү", lid, flush=True)
     _act_store(lid, r["tg_id"])   # ASKSITE
     _tgw = False   # ACTREPLY: сураган киши ырасталган болсо, жоопту Telegramга алат
     try:
@@ -1357,9 +1319,7 @@ def _act_notify(lid):
         site = "https://tapmeni.up.railway.app"
     kb = {"inline_keyboard": [[{"text": "🌐 Жарыяны ачуу / Открыть",
                                 "url": "%s/e/%d" % (site, int(lid))}]]}
-    for a in askers:
-        _tg_send_simple(a, "✅ <b>Жарыянын ээси жооп берди:</b> №%d актуалдуу!\n"
-                           "<i>Владелец подтвердил: объявление актуально.</i>" % int(lid), kb)
+    return askers   # SITENOTE: жооп сайтта гана көрүнөт
 
 
 def _act_badge(lid, lang):
@@ -3070,10 +3030,10 @@ def detail(r, lang="ky"):
                else "✅ Жөнөтүлдү! Ээсине кабар барат.")
     _ask_er = ("Объявление закрыто или ошибка." if lang == "ru"
                else "Жарыя жабылган же ката чыкты.")
-    _ask_s = ("Автор получит уведомление в Telegram" if lang == "ru"
-              else "Ээсине Telegram аркылуу кабар барат")
-    _ask_ok2 = ("✅ Отправлено! Ответ придёт вам в Telegram." if lang == "ru"   # ACTREPLY
-                else "✅ Жөнөтүлдү! Жообу Telegram аркылуу келет.")
+    _ask_s = ("Автор увидит вопрос в своём кабинете на сайте" if lang == "ru"
+              else "Ээси суроону сайттагы кабинетинен көрөт")
+    _ask_ok2 = ("✅ Отправлено! Ответ появится в Кабинете." if lang == "ru"   # ACTREPLY
+                else "✅ Жөнөтүлдү! Жообу Кабинетте көрүнөт.")
     _ask_yes = ("✅ Владелец ответил: актуально!" if lang == "ru"
                 else "✅ Ээси жооп берди: актуалдуу!")
     tel += _act_badge(r["id"], lang)
@@ -3589,6 +3549,8 @@ def me_page(lang="ky"):
     _vb_t = "Подтвердить номер" if ru else "Номерди ырастоо"
     _vb_ok = "Номер подтверждён" if ru else "Номер ырасталган"
     _vb_out = "Выйти" if ru else "Чыгуу"
+    _vb_rep = ("владелец ответил: объявление актуально ›" if ru
+               else "ээси жооп берди: жарыя актуалдуу ›")   # SITENOTE
     _vb_ask = ("Покупатели спрашивают: актуально ли объявление?" if ru
                else "Кардарлар сурап жатат: жарыяңыз актуалдуубу?")
     _vb_sub = ("Один раз через Telegram — и можно подавать объявления"
@@ -3603,6 +3565,7 @@ def me_page(lang="ky"):
             '.vbi{font-size:24px;flex:none}.vbt{flex:1;min-width:0;display:flex;flex-direction:column}'
             '.vbt b{font-size:17px;font-weight:800}.vbt i{font-style:normal;font-size:12.5px;opacity:.9;margin-top:2px}'
             '.vba{font-size:26px;opacity:.85}'
+            '.vrep{display:block;margin-top:10px;padding:13px 16px;border-radius:16px;background:#E3F6EA;border:1.5px solid #9BD3B0;color:#155C33!important;font-weight:800;text-decoration:none}'
             '.vask{display:block;margin-top:10px;padding:13px 16px;border-radius:16px;background:#FFF1D6;border:1.5px solid #E0A800;color:#7A4B00!important;font-weight:800;text-decoration:none}'
             '.vdone{display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:16px;'
             'background:#E3F6EA;border:1.5px solid #9BD3B0;color:#155C33;font-weight:800}'
@@ -3613,6 +3576,7 @@ def me_page(lang="ky"):
             '.then(function(j){if(!j.ok)return;var b=document.getElementById("vbx");'
             'b.innerHTML="<div class=\\"vdone\\">✅ <span>' + esc(_vb_ok) + ': "+j.phone+"</span>'
             '<button type=\\"button\\" id=\\"vout\\">' + esc(_vb_out) + '</button></div>";'
+            '(j.replies||[]).forEach(function(x){b.insertAdjacentHTML("beforeend","<a class=\\"vrep\\" href=\\"/e/"+(+x.lid)+"\\">✅ №"+(+x.lid)+" — ' + esc(_vb_rep) + '</a>");});'
             'if(j.asks){b.insertAdjacentHTML("beforeend","<a class=\\"vask\\" href=\\"/my\\">🔔 ' + esc(_vb_ask) + ' ("+j.asks+") ›</a>");}'
             'document.getElementById("vout").onclick=function(){try{localStorage.removeItem("tap_vok");}catch(e){}location.reload();};'
             '}).catch(function(){});})();</script>')
@@ -3941,7 +3905,8 @@ class H(BaseHTTPRequestHandler):
             _vst = _wverified(qs.get("t", [""])[0])
             _vph = str((_vst or {}).get("phone") or "")
             _json_out(self, {"ok": bool(_vst), "phone": ("+996 " + _vph) if _vph else "",
-                             "asks": (sum(_act_counts(_vst["tg_id"]).values()) if _vst else 0)})   # ASKSITE
+                             "asks": (sum(_act_counts(_vst["tg_id"]).values()) if _vst else 0),   # ASKSITE
+                             "replies": (core.act_replies(_vst["tg_id"]) if _vst else [])})   # SITENOTE
             return
         if u.path == "/api/my":   # WEB_MY
             _json_out(self, _web_my_list(qs.get("t", [""])[0],

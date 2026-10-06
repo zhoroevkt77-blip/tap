@@ -1679,6 +1679,7 @@ def _ar_init():
         return
     query("CREATE TABLE IF NOT EXISTS act_wait (lid INTEGER, tg_id TEXT, at TEXT)")
     query("CREATE TABLE IF NOT EXISTS act_ok (lid INTEGER, at TEXT)")
+    query("CREATE TABLE IF NOT EXISTS act_reply (lid INTEGER, tg_id TEXT, at TEXT)")   # SITENOTE
     _AR[0] = True
 
 
@@ -1693,10 +1694,24 @@ def act_confirm(lid):
     _ar_init()
     rows = query("SELECT DISTINCT tg_id FROM act_wait WHERE lid=?",
                  (int(lid),), fetch="all") or []
+    for _r in rows:   # SITENOTE: сураганга жооп сайттагы кабинетте чыгат
+        if _r.get("tg_id"):
+            query("INSERT INTO act_reply (lid, tg_id, at) VALUES (?, ?, ?)",
+                  (int(lid), str(_r["tg_id"]), now_str()))
     query("DELETE FROM act_wait WHERE lid=?", (int(lid),))
     query("DELETE FROM act_ok WHERE lid=?", (int(lid),))
     query("INSERT INTO act_ok (lid, at) VALUES (?, ?)", (int(lid), now_str()))
     return [str(r["tg_id"]) for r in rows if r.get("tg_id")]
+
+
+def act_replies(tg_id):
+    """Сураган кишиге келген жооптор (акыркы 3 күн)."""
+    _ar_init()
+    edge = (datetime.now(timezone.utc) - timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")
+    query("DELETE FROM act_reply WHERE at<?", (edge,))
+    rows = query("SELECT DISTINCT lid FROM act_reply WHERE tg_id=?",
+                 (str(tg_id),), fetch="all") or []
+    return [{"lid": int(r["lid"])} for r in rows]
 
 
 def act_ok_at(lid):
