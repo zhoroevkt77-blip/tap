@@ -2003,7 +2003,8 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
                 opts.append((v, link(q=v), v, n))
             inner += _chips_row(ttl, opts, cur, lang)
 
-        out += _group("Что вы ищете" if ru else "Эмне издеп жатасыз", inner)
+        out += ("<!--CATG-->" + _group("Что вы ищете" if ru else "Эмне издеп жатасыз", inner)
+                + "<!--/CATG-->")   # CATUP
 
     else:
         # CHIP_FIX: бөлүм тандала элек — бөлүмдөрдүн чиптери
@@ -2280,7 +2281,7 @@ def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
                f'<a href="{link(at=None, cid=None, sid=None)}" class="rg on">'
                f'{_nm}{_n}<span class="x">✕</span></a></nav>')
     _r1 = "" if getattr(_RS, "cob", None) else f'<nav class="regbar regbar1">{out}</nav>'   # REGSEL
-    return (css + sec + _r1
+    return (css + sec + "<!--RGSPLIT-->" + _r1   # CATUP
             + row2 + row3 + row4)
 
 
@@ -2471,6 +2472,12 @@ def home(q, at=None, cid=None, sid=None, ob=None, di=None, vi=None,
 
     if ob and not (q or cid or sid or di or vi or vv) and len(rows) < 8:   # REGSEL
         main += _others(lang, ob, at, [r.get("id") for r in rows])
+    # CATUP: «Эмне издеп жатасыз» — тандалган бөлүмдүн астына, аймактардын үстүнө
+    _a, _b = body.find("<!--CATG-->"), body.find("<!--/CATG-->")
+    if _a >= 0 and _b > _a and "<!--RGSPLIT-->" in top:
+        _g = body[_a:_b + len("<!--/CATG-->")]
+        body = body[:_a] + body[_b + len("<!--/CATG-->"):]
+        top = top.replace("<!--RGSPLIT-->", '<div class="catup">' + _g + '</div>', 1)
     return page(top + body + f'<main class="wrap">{main}</main>',
                 "ТАП!", "home", lang)
 
