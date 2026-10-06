@@ -1231,7 +1231,7 @@ def _actual_ask(h, b):
     if len(_ACT_SEEN) > 20000:
         _ACT_SEEN.clear()
     if k in _ACT_SEEN or _ACT_SEEN.get(lk, 0) >= 5:
-        return {"ok": True, "dup": True}
+        return {"ok": True, "dup": True, "now": core.now_str()}
     r = core.query("SELECT id, tg_id, title FROM listings WHERE id=? AND is_active=1",
                    (lid,), fetch="one")
     tok = _tg_tok()
@@ -1279,7 +1279,15 @@ def _actual_ask(h, b):
     _ACT_SEEN[lk] = _ACT_SEEN.get(lk, 0) + 1
     print("actual_ask: жөнөтүлдү", lid, flush=True)
     _act_store(lid, r["tg_id"])   # ASKSITE
-    return {"ok": True}
+    _tgw = False   # ACTREPLY: сураган киши ырасталган болсо, жоопту Telegramга алат
+    try:
+        _ast = _wverified(b.get("token")) if b.get("token") else None
+        if _ast and str(_ast["tg_id"]) != str(r["tg_id"]):
+            core.act_wait_add(lid, _ast["tg_id"])
+            _tgw = True
+    except Exception as e:
+        print("act_wait:", e, flush=True)
+    return {"ok": True, "tg": _tgw, "now": core.now_str()}
 
 
 # ASKSITE: «Актуалдуубу?» суроолору сайттагы кабинетте да көрүнөт
@@ -1321,7 +1329,62 @@ def _act_clear(lid):
         print("act_clear:", e, flush=True)
 
 
-_ASK_JS = r"""<style>.askb{width:100%;font-family:inherit;font-size:15px;cursor:pointer}.askb:disabled{opacity:.8}.asks{font-size:12.5px;color:#5A6B82;text-align:center;margin-top:6px}</style><script>(function(){var b=document.querySelector('.askb[data-id]');if(!b)return;b.onclick=function(){b.disabled=true;fetch('/api/actual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:+b.getAttribute('data-id')})}).then(function(r){return r.json();}).then(function(j){if(j.ok){b.textContent=b.getAttribute('data-ok');}else{b.disabled=false;alert(b.getAttribute('data-er')+(j.err?' ('+j.err+')':''));}}).catch(function(){b.disabled=false;});};})();</script>"""
+# ACTREPLY: Telegramга жөнөкөй кабар жана сурагандарга жооп
+def _tg_send_simple(chat, text, kb=None):
+    tok = _tg_tok()
+    if not tok:
+        return
+    prm = {"chat_id": chat, "text": text, "parse_mode": "HTML",
+           "disable_web_page_preview": "true"}
+    if kb:
+        prm["reply_markup"] = json.dumps(kb)
+    import urllib.request as _ureq
+    try:
+        _ureq.urlopen("https://api.telegram.org/bot%s/sendMessage" % tok,
+                      data=urllib.parse.urlencode(prm).encode(), timeout=12).read()
+    except Exception as ex:
+        print("tg_send_simple:", ex, flush=True)
+
+
+def _act_notify(lid):
+    try:
+        askers = core.act_confirm(lid)
+    except Exception as e:
+        print("act_confirm:", e, flush=True)
+        return
+    site = (os.environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
+    if "localhost" in site:
+        site = "https://tapmeni.up.railway.app"
+    kb = {"inline_keyboard": [[{"text": "🌐 Жарыяны ачуу / Открыть",
+                                "url": "%s/e/%d" % (site, int(lid))}]]}
+    for a in askers:
+        _tg_send_simple(a, "✅ <b>Жарыянын ээси жооп берди:</b> №%d актуалдуу!\n"
+                           "<i>Владелец подтвердил: объявление актуально.</i>" % int(lid), kb)
+
+
+def _act_badge(lid, lang):
+    try:
+        at = core.act_ok_at(lid)
+    except Exception:
+        at = None
+    if not at:
+        return ""
+    from datetime import datetime as _dt, timedelta as _td
+    try:
+        d = _dt.strptime(str(at)[:19], "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return ""
+    if _dt.utcnow() - d > _td(days=7):
+        return ""
+    loc = (d + _td(hours=6)).strftime("%d.%m %H:%M")
+    t = "Владелец подтвердил: актуально" if lang == "ru" else "Ээси ырастады: жарыя актуалдуу"
+    return ('<div class="actok">✅ %s · %s</div><style>.actok{margin:10px 0 0;padding:10px 12px;'
+            'border-radius:12px;background:#E3F6EA;border:1.5px solid #9BD3B0;color:#155C33;'
+            'font-weight:800;font-size:14px;text-align:center}.askb.askyes{background:#E3F6EA!important;'
+            'color:#155C33!important;border-color:#9BD3B0!important}</style>' % (esc(t), loc))
+
+
+_ASK_JS = r"""<style>.askb{width:100%;font-family:inherit;font-size:15px;cursor:pointer}.askb:disabled{opacity:.8}.asks{font-size:12.5px;color:#5A6B82;text-align:center;margin-top:6px}</style><script>(function(){var b=document.querySelector('.askb[data-id]');if(!b)return;var id=+b.getAttribute('data-id');function poll(since,n){if(n>30)return;setTimeout(function(){fetch('/api/actual?id='+id).then(function(r){return r.json();}).then(function(j){if(j.at&&j.at>since){b.textContent=b.getAttribute('data-yes');b.className+=' askyes';}else{poll(since,n+1);}}).catch(function(){poll(since,n+1);});},20000);}b.onclick=function(){b.disabled=true;var t=null;try{t=localStorage.getItem('tap_vok');}catch(e){}fetch('/api/actual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,token:t})}).then(function(r){return r.json();}).then(function(j){if(j.ok){b.textContent=b.getAttribute(j.tg?'data-ok2':'data-ok');if(j.now)poll(j.now,0);}else{b.disabled=false;alert(b.getAttribute('data-er')+(j.err?' ('+j.err+')':''));}}).catch(function(){b.disabled=false;});};})();</script>"""
 
 
 # WEB_MY: Менин жарыяларым жана админге кабар
@@ -1398,6 +1461,8 @@ def _web_my_act(b):
         return {"ok": False, "err": "op"}
     if ok:
         _act_clear(lid)   # ASKSITE
+        if b.get("op") == "okact":   # ACTREPLY
+            _act_notify(lid)
     return {"ok": bool(ok), "err": None if ok else "owner"}
 
 
@@ -3007,8 +3072,13 @@ def detail(r, lang="ky"):
                else "Жарыя жабылган же ката чыкты.")
     _ask_s = ("Автор получит уведомление в Telegram" if lang == "ru"
               else "Ээсине Telegram аркылуу кабар барат")
-    tel += ('<div class="askw"><button type="button" class="askb" data-id="%d" data-ok="%s" data-er="%s">'
-            % (r["id"], esc(_ask_ok), esc(_ask_er))
+    _ask_ok2 = ("✅ Отправлено! Ответ придёт вам в Telegram." if lang == "ru"   # ACTREPLY
+                else "✅ Жөнөтүлдү! Жообу Telegram аркылуу келет.")
+    _ask_yes = ("✅ Владелец ответил: актуально!" if lang == "ru"
+                else "✅ Ээси жооп берди: актуалдуу!")
+    tel += _act_badge(r["id"], lang)
+    tel += ('<div class="askw"><button type="button" class="askb" data-id="%d" data-ok="%s" data-er="%s" data-ok2="%s" data-yes="%s">'
+            % (r["id"], esc(_ask_ok), esc(_ask_er), esc(_ask_ok2), esc(_ask_yes))
             + f'❓ {_ask_t}</button><div class="asks">{esc(_ask_s)}</div></div>'
             + _ASK_JS +   # SITEALL
             '<style>.askw{margin:10px 0}.askb{display:block;text-align:center;'
@@ -3858,6 +3928,14 @@ class H(BaseHTTPRequestHandler):
             return
         if u.path == "/verify":
             self._send(verify_page(lang))
+            return
+        if u.path == "/api/actual":   # ACTREPLY
+            try:
+                _aid = int(qs.get("id", ["0"])[0])
+                _json_out(self, {"at": core.act_ok_at(_aid) if _aid else None})
+            except Exception as e:
+                print("actual get:", e, flush=True)
+                _json_out(self, {"at": None})
             return
         if u.path == "/api/vme":   # VERIFYBTN
             _vst = _wverified(qs.get("t", [""])[0])

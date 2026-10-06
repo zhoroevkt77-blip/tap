@@ -1350,6 +1350,15 @@ def handle_callback(cb, st):
             pass
         if core.revive(lid, uid, phone=u.get("myphone")):
             send(chat, f"✅ Жарыя №{lid} актуалдуу деп белгиленди, мөөнөтү узартылды.")
+            try:   # ACTREPLY: сурагандарга жооп
+                _site = SITE_URL if (SITE_URL and "localhost" not in SITE_URL) else "https://tapmeni.up.railway.app"
+                for _a in core.act_confirm(lid):
+                    send(int(_a), f"✅ <b>Жарыянын ээси жооп берди:</b> №{lid} актуалдуу!\n"
+                                  "<i>Владелец подтвердил: объявление актуально.</i>",
+                         {"inline_keyboard": [[{"text": "🌐 Жарыяны ачуу / Открыть",
+                                                "url": _site.rstrip("/") + f"/e/{lid}"}]]})
+            except Exception as _e:
+                print("act reply:", _e, flush=True)
         else:
             send(chat, f"Жарыя №{lid} табылган жок.")
         return

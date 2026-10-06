@@ -1669,3 +1669,37 @@ def web_verify_status(token):
     return {"phone": _wv_get(r, "phone", 0),
             "verified": str(_wv_get(r, "verified", 1) or "0") == "1",
             "tg_id": _wv_get(r, "tg_id", 2)}
+
+# ACTREPLY: «Актуалдуубу?» деп сурагандарга ээсинин жообу
+_AR = [False]
+
+
+def _ar_init():
+    if _AR[0]:
+        return
+    query("CREATE TABLE IF NOT EXISTS act_wait (lid INTEGER, tg_id TEXT, at TEXT)")
+    query("CREATE TABLE IF NOT EXISTS act_ok (lid INTEGER, at TEXT)")
+    _AR[0] = True
+
+
+def act_wait_add(lid, tg_id):
+    _ar_init()
+    query("INSERT INTO act_wait (lid, tg_id, at) VALUES (?, ?, ?)",
+          (int(lid), str(tg_id), now_str()))
+
+
+def act_confirm(lid):
+    """Ээси «актуалдуу» деди: белгилейт, сурагандардын тизмесин кайтарат."""
+    _ar_init()
+    rows = query("SELECT DISTINCT tg_id FROM act_wait WHERE lid=?",
+                 (int(lid),), fetch="all") or []
+    query("DELETE FROM act_wait WHERE lid=?", (int(lid),))
+    query("DELETE FROM act_ok WHERE lid=?", (int(lid),))
+    query("INSERT INTO act_ok (lid, at) VALUES (?, ?)", (int(lid), now_str()))
+    return [str(r["tg_id"]) for r in rows if r.get("tg_id")]
+
+
+def act_ok_at(lid):
+    _ar_init()
+    r = query("SELECT at FROM act_ok WHERE lid=?", (int(lid),), fetch="one")
+    return (r or {}).get("at")
