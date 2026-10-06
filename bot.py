@@ -1181,6 +1181,11 @@ def handle_message(msg, st):
 
         had_lang = bool((u.get("data") or {}).get("uiLanguage"))
         reset(u, full=not had_lang)
+        if payload in ("search", "my"):   # BOTSLIM
+            _site_go(chat, ulang(u), "/" if payload == "search" else "/my",
+                     "🌐 Бул эми сайтта — төмөнкү баскычты басыңыз.",
+                     "🌐 Теперь это на сайте — нажмите кнопку ниже.")
+            return
         u["pending"] = payload if payload in ("post", "search", "my") else None
         if u["pending"] and had_lang:
             _apply_pending(u)
@@ -1461,6 +1466,26 @@ def start_site():
         print(f"  Витрина ачык: порт {tap.PORT}", flush=True)
     except Exception as e:
         print("  Витрина иштебей калды:", e, flush=True)
+
+
+# BOTSLIM: бот жеңилдеди — баланс, дос чакыруу, издөө, менин жарыяларым сайтта
+def _site_go(chat, lang, path, ky, ru):
+    su = SITE_URL if (SITE_URL and "localhost" not in SITE_URL) else "https://tapmeni.up.railway.app"
+    send(chat, ru if lang == "ru" else ky,
+         {"inline_keyboard": [[{"text": "🌐 Сайтта ачуу / Открыть на сайте",
+                                "url": su.rstrip("/") + path}]]})
+
+
+def show_balance(chat, uid, u):
+    _site_go(chat, ulang(u), "/bal",
+             "💰 Балансыңыз, кошумча жарыялар жана дос чакыруу шилтемеңиз эми сайтта.",
+             "💰 Баланс, бонусные объявления и ссылка для друзей теперь на сайте.")
+
+
+def show_invite(chat, uid, u):
+    _site_go(chat, ulang(u), "/bal",
+             "🎁 Дос чакыруу шилтемеңиз сайтта: Кабинет → «Менин балансым».",
+             "🎁 Ваша ссылка для друзей — на сайте: Кабинет → «Мой баланс».")
 
 
 def expire_worker():
