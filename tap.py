@@ -1278,7 +1278,47 @@ def _actual_ask(h, b):
     _ACT_SEEN[k] = 1
     _ACT_SEEN[lk] = _ACT_SEEN.get(lk, 0) + 1
     print("actual_ask: жөнөтүлдү", lid, flush=True)
+    _act_store(lid, r["tg_id"])   # ASKSITE
     return {"ok": True}
+
+
+# ASKSITE: «Актуалдуубу?» суроолору сайттагы кабинетте да көрүнөт
+_ACT_TBL = [False]
+
+
+def _act_init():
+    if _ACT_TBL[0]:
+        return
+    core.query("CREATE TABLE IF NOT EXISTS act_asks (lid INTEGER, tg_id TEXT, at TEXT)")
+    _ACT_TBL[0] = True
+
+
+def _act_store(lid, tg):
+    try:
+        _act_init()
+        core.query("INSERT INTO act_asks (lid, tg_id, at) VALUES (?, ?, ?)",
+                   (int(lid), str(tg), _t.strftime("%Y-%m-%d %H:%M:%S")))
+    except Exception as e:
+        print("act_store:", e, flush=True)
+
+
+def _act_counts(tg):
+    try:
+        _act_init()
+        rows = core.query("SELECT lid, COUNT(*) AS n FROM act_asks WHERE tg_id=? GROUP BY lid",
+                          (str(tg),), fetch="all") or []
+        return {int(r["lid"]): int(r["n"]) for r in rows}
+    except Exception as e:
+        print("act_counts:", e, flush=True)
+        return {}
+
+
+def _act_clear(lid):
+    try:
+        _act_init()
+        core.query("DELETE FROM act_asks WHERE lid=?", (int(lid),))
+    except Exception as e:
+        print("act_clear:", e, flush=True)
 
 
 _ASK_JS = r"""<style>.askb{width:100%;font-family:inherit;font-size:15px;cursor:pointer}.askb:disabled{opacity:.8}.asks{font-size:12.5px;color:#5A6B82;text-align:center;margin-top:6px}</style><script>(function(){var b=document.querySelector('.askb[data-id]');if(!b)return;b.onclick=function(){b.disabled=true;fetch('/api/actual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:+b.getAttribute('data-id')})}).then(function(r){return r.json();}).then(function(j){if(j.ok){b.textContent=b.getAttribute('data-ok');}else{b.disabled=false;alert(b.getAttribute('data-er')+(j.err?' ('+j.err+')':''));}}).catch(function(){b.disabled=false;});};})();</script>"""
@@ -1326,6 +1366,7 @@ def _web_my_list(tok, f, lang):
         return {"ok": False, "err": "verify"}
     rows = core.my_listings(st["tg_id"], "+996" + st["phone"]) or []
     out = []
+    _asks = _act_counts(st["tg_id"])   # ASKSITE
     for r in rows[:150]:
         dl = core.days_left(r.get("expires_at"))
         act = str(r.get("is_active")) == "1"
@@ -1336,7 +1377,7 @@ def _web_my_list(tok, f, lang):
         except Exception:
             ttl = r.get("title") or "Жарыя"
         out.append({"id": r["id"], "title": L(ttl, lang), "price": _price(r.get("price"), lang),
-                    "photo": r.get("photo") or "", "active": act, "days": dl})
+                    "photo": r.get("photo") or "", "active": act, "days": dl, "ask": _asks.get(int(r["id"]), 0)})
     return {"ok": True, "items": out}
 
 
@@ -1349,12 +1390,14 @@ def _web_my_act(b):
     except Exception:
         return {"ok": False, "err": "id"}
     ph = "+996" + st["phone"]
-    if b.get("op") == "revive":
+    if b.get("op") in ("revive", "okact"):   # ASKSITE
         ok = core.revive(lid, st["tg_id"], phone=ph)
     elif b.get("op") == "close":
         ok = core.deactivate(lid, st["tg_id"], ph)
     else:
         return {"ok": False, "err": "op"}
+    if ok:
+        _act_clear(lid)   # ASKSITE
     return {"ok": bool(ok), "err": None if ok else "owner"}
 
 
@@ -1375,9 +1418,10 @@ function load(){
     if(!j.ok){if(j.err==='verify'){try{localStorage.removeItem('tap_vok');}catch(e){} need();}else{box.innerHTML='<p>'+T('Ката чыкты.','Ошибка.')+'</p>';}return;}
     var h='<div class="mtabs"><a href="/my"'+(F?'':' class="on"')+'>'+T('Баары','Все')+'</a><a href="/my?f=soon"'+(F==='soon'?' class="on"':'')+'>'+T('3 күндө бүтөт','Истекают')+'</a></div>';
     if(!j.items.length){h+='<p class="mempty">'+(F?T('Жакында мөөнөтү бүтө турган жарыя жок.','Нет объявлений, которые скоро истекают.'):T('Азырынча жарыяңыз жок.','У вас пока нет объявлений.'))+'</p><a class="mbtn" href="/post">'+T('Жарыя берүү','Подать объявление')+'</a>';}
+    var na=j.items.filter(function(x){return x.ask;}).length;if(na)h+='<div class="masktop">🔔 '+T('Кардарлар '+na+' жарыяңыз боюнча сурап жатат. Актуалдуу болсо «Ооба» басыңыз, сатылса — жабыңыз.','Покупатели спрашивают про '+na+' объявл. Нажмите «Да», если актуально, или закройте проданное.')+'</div>';
     j.items.forEach(function(it){
       h+='<div class="mit"><a class="mimg" href="/e/'+it.id+'">'+(it.photo?'<img src="/media/'+esc(it.photo)+'" alt="" loading="lazy">':'')+'</a>'
-        +'<div class="minf"><a class="mttl" href="/e/'+it.id+'">'+esc(it.title)+'</a><div class="mpr">'+esc(it.price)+'</div>'+st(it)
+        +'<div class="minf">'+(it.ask?'<div class="mask">🔔 '+T('Кардар сурап жатат: актуалдуубу?','Покупатель спрашивает: актуально?')+(it.ask>1?' ('+it.ask+')':'')+'<button data-op="okact" data-id="'+it.id+'">'+T('✅ Ооба, актуалдуу','✅ Да, актуально')+'</button></div>':'')+'<a class="mttl" href="/e/'+it.id+'">'+esc(it.title)+'</a><div class="mpr">'+esc(it.price)+'</div>'+st(it)
         +'<div class="mact"><button data-op="revive" data-id="'+it.id+'">'+(it.active?T('🔄 Узартуу','🔄 Продлить'):T('🔄 Кайра жандыруу','🔄 Возобновить'))+'</button>'
         +(it.active?'<button class="mx" data-op="close" data-id="'+it.id+'">'+T('✅ Сатылды / Жабуу','✅ Продано / Закрыть')+'</button>':'')+'</div></div></div>';});
     box.innerHTML=h;
@@ -1411,6 +1455,9 @@ _MY_CSS = """<style>
 .mact button.mx{background:#fff;color:#8A1C1C;border:1.5px solid #8A1C1C}
 .mact button:disabled{opacity:.6}
 .mempty{color:#2A3A52}
+.masktop{margin:0 0 14px;padding:12px 14px;border-radius:14px;background:#FFF1D6;border:1.5px solid #E0A800;color:#5B3A00;font-weight:700;line-height:1.4}
+.mask{margin:0 0 8px;padding:8px 10px;border-radius:12px;background:#FFF1D6;border:1.5px solid #E0A800;color:#5B3A00;font-weight:800;font-size:13.5px}
+.mask button{display:block;margin-top:6px;padding:8px 12px;border-radius:10px;border:0;background:#1E9E5A;color:#fff;font-weight:800;font-family:inherit;font-size:13.5px;cursor:pointer}
 .mbtn{display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:15px;border-radius:14px;background:#17304F;color:#fff!important;font-weight:800;text-align:center;text-decoration:none}
 </style>"""
 
@@ -3472,6 +3519,8 @@ def me_page(lang="ky"):
     _vb_t = "Подтвердить номер" if ru else "Номерди ырастоо"
     _vb_ok = "Номер подтверждён" if ru else "Номер ырасталган"
     _vb_out = "Выйти" if ru else "Чыгуу"
+    _vb_ask = ("Покупатели спрашивают: актуально ли объявление?" if ru
+               else "Кардарлар сурап жатат: жарыяңыз актуалдуубу?")
     _vb_sub = ("Один раз через Telegram — и можно подавать объявления"
                if ru else "Telegram аркылуу бир жолу — анан жарыя бере берсеңиз болот")
     top += ('<div id="vbx"><a class="vbtn" href="/verify?next=me"><span class="vbi">🔐</span>'
@@ -3484,6 +3533,7 @@ def me_page(lang="ky"):
             '.vbi{font-size:24px;flex:none}.vbt{flex:1;min-width:0;display:flex;flex-direction:column}'
             '.vbt b{font-size:17px;font-weight:800}.vbt i{font-style:normal;font-size:12.5px;opacity:.9;margin-top:2px}'
             '.vba{font-size:26px;opacity:.85}'
+            '.vask{display:block;margin-top:10px;padding:13px 16px;border-radius:16px;background:#FFF1D6;border:1.5px solid #E0A800;color:#7A4B00!important;font-weight:800;text-decoration:none}'
             '.vdone{display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:16px;'
             'background:#E3F6EA;border:1.5px solid #9BD3B0;color:#155C33;font-weight:800}'
             '.vdone span{flex:1}.vdone button{border:1.5px solid #155C33;background:#fff;color:#155C33;'
@@ -3493,6 +3543,7 @@ def me_page(lang="ky"):
             '.then(function(j){if(!j.ok)return;var b=document.getElementById("vbx");'
             'b.innerHTML="<div class=\\"vdone\\">✅ <span>' + esc(_vb_ok) + ': "+j.phone+"</span>'
             '<button type=\\"button\\" id=\\"vout\\">' + esc(_vb_out) + '</button></div>";'
+            'if(j.asks){b.insertAdjacentHTML("beforeend","<a class=\\"vask\\" href=\\"/my\\">🔔 ' + esc(_vb_ask) + ' ("+j.asks+") ›</a>");}'
             'document.getElementById("vout").onclick=function(){try{localStorage.removeItem("tap_vok");}catch(e){}location.reload();};'
             '}).catch(function(){});})();</script>')
 
@@ -3811,7 +3862,8 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/vme":   # VERIFYBTN
             _vst = _wverified(qs.get("t", [""])[0])
             _vph = str((_vst or {}).get("phone") or "")
-            _json_out(self, {"ok": bool(_vst), "phone": ("+996 " + _vph) if _vph else ""})
+            _json_out(self, {"ok": bool(_vst), "phone": ("+996 " + _vph) if _vph else "",
+                             "asks": (sum(_act_counts(_vst["tg_id"]).values()) if _vst else 0)})   # ASKSITE
             return
         if u.path == "/api/my":   # WEB_MY
             _json_out(self, _web_my_list(qs.get("t", [""])[0],

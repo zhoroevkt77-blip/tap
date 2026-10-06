@@ -1344,6 +1344,10 @@ def handle_callback(cb, st):
 
     if data.startswith("okact:"):  #ASK2
         lid = int(data[6:])
+        try:   # ASKSITE: сайттагы суроо белгисин тазалайбыз
+            core.query("DELETE FROM act_asks WHERE lid=?", (lid,))
+        except Exception:
+            pass
         if core.revive(lid, uid, phone=u.get("myphone")):
             send(chat, f"✅ Жарыя №{lid} актуалдуу деп белгиленди, мөөнөтү узартылды.")
         else:
