@@ -1368,6 +1368,39 @@ def _ch_now():
     return _dt.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
 
 
+# CHATLBL: ар бир бөлүмгө өз баскычы жана үлгү суроосу
+_CH_LBL = {
+    "trade":     ("Сатуучуга жазуу", "Написать продавцу", "Бул товар барбы? Акыркы баасы канча?", "Товар в наличии? Какая последняя цена?"),
+    "wholesale": ("Сатуучуга жазуу", "Написать продавцу", "Эң аз канчадан аласыз? Жеткирип бересизби?", "Какой минимальный заказ? Есть доставка?"),
+    "property":  ("Ээсине жазуу", "Написать владельцу", "Качан келип көрсө болот?", "Когда можно посмотреть?"),
+    "vehicle":   ("Ээсине жазуу", "Написать владельцу", "Унаа дагы эле сатылабы? Качан көрсө болот?", "Машина ещё продаётся? Когда можно посмотреть?"),
+    "service":   ("Устага жазуу", "Написать мастеру", "Качан келе аласыз? Баасы канча болот?", "Когда сможете приехать? Сколько будет стоить?"),
+    "rental":    ("Ээсине жазуу", "Написать владельцу", "Дагы эле бошпу? Качан көрсө болот?", "Ещё свободно? Когда можно посмотреть?"),
+    "delivery":  ("Жеткирүүчүгө жазуу", "Написать курьеру", "Кайдан кайда, канчага жеткиресиз?", "Откуда куда и за сколько доставите?"),
+    "cargo":     ("Жүк ташуучуга жазуу", "Написать перевозчику", "Качан, кайдан кайда? Баасы канча?", "Когда и откуда куда? Сколько стоит?"),
+    "jobseek":   ("Талапкерге жазуу", "Написать соискателю", "Сизге жумуш сунуштайын дедим…", "Хочу предложить вам работу…"),
+    "job":       ("Иш берүүчүгө жазуу", "Написать работодателю", "Бул жумуш дагы эле актуалдуубу?", "Вакансия ещё актуальна?"),
+    "markets":   ("Сатуучуга жазуу", "Написать продавцу", "Бул товар барбы? Кайсы катарда турасыз?", "Товар есть? В каком ряду вы стоите?"),
+    "malls":     ("Дүкөнгө жазуу", "Написать в магазин", "Бул товар барбы? Кайсы кабатта турасыз?", "Товар есть? На каком вы этаже?"),
+}
+_CH_TAXI = {
+    "driver":    ("Айдоочуга жазуу", "Написать водителю", "Орун барбы? Канчада жөнөйсүз?", "Есть место? Во сколько выезжаете?"),
+    "passenger": ("Жүргүнчүгө жазуу", "Написать пассажиру", "Мен алып кете алам, канчада чыгасыз?", "Могу забрать, во сколько выходите?"),
+}
+
+
+def _ch_label(r, lang="ky"):
+    """(баскыч, үлгү суроо) — жарыянын бөлүмүнө жараша."""
+    at = (r or {}).get("ad_type") or ""
+    if at == "taxi":
+        x = _CH_TAXI.get((r or {}).get("taxi_role") or "", ("Айдоочуга жазуу", "Написать водителю",
+                                                              "Орун барбы? Канчада жөнөйсүз?",
+                                                              "Есть место? Во сколько выезжаете?"))
+    else:
+        x = _CH_LBL.get(at, _CH_LBL["trade"])
+    return (x[1], x[3]) if lang == "ru" else (x[0], x[2])
+
+
 def _ch_ctx(tok, lid, b):
     """Ким жазып жатат: сатып алуучу ('b') же жарыянын ээси ('o')."""
     st = _wverified(tok)
@@ -1377,7 +1410,7 @@ def _ch_ctx(tok, lid, b):
         lid = int(lid)
     except Exception:
         return None, {"ok": False, "err": "id"}
-    row = core.query("SELECT id, tg_id, title FROM listings WHERE id=?", (lid,), fetch="one")
+    row = core.query("SELECT * FROM listings WHERE id=?", (lid,), fetch="one")
     if not row:
         return None, {"ok": False, "err": "id"}
     me = str(st["tg_id"])
@@ -1388,9 +1421,9 @@ def _ch_ctx(tok, lid, b):
         if not b:
             return None, {"ok": False, "err": "owner"}
         return {"lid": lid, "buyer": b, "owner": owner or me, "me": "o", "uid": me,
-                "title": str(row.get("title") or "")}, None
+                "title": str(row.get("title") or ""), "row": row}, None
     return {"lid": lid, "buyer": me, "owner": owner, "me": "b", "uid": me,
-            "title": str(row.get("title") or "")}, None
+            "title": str(row.get("title") or ""), "row": row}, None
 
 
 def _ch_loc(at):
@@ -1402,7 +1435,7 @@ def _ch_loc(at):
         return str(at)[:16]
 
 
-def _ch_get(tok, lid, b):
+def _ch_get(tok, lid, b, lang="ky"):
     _ch_init()
     c, err = _ch_ctx(tok, lid, b)
     if err:
@@ -1412,6 +1445,7 @@ def _ch_get(tok, lid, b):
     core.query("UPDATE chat_msgs SET seen=1 WHERE lid=? AND buyer=? AND sender<>? AND seen=0",
                (c["lid"], c["buyer"], c["me"]))
     return {"ok": True, "me": c["me"], "title": c["title"], "lid": c["lid"],
+            "hint": _ch_label(c.get("row"), lang)[1] if c["me"] == "b" else "",
             "msgs": [{"s": r["sender"], "t": r["body"], "at": _ch_loc(r["at"])} for r in rows]}
 
 
@@ -1518,14 +1552,14 @@ function need(){try{localStorage.setItem('tap_back',location.pathname+location.s
 if(!tok){need();return;}
 var last='';
 function draw(j){var h='';
-  if(!j.msgs.length)h='<p class="che">'+(j.me==='b'?T('Сатуучуга суроо жазыңыз — мисалы: «Бул товар барбы?»','Напишите продавцу — например: «Товар в наличии?»'):T('Азырынча билдирүү жок.','Сообщений пока нет.'))+'</p>';
+  if(!j.msgs.length)h='<p class="che">'+(j.me==='b'?T('Суроо жазыңыз, мисалы: ','Напишите вопрос, например: ')+'«'+esc(j.hint)+'»':T('Азырынча билдирүү жок.','Сообщений пока нет.'))+'</p>';
   j.msgs.forEach(function(m){h+='<div class="cm '+(m.s===j.me?'me':'ot')+'">'+esc(m.t)+'<i>'+esc(m.at.slice(5))+'</i></div>';});
   var key=JSON.stringify(j.msgs);if(key===last)return;last=key;
   document.getElementById('chl').innerHTML=h;window.scrollTo(0,document.body.scrollHeight);}
 function load(first){fetch('/api/chat?t='+encodeURIComponent(tok)+'&lid='+lid+'&b='+bb).then(function(r){return r.json();}).then(function(j){
   if(!j.ok){if(j.err==='verify'){try{localStorage.removeItem('tap_vok');}catch(e){}need();}else if(j.err==='owner'){location.href='/chats';}else{box.innerHTML='<p class="che">'+T('Жарыя табылган жок.','Объявление не найдено.')+'</p>';}return;}
   if(first){box.innerHTML='<div class="chh"><a class="bk" href="/chats">‹</a><div class="tt"><a href="/e/'+j.lid+'">'+esc(j.title)+'</a></div></div><div class="chl" id="chl"></div>'
-    +'<div class="chf"><div class="in"><textarea id="cht" maxlength="1000" placeholder="'+T('Билдирүү жазыңыз…','Напишите сообщение…')+'"></textarea><button id="chs" type="button">➤</button></div></div>';
+    +'<div class="chf"><div class="in"><textarea id="cht" maxlength="1000" placeholder="'+esc(j.hint||T('Билдирүү жазыңыз…','Напишите сообщение…'))+'"></textarea><button id="chs" type="button">➤</button></div></div>';
     document.getElementById('chs').onclick=send;}
   draw(j);}).catch(function(){});}
 function send(){var t=document.getElementById('cht');var v=t.value.trim();if(!v)return;var b=document.getElementById('chs');b.disabled=true;
@@ -1548,7 +1582,7 @@ fetch('/api/chats?t='+encodeURIComponent(tok)).then(function(r){return r.json();
   if(!j.items.length){box.innerHTML='<p class="che">'+T('Азырынча билдирүү жок. Жарыяны ачып «💬 Сатуучуга жазуу» басыңыз.','Сообщений пока нет. Откройте объявление и нажмите «💬 Написать продавцу».')+'</p>';return;}
   var h='';j.items.forEach(function(it){
     h+='<a class="chi" href="/chat?lid='+it.lid+(it.b?'&b='+encodeURIComponent(it.b):'')+'">'+(it.photo?'<img src="/media/'+esc(it.photo)+'" alt="">':'<span class="np"></span>')
-     +'<span class="tx"><span class="rl">'+(it.role==='o'?T('Сиздин жарыяңыз — кардар','Ваше объявление — покупатель'):T('Сатуучу менен','С продавцом'))+'</span><b>'+esc(it.title)+'</b><small>'+(it.mine?T('Сиз: ','Вы: '):'')+esc(it.last)+'</small></span>'
+     +'<span class="tx"><span class="rl">'+(it.role==='o'?T('Сиздин жарыяңыз — кардар','Ваше объявление — покупатель'):T('Жарыянын ээси менен','С автором объявления'))+'</span><b>'+esc(it.title)+'</b><small>'+(it.mine?T('Сиз: ','Вы: '):'')+esc(it.last)+'</small></span>'
      +(it.un?'<span class="un">'+it.un+'</span>':'')+'</a>';});
   box.innerHTML=h;}).catch(function(){box.innerHTML='<p class="che">'+T('Байланыш катасы.','Ошибка связи.')+'</p>';});
 })();
@@ -3445,7 +3479,7 @@ def detail(r, lang="ky"):
                 else "✅ Жөнөтүлдү! Жообу Кабинетте көрүнөт.")
     _ask_yes = ("✅ Владелец ответил: актуально!" if lang == "ru"
                 else "✅ Ээси жооп берди: актуалдуу!")
-    tel += ('<a class="chbtn" href="/chat?lid=%d">💬 %s</a>' % (r["id"], esc("Написать продавцу" if lang == "ru" else "Сатуучуга жазуу"))
+    tel += ('<a class="chbtn" href="/chat?lid=%d">💬 %s</a>' % (r["id"], esc(_ch_label(r, lang)[0]))
             + '<style>.chbtn{display:block;text-align:center;padding:12px;border-radius:12px;background:linear-gradient(180deg,#2458C6,#163C8C);'
             'color:#fff!important;font-weight:800;text-decoration:none;margin:10px 0;box-shadow:0 4px 12px rgba(22,60,140,.30)}</style>')   # SITECHAT
     tel += _act_badge(r["id"], lang)
@@ -4354,7 +4388,7 @@ class H(BaseHTTPRequestHandler):
             _json_out(self, _web_ad_get(qs.get("t", [""])[0], qs.get("id", [""])[0]))
             return
         if u.path == "/api/chat":   # SITECHAT
-            _json_out(self, _ch_get(qs.get("t", [""])[0], qs.get("lid", [""])[0], qs.get("b", [""])[0]))
+            _json_out(self, _ch_get(qs.get("t", [""])[0], qs.get("lid", [""])[0], qs.get("b", [""])[0], lang))
             return
         if u.path == "/api/chats":   # SITECHAT
             _json_out(self, _ch_list(qs.get("t", [""])[0]))
