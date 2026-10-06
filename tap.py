@@ -3647,12 +3647,12 @@ def me_page(lang="ky"):
               '.mewrap .mrow2 .mear{margin-left:auto;color:#98A2B3;font-size:24px;line-height:1;font-weight:400}'
               '.mewrap .mrow2 .mebd{margin-left:auto;background:#E5322D;color:#fff;border-radius:10px;'
               'font-size:12px;font-weight:800;padding:2px 8px;line-height:1.3}'
-              '.mewrap .mrow2 .mebd+.mear{margin-left:8px}'
+              '.mewrap .mrow2 .mebd.on+.mear{margin-left:8px}/* CABARROW */'
               '.mesm .mrow2{font-size:14px!important;font-weight:600!important;color:#3A4E6B!important}'
               '.mesm .mrow2 svg{opacity:.7}</style>'
               '<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}if(!t)return;'
               'fetch("/api/vme?t="+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){'
-              'if(j.ok&&j.asks){var b=document.getElementById("mybd");if(b){b.textContent=j.asks;b.style.display="inline-block";}}'
+              'if(j.ok&&j.asks){var b=document.getElementById("mybd");if(b){b.textContent=j.asks;b.style.display="inline-block";b.className+=" on";}}'
               '}).catch(function(){});})();</script>')
 
     # ── Расмий баракчалар ──
