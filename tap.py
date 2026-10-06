@@ -1452,7 +1452,7 @@ def verify_page(lang="ky"):
     fetch('/api/verify/status?t='+encodeURIComponent(tok)+'&ref='+encodeURIComponent(window.__tapref||'')).then(function(r){{return r.json();}})
     .then(function(j){{
       if(j.verified){{clearInterval(timer);$('vf2').style.display='none';$('vf3').style.display='block';
-        try{{localStorage.removeItem('tap_vtok');localStorage.setItem('tap_vok',tok);}}catch(e){{}}var nx=(location.search.match(/next=([a-z]+)/)||[])[1];if(nx==='post'||nx==='bal'||nx==='my'){{location.href='/'+nx;}}}}
+        try{{localStorage.removeItem('tap_vtok');localStorage.setItem('tap_vok',tok);}}catch(e){{}}var nx=(location.search.match(/next=([a-z]+)/)||[])[1];if(nx==='post'||nx==='bal'||nx==='my'||nx==='me'){{location.href='/'+nx;}}}}
     }}).catch(function(){{}});
   }}
   function wait(link){{
@@ -3455,6 +3455,34 @@ def me_page(lang="ky"):
            f'<i>{esc(top_p)}</i></span></div>'
            f'<div class="ments">{ent}</div>')
 
+    # VERIFYBTN: номер ырастоо баскычы / ырасталган номер
+    _vb_t = "Подтвердить номер" if ru else "Номерди ырастоо"
+    _vb_ok = "Номер подтверждён" if ru else "Номер ырасталган"
+    _vb_out = "Выйти" if ru else "Чыгуу"
+    _vb_sub = ("Один раз через Telegram — и можно подавать объявления"
+               if ru else "Telegram аркылуу бир жолу — анан жарыя бере берсеңиз болот")
+    top += ('<div id="vbx"><a class="vbtn" href="/verify?next=me"><span class="vbi">🔐</span>'
+            '<span class="vbt"><b>' + esc(_vb_t) + '</b><i>' + esc(_vb_sub) + '</i></span>'
+            '<span class="vba">›</span></a></div>'
+            '<style>#vbx{margin:12px 0 4px}'
+            '.vbtn{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px;'
+            'background:linear-gradient(180deg,#2458C6,#163C8C);color:#fff!important;text-decoration:none;'
+            'box-shadow:0 6px 16px rgba(22,60,140,.35)}'
+            '.vbi{font-size:24px;flex:none}.vbt{flex:1;min-width:0;display:flex;flex-direction:column}'
+            '.vbt b{font-size:17px;font-weight:800}.vbt i{font-style:normal;font-size:12.5px;opacity:.9;margin-top:2px}'
+            '.vba{font-size:26px;opacity:.85}'
+            '.vdone{display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:16px;'
+            'background:#E3F6EA;border:1.5px solid #9BD3B0;color:#155C33;font-weight:800}'
+            '.vdone span{flex:1}.vdone button{border:1.5px solid #155C33;background:#fff;color:#155C33;'
+            'border-radius:10px;padding:6px 12px;font-weight:700;font-family:inherit;cursor:pointer}</style>'
+            '<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}'
+            'if(!t)return;fetch("/api/vme?t="+encodeURIComponent(t)).then(function(r){return r.json();})'
+            '.then(function(j){if(!j.ok)return;var b=document.getElementById("vbx");'
+            'b.innerHTML="<div class=\\"vdone\\">✅ <span>' + esc(_vb_ok) + ': "+j.phone+"</span>'
+            '<button type=\\"button\\" id=\\"vout\\">' + esc(_vb_out) + '</button></div>";'
+            'document.getElementById("vout").onclick=function(){try{localStorage.removeItem("tap_vok");}catch(e){}location.reload();};'
+            '}).catch(function(){});})();</script>')
+
     # ── Тил ──
     lang_row = (f'<a class="mrow2 accent" href="/lang/'
                 f'{"ky" if ru else "ru"}">{NAV_ICONS["globe"]}'
@@ -3766,6 +3794,11 @@ class H(BaseHTTPRequestHandler):
             return
         if u.path == "/verify":
             self._send(verify_page(lang))
+            return
+        if u.path == "/api/vme":   # VERIFYBTN
+            _vst = _wverified(qs.get("t", [""])[0])
+            _vph = str((_vst or {}).get("phone") or "")
+            _json_out(self, {"ok": bool(_vst), "phone": ("+996 " + _vph) if _vph else ""})
             return
         if u.path == "/api/my":   # WEB_MY
             _json_out(self, _web_my_list(qs.get("t", [""])[0],
