@@ -399,7 +399,7 @@ EXTRA_CSS += chr(10) + '.hban.hb-brand{padding:8px 18%;background:linear-gradien
 # GBANS: жыйынтыктардагы баннерлер
 EXTRA_CSS += chr(10) + '.g .gban{grid-column:1/-1;border-radius:16px;overflow:hidden;box-shadow:0 6px 18px rgba(30,60,110,.16);background:#fff}.g .gban img{width:100%;height:auto;display:block}.g .gban.gb-brand{padding:8px 18%;background:linear-gradient(180deg,#EAF4FF,#fff)}.g .gban.gb-brand img{mix-blend-mode:multiply}/* GBANS */' + chr(10)
 # TGWARN: Telegram ичинде эскертүү, орнотуу баскычы
-PWA_JS += r'''<script>/* SITENOTE: Кабинетте жаңы билдирүү болсо — кызыл белги */window.addEventListener('load',function(){try{var t=localStorage.getItem('tap_vok');if(!t)return;fetch('/api/vme?t='+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){var n=(j.asks||0)+((j.replies||[]).length);if(!j.ok||!n)return;document.querySelectorAll('a[href="/me"]').forEach(function(a){if(a.querySelector('.ndot'))return;a.style.position='relative';var d=document.createElement('span');d.className='ndot';d.textContent=n;d.style.cssText='position:absolute;top:2px;right:22%;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#E5322D;color:#fff;font-size:11px;font-weight:800;line-height:18px;text-align:center;box-sizing:border-box;z-index:5';a.appendChild(d);});}).catch(function(){});}catch(e){}});</script>'''
+PWA_JS += r'''<script>/* SITENOTE: Кабинетте жаңы билдирүү болсо — кызыл белги */window.addEventListener('load',function(){try{var t=localStorage.getItem('tap_vok');if(!t)return;fetch('/api/vme?t='+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){var n=(j.asks||0)+((j.replies||[]).length)+(j.chats||0);if(!j.ok||!n)return;document.querySelectorAll('a[href="/me"]').forEach(function(a){if(a.querySelector('.ndot'))return;a.style.position='relative';var d=document.createElement('span');d.className='ndot';d.textContent=n;d.style.cssText='position:absolute;top:2px;right:22%;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#E5322D;color:#fff;font-size:11px;font-weight:800;line-height:18px;text-align:center;box-sizing:border-box;z-index:5';a.appendChild(d);});}).catch(function(){});}catch(e){}});</script>'''
 PWA_JS += r'''<script>/* TGWARN */(function(){
 var RU=(document.documentElement.lang||"ky")==="ru";
 function T(a,b){return RU?b:a;}
@@ -1350,6 +1350,220 @@ def _act_badge(lid, lang):
             'color:#155C33!important;border-color:#9BD3B0!important}</style>' % (esc(t), loc))
 
 
+# SITECHAT: сайттын ичинде сатуучу менен жазышуу
+_CH_TBL = [False]
+_CH_RATE = {}
+
+
+def _ch_init():
+    if _CH_TBL[0]:
+        return
+    core.query("CREATE TABLE IF NOT EXISTS chat_msgs (lid INTEGER, buyer TEXT, owner TEXT, "
+               "sender TEXT, body TEXT, at TEXT, seen INTEGER)")
+    _CH_TBL[0] = True
+
+
+def _ch_now():
+    from datetime import datetime as _dt
+    return _dt.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+
+def _ch_ctx(tok, lid, b):
+    """Ким жазып жатат: сатып алуучу ('b') же жарыянын ээси ('o')."""
+    st = _wverified(tok)
+    if not st:
+        return None, {"ok": False, "err": "verify"}
+    try:
+        lid = int(lid)
+    except Exception:
+        return None, {"ok": False, "err": "id"}
+    row = core.query("SELECT id, tg_id, title FROM listings WHERE id=?", (lid,), fetch="one")
+    if not row:
+        return None, {"ok": False, "err": "id"}
+    me = str(st["tg_id"])
+    owner = str(row.get("tg_id") or "")
+    is_owner = (me == owner) or core.owns(lid, me, "+996" + st["phone"])
+    if is_owner:
+        b = "".join(c for c in str(b or "") if c.isdigit() or c == "-")
+        if not b:
+            return None, {"ok": False, "err": "owner"}
+        return {"lid": lid, "buyer": b, "owner": owner or me, "me": "o", "uid": me,
+                "title": str(row.get("title") or "")}, None
+    return {"lid": lid, "buyer": me, "owner": owner, "me": "b", "uid": me,
+            "title": str(row.get("title") or "")}, None
+
+
+def _ch_loc(at):
+    """UTC → Бишкек убактысы (+6), «ММ-КК СС:ММ» түрүндө."""
+    from datetime import datetime as _dt, timedelta as _td
+    try:
+        return (_dt.strptime(str(at)[:19], "%Y-%m-%d %H:%M:%S") + _td(hours=6)).strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return str(at)[:16]
+
+
+def _ch_get(tok, lid, b):
+    _ch_init()
+    c, err = _ch_ctx(tok, lid, b)
+    if err:
+        return err
+    rows = core.query("SELECT sender, body, at FROM chat_msgs WHERE lid=? AND buyer=? "
+                      "ORDER BY at LIMIT 300", (c["lid"], c["buyer"]), fetch="all") or []
+    core.query("UPDATE chat_msgs SET seen=1 WHERE lid=? AND buyer=? AND sender<>? AND seen=0",
+               (c["lid"], c["buyer"], c["me"]))
+    return {"ok": True, "me": c["me"], "title": c["title"], "lid": c["lid"],
+            "msgs": [{"s": r["sender"], "t": r["body"], "at": _ch_loc(r["at"])} for r in rows]}
+
+
+def _ch_send(b):
+    _ch_init()
+    c, err = _ch_ctx(b.get("token"), b.get("lid"), b.get("b"))
+    if err:
+        return err
+    body = " ".join(str(b.get("body") or "").split())[:1000] if "\n" not in str(b.get("body") or "") \
+        else str(b.get("body") or "").strip()[:1000]
+    if not body:
+        return {"ok": False, "err": "empty"}
+    now = _t.time()
+    box = [x for x in _CH_RATE.get(c["uid"], []) if now - x < 600]
+    if len(box) >= 40:
+        return {"ok": False, "err": "rate"}
+    _CH_RATE[c["uid"]] = box + [now]
+    if len(_CH_RATE) > 5000:
+        _CH_RATE.clear()
+    try:
+        import rules
+        level, hits = rules.check_text(body)
+        if level in ("hard", "swear"):
+            return {"ok": False, "err": "bad"}
+    except ImportError:
+        pass
+    if c["me"] == "b" and c["buyer"] == c["owner"]:
+        return {"ok": False, "err": "self"}
+    core.query("INSERT INTO chat_msgs (lid, buyer, owner, sender, body, at, seen) VALUES (?, ?, ?, ?, ?, ?, 0)",
+               (c["lid"], c["buyer"], c["owner"], c["me"], body, _ch_now()))
+    return {"ok": True}
+
+
+def _ch_list(tok):
+    _ch_init()
+    st = _wverified(tok)
+    if not st:
+        return {"ok": False, "err": "verify"}
+    me = str(st["tg_id"])
+    th = core.query("SELECT lid, buyer, owner, MAX(at) AS last FROM chat_msgs WHERE buyer=? OR owner=? "
+                    "GROUP BY lid, buyer, owner ORDER BY last DESC LIMIT 60", (me, me), fetch="all") or []
+    out = []
+    for r in th:
+        role = "o" if str(r["owner"]) == me else "b"
+        lst = core.query("SELECT sender, body FROM chat_msgs WHERE lid=? AND buyer=? ORDER BY at DESC LIMIT 1",
+                         (r["lid"], r["buyer"]), fetch="one") or {}
+        un = core.query("SELECT COUNT(*) AS n FROM chat_msgs WHERE lid=? AND buyer=? AND sender<>? AND seen=0",
+                        (r["lid"], r["buyer"], role), fetch="one") or {}
+        lr = core.query("SELECT title, photo FROM listings WHERE id=?", (r["lid"],), fetch="one") or {}
+        out.append({"lid": int(r["lid"]), "b": str(r["buyer"]) if role == "o" else "",
+                    "role": role, "title": str(lr.get("title") or "№%s" % r["lid"]),
+                    "photo": str(lr.get("photo") or ""), "last": str(lst.get("body") or "")[:80],
+                    "mine": lst.get("sender") == role, "at": _ch_loc(r["last"]), "un": int(un.get("n") or 0)})
+    return {"ok": True, "items": out}
+
+
+def _ch_unread(tg):
+    try:
+        _ch_init()
+        r = core.query("SELECT COUNT(*) AS n FROM chat_msgs WHERE seen=0 AND "
+                       "((owner=? AND sender='b') OR (buyer=? AND sender='o'))",
+                       (str(tg), str(tg)), fetch="one") or {}
+        return int(r.get("n") or 0)
+    except Exception as e:
+        print("ch_unread:", e, flush=True)
+        return 0
+
+
+_CH_CSS = """<style>
+.chw{max-width:560px;margin:0 auto;padding:12px 14px 150px}
+.chh{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.chh a.bk{width:40px;height:40px;border-radius:12px;border:2px solid #2458C6;background:#EAF1FF;color:#17304F;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:22px;font-weight:800;flex:none}
+.chh .tt{font-weight:800;font-size:16px;color:#0B1B30;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chh .tt a{color:inherit;text-decoration:none}
+.chl{display:flex;flex-direction:column;gap:8px;min-height:40vh}
+.cm{max-width:80%;padding:9px 12px;border-radius:16px;font-size:15px;line-height:1.35;white-space:pre-wrap;word-wrap:break-word;box-shadow:0 2px 6px rgba(16,24,40,.12)}
+.cm i{display:block;font-style:normal;font-size:11px;opacity:.65;margin-top:3px;text-align:right}
+.cm.me{align-self:flex-end;background:linear-gradient(180deg,#2458C6,#163C8C);color:#fff;border-bottom-right-radius:5px}
+.cm.ot{align-self:flex-start;background:#fff;border:1.5px solid #D5DEEA;color:#0B1B30;border-bottom-left-radius:5px}
+.chf{position:fixed;left:0;right:0;bottom:78px;z-index:40;background:#fff;border-top:1px solid #DCE3EE;padding:8px 12px}
+.chf .in{max-width:560px;margin:0 auto;display:flex;gap:8px}
+.chf textarea{flex:1;resize:none;height:44px;padding:11px 14px;border:1.5px solid #B7C5DA;border-radius:22px;font:inherit;font-size:15px}
+.chf button{flex:none;width:48px;height:44px;border:0;border-radius:22px;background:linear-gradient(180deg,#2458C6,#163C8C);color:#fff;font-size:20px;cursor:pointer}
+.che{color:#5A6B82;text-align:center;margin:30px 0}
+.chi{display:flex;gap:10px;align-items:center;padding:10px;margin-bottom:10px;border:1.5px solid #D5DEEA;border-radius:16px;background:#fff;text-decoration:none;color:#0B1B30;box-shadow:0 2px 8px rgba(16,24,40,.08)}
+.chi img,.chi .np{width:56px;height:56px;border-radius:12px;object-fit:cover;flex:none;background:#E3E8EF}
+.chi .tx{flex:1;min-width:0}.chi b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chi small{display:block;color:#5A6B82;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chi .rl{font-size:11px;font-weight:800;color:#2458C6}
+.chi .un{flex:none;background:#E5322D;color:#fff;border-radius:10px;font-size:12px;font-weight:800;padding:2px 8px}
+.chbtn{display:block;text-align:center;padding:12px;border-radius:12px;background:linear-gradient(180deg,#2458C6,#163C8C);color:#fff!important;font-weight:800;text-decoration:none;margin:10px 0;box-shadow:0 4px 12px rgba(22,60,140,.30)}
+</style>"""
+
+_CH_JS = r"""
+(function(){
+var LANG=document.documentElement.getAttribute('data-lang')||'ky';
+function T(k,r){return LANG==='ru'?r:k;}
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var box=document.getElementById('chbox');
+var q=location.search;var lid=(q.match(/[?&]lid=([0-9]+)/)||[])[1]||'';var bb=(q.match(/[?&]b=([-0-9]+)/)||[])[1]||'';
+var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+function need(){try{localStorage.setItem('tap_back',location.pathname+location.search);}catch(e){}
+  box.innerHTML='<p class="che">'+T('Жазуу үчүн номериңизди бир жолу ырастаңыз.','Чтобы написать, подтвердите номер один раз.')+'</p><a class="chbtn" href="/verify?next=back">'+T('🔐 Номерди ырастоо','🔐 Подтвердить номер')+'</a>';}
+if(!tok){need();return;}
+var last='';
+function draw(j){var h='';
+  if(!j.msgs.length)h='<p class="che">'+(j.me==='b'?T('Сатуучуга суроо жазыңыз — мисалы: «Бул товар барбы?»','Напишите продавцу — например: «Товар в наличии?»'):T('Азырынча билдирүү жок.','Сообщений пока нет.'))+'</p>';
+  j.msgs.forEach(function(m){h+='<div class="cm '+(m.s===j.me?'me':'ot')+'">'+esc(m.t)+'<i>'+esc(m.at.slice(5))+'</i></div>';});
+  var key=JSON.stringify(j.msgs);if(key===last)return;last=key;
+  document.getElementById('chl').innerHTML=h;window.scrollTo(0,document.body.scrollHeight);}
+function load(first){fetch('/api/chat?t='+encodeURIComponent(tok)+'&lid='+lid+'&b='+bb).then(function(r){return r.json();}).then(function(j){
+  if(!j.ok){if(j.err==='verify'){try{localStorage.removeItem('tap_vok');}catch(e){}need();}else if(j.err==='owner'){location.href='/chats';}else{box.innerHTML='<p class="che">'+T('Жарыя табылган жок.','Объявление не найдено.')+'</p>';}return;}
+  if(first){box.innerHTML='<div class="chh"><a class="bk" href="/chats">‹</a><div class="tt"><a href="/e/'+j.lid+'">'+esc(j.title)+'</a></div></div><div class="chl" id="chl"></div>'
+    +'<div class="chf"><div class="in"><textarea id="cht" maxlength="1000" placeholder="'+T('Билдирүү жазыңыз…','Напишите сообщение…')+'"></textarea><button id="chs" type="button">➤</button></div></div>';
+    document.getElementById('chs').onclick=send;}
+  draw(j);}).catch(function(){});}
+function send(){var t=document.getElementById('cht');var v=t.value.trim();if(!v)return;var b=document.getElementById('chs');b.disabled=true;
+  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,lid:+lid,b:bb,body:v})}).then(function(r){return r.json();}).then(function(x){b.disabled=false;
+    if(x.ok){t.value='';load(false);}else{alert(x.err==='bad'?T('Тыюу салынган сөз бар.','Есть запрещённое слово.'):x.err==='rate'?T('Өтө көп билдирүү, бир аз күтүңүз.','Слишком много сообщений, подождите.'):x.err==='self'?T('Бул өзүңүздүн жарыяңыз.','Это ваше объявление.'):T('Ката чыкты.','Ошибка.'));}}).catch(function(){b.disabled=false;});}
+load(true);setInterval(function(){if(!document.hidden)load(false);},5000);
+})();
+"""
+
+_CHS_JS = r"""
+(function(){
+var LANG=document.documentElement.getAttribute('data-lang')||'ky';
+function T(k,r){return LANG==='ru'?r:k;}
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var box=document.getElementById('chbox');
+var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+if(!tok){try{localStorage.setItem('tap_back','/chats');}catch(e){}box.innerHTML='<p class="che">'+T('Билдирүүлөрдү көрүү үчүн номериңизди ырастаңыз.','Подтвердите номер, чтобы видеть сообщения.')+'</p><a class="chbtn" href="/verify?next=back">'+T('🔐 Номерди ырастоо','🔐 Подтвердить номер')+'</a>';return;}
+fetch('/api/chats?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){
+  if(!j.ok){box.innerHTML='<p class="che">'+T('Ката чыкты.','Ошибка.')+'</p>';return;}
+  if(!j.items.length){box.innerHTML='<p class="che">'+T('Азырынча билдирүү жок. Жарыяны ачып «💬 Сатуучуга жазуу» басыңыз.','Сообщений пока нет. Откройте объявление и нажмите «💬 Написать продавцу».')+'</p>';return;}
+  var h='';j.items.forEach(function(it){
+    h+='<a class="chi" href="/chat?lid='+it.lid+(it.b?'&b='+encodeURIComponent(it.b):'')+'">'+(it.photo?'<img src="/media/'+esc(it.photo)+'" alt="">':'<span class="np"></span>')
+     +'<span class="tx"><span class="rl">'+(it.role==='o'?T('Сиздин жарыяңыз — кардар','Ваше объявление — покупатель'):T('Сатуучу менен','С продавцом'))+'</span><b>'+esc(it.title)+'</b><small>'+(it.mine?T('Сиз: ','Вы: '):'')+esc(it.last)+'</small></span>'
+     +(it.un?'<span class="un">'+it.un+'</span>':'')+'</a>';});
+  box.innerHTML=h;}).catch(function(){box.innerHTML='<p class="che">'+T('Байланыш катасы.','Ошибка связи.')+'</p>';});
+})();
+"""
+
+
+def chat_page(lang="ky", lst=False):
+    ttl = ("Сообщения" if lang == "ru" else "Билдирүүлөр")
+    head = ('<h1 style="font-size:24px;margin:0 0 12px">' + ttl + '</h1>') if lst else ""
+    body = ('<main class="chw">' + head + '<div id="chbox"></div></main>' + _CH_CSS
+            + '<script>document.documentElement.setAttribute("data-lang",' + json.dumps(lang) + ');'
+            + (_CHS_JS if lst else _CH_JS) + '</script>')
+    return page(body, title=ttl, lang=lang)
+
+
 _ASK_JS = r"""<style>.askb{width:100%;font-family:inherit;font-size:15px;cursor:pointer}.askb:disabled{opacity:.8}.asks{font-size:12.5px;color:#5A6B82;text-align:center;margin-top:6px}</style><script>(function(){var b=document.querySelector('.askb[data-id]');if(!b)return;var id=+b.getAttribute('data-id');function poll(since,n){if(n>30)return;setTimeout(function(){fetch('/api/actual?id='+id).then(function(r){return r.json();}).then(function(j){if(j.at&&j.at>since){b.textContent=b.getAttribute('data-yes');b.className+=' askyes';}else{poll(since,n+1);}}).catch(function(){poll(since,n+1);});},20000);}b.onclick=function(){b.disabled=true;var t=null;try{t=localStorage.getItem('tap_vok');}catch(e){}fetch('/api/actual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,token:t})}).then(function(r){return r.json();}).then(function(j){if(j.ok){b.textContent=b.getAttribute(j.tg?'data-ok2':'data-ok');if(j.now)poll(j.now,0);}else{b.disabled=false;alert(b.getAttribute('data-er')+(j.err?' ('+j.err+')':''));}}).catch(function(){b.disabled=false;});};})();</script>"""
 
 
@@ -1696,7 +1910,7 @@ def verify_page(lang="ky"):
     fetch('/api/verify/status?t='+encodeURIComponent(tok)+'&ref='+encodeURIComponent(window.__tapref||'')).then(function(r){{return r.json();}})
     .then(function(j){{
       if(j.verified){{clearInterval(timer);$('vf2').style.display='none';$('vf3').style.display='block';
-        try{{localStorage.removeItem('tap_vtok');localStorage.setItem('tap_vok',tok);}}catch(e){{}}var nx=(location.search.match(/next=([a-z]+)/)||[])[1];if(nx==='post'||nx==='bal'||nx==='my'||nx==='me'){{location.href='/'+nx;}}}}
+        try{{localStorage.removeItem('tap_vtok');localStorage.setItem('tap_vok',tok);}}catch(e){{}}var nx=(location.search.match(/next=([a-z]+)/)||[])[1];if(nx==='post'||nx==='bal'||nx==='my'||nx==='me'){{location.href='/'+nx;}}else if(nx==='back'){{var _bk='/';try{{_bk=localStorage.getItem('tap_back')||'/';}}catch(e){{}}location.href=_bk;}}}}
     }}).catch(function(){{}});
   }}
   function wait(link){{
@@ -3231,6 +3445,9 @@ def detail(r, lang="ky"):
                 else "✅ Жөнөтүлдү! Жообу Кабинетте көрүнөт.")
     _ask_yes = ("✅ Владелец ответил: актуально!" if lang == "ru"
                 else "✅ Ээси жооп берди: актуалдуу!")
+    tel += ('<a class="chbtn" href="/chat?lid=%d">💬 %s</a>' % (r["id"], esc("Написать продавцу" if lang == "ru" else "Сатуучуга жазуу"))
+            + '<style>.chbtn{display:block;text-align:center;padding:12px;border-radius:12px;background:linear-gradient(180deg,#2458C6,#163C8C);'
+            'color:#fff!important;font-weight:800;text-decoration:none;margin:10px 0;box-shadow:0 4px 12px rgba(22,60,140,.30)}</style>')   # SITECHAT
     tel += _act_badge(r["id"], lang)
     tel += ('<div class="askw"><button type="button" class="askb" data-id="%d" data-ok="%s" data-er="%s" data-ok2="%s" data-yes="%s">'
             % (r["id"], esc(_ask_ok), esc(_ask_er), esc(_ask_ok2), esc(_ask_yes))
@@ -3798,6 +4015,8 @@ def me_page(lang="ky"):
     items = _grp("Моё" if ru else "Менин",
                  _row("list", "Мои объявления" if ru else "Менин жарыяларым", "/my",
                       '<span class="mebd" id="mybd" style="display:none"></span>' + _ar)
+                 + _row("💬", "Сообщения" if ru else "Билдирүүлөр", "/chats",   # SITECHAT
+                        '<span class="mebd" id="chbd" style="display:none"></span>' + _ar)
                  + _row("fav", "Избранное" if ru else "Тандалгандар", "/fav")
                  + _row("wallet", "Мой баланс" if ru else "Менин балансым", "/bal"))
     items += _grp("Бизнес",
@@ -3821,7 +4040,7 @@ def me_page(lang="ky"):
               '.mesm .mrow2 svg{opacity:.7}</style>'
               '<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}if(!t)return;'
               'fetch("/api/vme?t="+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){'
-              'if(j.ok&&j.asks){var b=document.getElementById("mybd");if(b){b.textContent=j.asks;b.style.display="inline-block";b.className+=" on";}}'
+              'if(j.ok&&j.chats){var c=document.getElementById("chbd");if(c){c.textContent=j.chats;c.style.display="inline-block";c.className+=" on";}}if(j.ok&&j.asks){var b=document.getElementById("mybd");if(b){b.textContent=j.asks;b.style.display="inline-block";b.className+=" on";}}'
               '}).catch(function(){});})();</script>')
 
     # ── Расмий баракчалар ──
@@ -3980,6 +4199,16 @@ class H(BaseHTTPRequestHandler):
             admin.report(self)
             return
         
+        if u.path == "/api/chat":   # SITECHAT
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(n).decode("utf-8")) if 0 < n < 8000 else {}
+                _json_out(self, _ch_send(body))
+            except Exception as e:
+                print("chat:", e, flush=True)
+                _json_out(self, {"ok": False, "err": "server"})
+            return
+
         if u.path == "/api/myad":   # ADEDIT
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -4124,12 +4353,19 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/myad":   # ADEDIT
             _json_out(self, _web_ad_get(qs.get("t", [""])[0], qs.get("id", [""])[0]))
             return
+        if u.path == "/api/chat":   # SITECHAT
+            _json_out(self, _ch_get(qs.get("t", [""])[0], qs.get("lid", [""])[0], qs.get("b", [""])[0]))
+            return
+        if u.path == "/api/chats":   # SITECHAT
+            _json_out(self, _ch_list(qs.get("t", [""])[0]))
+            return
         if u.path == "/api/vme":   # VERIFYBTN
             _vst = _wverified(qs.get("t", [""])[0])
             _vph = str((_vst or {}).get("phone") or "")
             _json_out(self, {"ok": bool(_vst), "phone": ("+996 " + _vph) if _vph else "",
                              "asks": (sum(_act_counts(_vst["tg_id"]).values()) if _vst else 0),   # ASKSITE
-                             "replies": (core.act_replies(_vst["tg_id"]) if _vst else [])})   # SITENOTE
+                             "replies": (core.act_replies(_vst["tg_id"]) if _vst else []),   # SITENOTE
+                             "chats": (_ch_unread(_vst["tg_id"]) if _vst else 0)})   # SITECHAT
             return
         if u.path == "/api/my":   # WEB_MY
             _json_out(self, _web_my_list(qs.get("t", [""])[0],
@@ -4208,6 +4444,10 @@ class H(BaseHTTPRequestHandler):
 
         if u.path == "/bal":   # WEB_BAL
             return self._send(balance_page(lang))
+
+        if u.path in ("/chat", "/chats"):   # SITECHAT
+            self._send(chat_page(lang, u.path == "/chats"))
+            return
 
         if u.path == "/my/edit":   # ADEDIT
             self._send(edit_page(lang))
