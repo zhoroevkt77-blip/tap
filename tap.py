@@ -1542,12 +1542,14 @@ def _others(lang, ob, at=None, skip=()):
 
 def header(q="", at=None, reg=None, lang="ky"):
     reg = reg or getattr(_RS, "cob", None)   # REGSEL
+    _pwc = ("color:#fff!important;background:linear-gradient(180deg,#2458C6,#163C8C)!important;border:1px solid #163C8C!important;box-shadow:0 4px 12px rgba(22,60,140,.45)!important;" if reg else
+            "color:#0B1B30!important;background:#F2F4F7!important;border:1px solid #98A2B3!important;box-shadow:0 4px 12px rgba(16,24,40,.59)!important;")   # PINWIDE4
     hidden = f'<input type="hidden" name="at" value="{esc(at)}">' if at else ""
     return f"""<header class="top"><div class="wrap">
 <div class="tin"><a href="/" class="logo"><img class="lgi lgi3" src="/si/brand.jpg?v={secimg.VERSION}" alt=""><span>ТАП!</span><!--HDRICON--></a><style>.logo .lgi{{width:30px;height:30px;border-radius:9px;margin-right:7px;display:block;object-fit:cover}}</style>
 {_region_sheet(lang)}
 {_lang_switch(lang)}</div>
-<button type="button" class="pin pinw" style="display:flex!important;align-items:center!important;gap:12px!important;width:100%!important;max-width:none!important;min-width:0!important;box-sizing:border-box!important;flex:none!important;margin:14px 0 4px!important;padding:14px 22px!important;font-family:inherit!important;font-size:19px!important;font-weight:600!important;letter-spacing:0!important;line-height:1.2!important;text-align:left!important;color:#1E3A66!important;background:#F4F6FA!important;border:2px solid #D3DAE6!important;border-radius:999px!important;box-shadow:0 4px 12px rgba(20,40,80,.12)!important" data-pw2="PINWIDE2 PINWIDE3" onclick="var s=document.getElementById('rsheet');document.body.appendChild(s);s.classList.add('on')"><span class="pwi">📍</span><span class="pwt" style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{esc(_short_place(_place_name(reg, lang)) if reg else T("all_kg", lang))}</span><span class="pwa">▾</span></button><!--PINWIDE-->
+<button type="button" class="pin pinw" style="display:flex!important;align-items:center!important;gap:12px!important;width:100%!important;max-width:none!important;min-width:0!important;box-sizing:border-box!important;flex:none!important;margin:14px 0 6px!important;padding:0 20px!important;height:48px!important;font-family:inherit!important;font-size:18px!important;font-weight:600!important;letter-spacing:0!important;line-height:1.2!important;text-align:left!important;{_pwc}border-radius:999px!important" data-pw2="PINWIDE2 PINWIDE3" onclick="var s=document.getElementById('rsheet');document.body.appendChild(s);s.classList.add('on')"><span class="pwi">📍</span><span class="pwt" style="color:inherit!important;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{esc(_short_place(_place_name(reg, lang)) if reg else T("all_kg", lang))}</span><span class="pwa" style="color:inherit!important">▾</span></button><!--PINWIDE-->
 <form class="s" action="/">{hidden}
 <span class="mg">{_EMPTY}</span>
 <input type="search" name="q" value="{esc(q)}" placeholder="{T("search_ph", lang)}">
@@ -2097,8 +2099,10 @@ def _sections_strip(link, at, lang, ob=None):
             '.secfold>summary{list-style:none;cursor:pointer;'
             'display:flex;align-items:center;justify-content:center;gap:8px;'
             'padding:11px 14px;border-radius:20px;font-weight:700;font-size:14px;'
-            'background:var(--card,#F7FAFF);border:1.5px solid var(--mist,#E3E8F0);'
-            'box-shadow:0 4px 12px rgba(16,24,40,.18)}'
+            'background:#fff;color:#0B1B30;border:1.5px solid #98A2B3;'
+            'box-shadow:0 4px 12px rgba(16,24,40,.59)}'
+            '.secfold[open]>summary{background:linear-gradient(180deg,#2458C6,#163C8C);color:#fff;border-color:#163C8C;box-shadow:0 4px 12px rgba(22,60,140,.45)}'
+            '.secfold[open]>summary i{opacity:.9}'
             '.secfold>summary::-webkit-details-marker{display:none}'
             '.secfold>summary i{font-style:normal;opacity:.6;font-weight:600}'
             '.secfold[open]>summary{margin-bottom:2px}'
