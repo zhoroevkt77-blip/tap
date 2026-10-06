@@ -1725,7 +1725,17 @@ def _price(price, lang):
     if is_deal(price):
         # «Келишим баада» деген маани базада кыргызча турат
         return "Договорная цена" if lang == "ru" else "Келишим баада"
-    return price_label(price)
+    return _fmt_price(price_label(price))   # PRICEFMT
+
+
+def _fmt_price(t):
+    """PRICEFMT: «1000000» → «1 000 000 сом» (сандар бөлүнүп жазылат)."""
+    t = str(t or "").strip()
+    only = _wre.fullmatch(r"\d+", t.replace(" ", "")) is not None
+    if only:
+        t = t.replace(" ", "")
+    t = _wre.sub(r"\d{4,}", lambda m: "{:,}".format(int(m.group(0))).replace(",", "\u00a0"), t)
+    return t + "\u00a0сом" if only else t
 
 
 def _place_name(name, lang):
