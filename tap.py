@@ -1426,6 +1426,158 @@ def _web_my_act(b):
     return {"ok": bool(ok), "err": None if ok else "owner"}
 
 
+# ADEDIT: жарыяны сайттан оңдоо (аталыш, баа, сүрөттөмө, номер, сүрөттөр)
+def _web_ad_owner(tok, lid):
+    st = _wverified(tok)
+    if not st:
+        return None, None, {"ok": False, "err": "verify"}
+    try:
+        lid = int(lid)
+    except Exception:
+        return None, None, {"ok": False, "err": "id"}
+    if not core.owns(lid, st["tg_id"], "+996" + st["phone"]):
+        return None, None, {"ok": False, "err": "owner"}
+    row = core.query("SELECT * FROM listings WHERE id=?", (lid,), fetch="one")
+    if not row:
+        return None, None, {"ok": False, "err": "id"}
+    return st, row, None
+
+
+def _web_ad_get(tok, lid):
+    st, row, err = _web_ad_owner(tok, lid)
+    if err:
+        return err
+    price = str(row.get("price") or "")
+    return {"ok": True, "id": row["id"], "title": str(row.get("title") or ""),
+            "price": "" if core.is_deal(price) else price,
+            "description": str(row.get("description") or ""),
+            "contact": str(row.get("contact") or ""),
+            "photos": core.photo_list(row)}
+
+
+def _web_ad_save(b):
+    tok = str(b.get("token") or "")
+    st, row, err = _web_ad_owner(tok, b.get("id"))
+    if err:
+        return err
+    lid = int(row["id"])
+    ph = "+996" + st["phone"]
+    title = str(b.get("title") or "").strip()[:120]
+    desc = str(b.get("description") or "").strip()[:3000]
+    price = str(b.get("price") or "").strip()[:40]
+    contact = str(b.get("contact") or "").strip()[:40]
+    if not title:
+        return {"ok": False, "err": "title"}
+    if contact and len("".join(c for c in contact if c.isdigit())) < 9:
+        return {"ok": False, "err": "contact"}
+    try:
+        import rules
+        level, hits = rules.check_text(title, desc)
+        if level in ("hard", "swear"):
+            return {"ok": False, "err": "bad", "words": hits[:3]}
+    except ImportError:
+        pass
+    f = {"title": title, "description": desc, "price": price or "Келишим баада"}
+    if contact:
+        f["contact"] = contact
+    if not core.update_listing(lid, st["tg_id"], f, phone=ph):
+        return {"ok": False, "err": "owner"}
+    cur = core.photo_list(row)
+    pre = "web_%s_" % tok[:8]
+    out = []
+    import secrets
+    for n in [x for x in (b.get("photos") or []) if isinstance(x, str)][:10]:
+        if n in cur:
+            if n not in out:
+                out.append(n)
+        elif _WPH_RE.match(n) and n.startswith(pre) and os.path.isfile(os.path.join(MEDIA, n)):
+            dst = "%d_e%s.jpg" % (lid, secrets.token_hex(3))
+            try:
+                os.replace(os.path.join(MEDIA, n), os.path.join(MEDIA, dst))
+                out.append(dst)
+            except Exception as e:
+                print("ad_edit photo:", e, flush=True)
+    if out != cur:
+        if out:
+            core.set_photos(lid, out)
+        else:
+            core.query("UPDATE listings SET photo='', photos='[]' WHERE id=?", (lid,))
+    try:
+        core.log_event("edit", lid, st["tg_id"], "site")
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+_EDIT_JS = r"""
+(function(){
+var LANG=document.documentElement.getAttribute('data-lang')||'ky';
+function T(k,r){return LANG==='ru'?r:k;}
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var box=document.getElementById('ebox');
+var id=(location.search.match(/[?&]id=([0-9]+)/)||[])[1];
+var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+if(!tok){box.innerHTML='<p>'+T('Адегенде номериңизди ырастаңыз.','Сначала подтвердите номер.')+'</p><a class="ebtn" href="/verify?next=my">'+T('Номерди ырастоо','Подтвердить номер')+'</a>';return;}
+var P=[],busy=0;
+function drawPh(){var g=document.getElementById('eph');if(!g)return;var h='';
+  P.forEach(function(n,i){h+='<div class="eth"><img src="/media/'+esc(n)+'" alt="">'+(i===0?'<span class="emain">'+T('Башкы','Главное')+'</span>':'<button type="button" class="estar" data-i="'+i+'">⭐</button>')+'<button type="button" class="ex" data-i="'+i+'">✕</button></div>';});
+  if(P.length<10)h+='<label class="eadd">'+(busy?'⏳':'＋')+'<input type="file" accept="image/*" multiple id="efile" hidden></label>';
+  g.innerHTML=h;
+  g.querySelectorAll('.ex').forEach(function(b){b.onclick=function(){P.splice(+b.getAttribute('data-i'),1);drawPh();};});
+  g.querySelectorAll('.estar').forEach(function(b){b.onclick=function(){var i=+b.getAttribute('data-i');var x=P.splice(i,1)[0];P.unshift(x);drawPh();};});
+  var f=document.getElementById('efile');if(f)f.onchange=function(){var fs=[].slice.call(f.files).slice(0,10-P.length);fs.forEach(function(file){busy++;drawPh();
+    fetch('/api/post/photo?t='+encodeURIComponent(tok),{method:'POST',body:file}).then(function(r){return r.json();}).then(function(j){busy--;if(j.ok&&P.length<10)P.push(j.name);else if(!j.ok)alert(T('Сүрөт жүктөлгөн жок.','Фото не загрузилось.'));drawPh();}).catch(function(){busy--;drawPh();});});};
+}
+fetch('/api/myad?t='+encodeURIComponent(tok)+'&id='+id).then(function(r){return r.json();}).then(function(j){
+  if(!j.ok){box.innerHTML='<p>'+(j.err==='verify'?T('Номериңизди кайра ырастаңыз.','Подтвердите номер заново.'):T('Жарыя табылган жок же ал сиздики эмес.','Объявление не найдено или оно не ваше.'))+'</p><a class="ebtn" href="/my">'+T('← Менин жарыяларым','← Мои объявления')+'</a>';return;}
+  P=j.photos||[];
+  box.innerHTML='<label class="elab">'+T('Аталышы','Заголовок')+'</label><input id="et" class="efld" maxlength="120" value="'+esc(j.title)+'">'
+   +'<label class="elab">'+T('Баасы (сом)','Цена (сом)')+'</label><input id="ep" class="efld" maxlength="40" inputmode="numeric" placeholder="'+T('Келишим баада','Договорная')+'" value="'+esc(j.price)+'">'
+   +'<label class="elab">'+T('Сүрөттөмө','Описание')+'</label><textarea id="ed" class="efld" rows="6" maxlength="3000">'+esc(j.description)+'</textarea>'
+   +'<label class="elab">'+T('Байланыш номери','Контактный номер')+'</label><input id="ec" class="efld" maxlength="40" inputmode="tel" value="'+esc(j.contact)+'">'
+   +'<label class="elab">'+T('Сүрөттөр (10го чейин) — ⭐ башкы кылат, ✕ өчүрөт','Фото (до 10) — ⭐ сделать главным, ✕ удалить')+'</label><div id="eph" class="eph"></div>'
+   +'<button type="button" class="ebtn" id="esave">'+T('💾 Сактоо','💾 Сохранить')+'</button><a class="ebck" href="/my">'+T('Жокко чыгаруу','Отмена')+'</a>';
+  drawPh();
+  document.getElementById('esave').onclick=function(){if(busy){alert(T('Сүрөттөр жүктөлүп жатат, бир аз күтүңүз.','Фото ещё загружаются.'));return;}
+    var b=this;b.disabled=true;
+    fetch('/api/myad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,id:+id,
+      title:document.getElementById('et').value,price:document.getElementById('ep').value,description:document.getElementById('ed').value,
+      contact:document.getElementById('ec').value,photos:P})}).then(function(r){return r.json();}).then(function(x){
+      if(x.ok){alert(T('✅ Сакталды!','✅ Сохранено!'));location.href='/my';return;}
+      b.disabled=false;
+      alert(x.err==='title'?T('Аталышын жазыңыз.','Укажите заголовок.'):x.err==='contact'?T('Номер туура эмес.','Неверный номер.'):x.err==='bad'?T('Тыюу салынган сөз бар: ','Запрещённое слово: ')+(x.words||[]).join(', '):T('Ката чыкты.','Ошибка.'));
+    }).catch(function(){b.disabled=false;alert(T('Байланыш катасы.','Ошибка связи.'));});};
+}).catch(function(){box.innerHTML='<p>'+T('Байланыш катасы.','Ошибка связи.')+'</p>';});
+})();
+"""
+
+_EDIT_CSS = """<style>
+.ewrap{max-width:560px;margin:0 auto;padding:16px 16px 140px}
+.elab{display:block;font-weight:800;color:#17304F;margin:14px 0 6px;font-size:14px}
+.efld{width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #B7C5DA;border-radius:14px;font:inherit;font-size:16px;color:#0B1B30;background:#fff}
+.efld:focus{outline:none;border-color:#2458C6;box-shadow:0 0 0 3px rgba(36,88,198,.15)}
+.eph{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.eth{position:relative;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:#E3E8EF}
+.eth img{width:100%;height:100%;object-fit:cover;display:block}
+.eth .ex{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(11,27,48,.75);color:#fff;font-weight:800;cursor:pointer}
+.eth .estar{position:absolute;top:4px;left:4px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.9);cursor:pointer;font-size:14px}
+.eth .emain{position:absolute;left:4px;bottom:4px;background:#1E9E5A;color:#fff;font-size:11px;font-weight:800;padding:2px 7px;border-radius:8px}
+.eadd{display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;border-radius:12px;border:2px dashed #2458C6;color:#2458C6;font-size:34px;cursor:pointer;background:#EEF4FF}
+.ebtn{display:block;width:100%;box-sizing:border-box;margin-top:20px;padding:15px;border:0;border-radius:14px;background:linear-gradient(180deg,#2458C6,#163C8C);color:#fff!important;font:inherit;font-weight:800;font-size:16px;text-align:center;text-decoration:none;cursor:pointer}
+.ebtn:disabled{opacity:.6}
+.ebck{display:block;text-align:center;margin-top:12px;color:#3A4E6B;font-weight:700;text-decoration:none}
+</style>"""
+
+
+def edit_page(lang="ky"):
+    ttl = "Изменить объявление" if lang == "ru" else "Жарыяны оңдоо"
+    body = ('<main class="ewrap"><h1 style="font-size:24px;margin:0 0 6px">' + ttl + '</h1>'
+            '<div id="ebox"></div></main>' + _EDIT_CSS
+            + '<script>document.documentElement.setAttribute("data-lang",'
+            + json.dumps(lang) + ');' + _EDIT_JS + '</script>')
+    return page(body, title=ttl, lang=lang)
+
+
 _MY_JS = r"""
 (function(){
 var LANG=document.documentElement.getAttribute('data-lang')||'ky';
@@ -1448,7 +1600,7 @@ function load(){
       h+='<div class="mit"><a class="mimg" href="/e/'+it.id+'">'+(it.photo?'<img src="/media/'+esc(it.photo)+'" alt="" loading="lazy">':'')+'</a>'
         +'<div class="minf">'+(it.ask?'<div class="mask">🔔 '+T('Кардар сурап жатат: актуалдуубу?','Покупатель спрашивает: актуально?')+(it.ask>1?' ('+it.ask+')':'')+'<button data-op="okact" data-id="'+it.id+'">'+T('✅ Ооба, актуалдуу','✅ Да, актуально')+'</button></div>':'')+'<a class="mttl" href="/e/'+it.id+'">'+esc(it.title)+'</a><div class="mpr">'+esc(it.price)+'</div>'+st(it)
         +'<div class="mact"><button data-op="revive" data-id="'+it.id+'">'+(it.active?T('🔄 Узартуу','🔄 Продлить'):T('🔄 Кайра жандыруу','🔄 Возобновить'))+'</button>'
-        +(it.active?'<button class="mx" data-op="close" data-id="'+it.id+'">'+T('✅ Сатылды / Жабуу','✅ Продано / Закрыть')+'</button>':'')+'</div></div></div>';});
+        +'<a class="medt" href="/my/edit?id='+it.id+'">'+T('✏️ Оңдоо','✏️ Изменить')+'</a>'+(it.active?'<button class="mx" data-op="close" data-id="'+it.id+'">'+T('✅ Сатылды / Жабуу','✅ Продано / Закрыть')+'</button>':'')+'</div></div></div>';});
     box.innerHTML=h;
     box.querySelectorAll('[data-op]').forEach(function(b){b.onclick=function(){
       var op=b.getAttribute('data-op');
@@ -1480,6 +1632,7 @@ _MY_CSS = """<style>
 .mact button.mx{background:#fff;color:#8A1C1C;border:1.5px solid #8A1C1C}
 .mact button:disabled{opacity:.6}
 .mempty{color:#2A3A52}
+.medt{display:inline-block;padding:9px 14px;border-radius:12px;background:#fff;color:#17304F!important;border:1.5px solid #2458C6;font-weight:800;font-size:14px;text-decoration:none}
 .masktop{margin:0 0 14px;padding:12px 14px;border-radius:14px;background:#FFF1D6;border:1.5px solid #E0A800;color:#5B3A00;font-weight:700;line-height:1.4}
 .mask{margin:0 0 8px;padding:8px 10px;border-radius:12px;background:#FFF1D6;border:1.5px solid #E0A800;color:#5B3A00;font-weight:800;font-size:13.5px}
 .mask button{display:block;margin-top:6px;padding:8px 12px;border-radius:10px;border:0;background:#1E9E5A;color:#fff;font-weight:800;font-family:inherit;font-size:13.5px;cursor:pointer}
@@ -3811,6 +3964,16 @@ class H(BaseHTTPRequestHandler):
             admin.report(self)
             return
         
+        if u.path == "/api/myad":   # ADEDIT
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(n).decode("utf-8")) if 0 < n < 20000 else {}
+                _json_out(self, _web_ad_save(body))
+            except Exception as e:
+                print("ad_edit:", e, flush=True)
+                _json_out(self, {"ok": False, "err": "server"})
+            return
+
         if u.path == "/api/actual":   # SITEALL
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -3942,6 +4105,9 @@ class H(BaseHTTPRequestHandler):
                 print("actual get:", e, flush=True)
                 _json_out(self, {"at": None})
             return
+        if u.path == "/api/myad":   # ADEDIT
+            _json_out(self, _web_ad_get(qs.get("t", [""])[0], qs.get("id", [""])[0]))
+            return
         if u.path == "/api/vme":   # VERIFYBTN
             _vst = _wverified(qs.get("t", [""])[0])
             _vph = str((_vst or {}).get("phone") or "")
@@ -4026,6 +4192,10 @@ class H(BaseHTTPRequestHandler):
 
         if u.path == "/bal":   # WEB_BAL
             return self._send(balance_page(lang))
+
+        if u.path == "/my/edit":   # ADEDIT
+            self._send(edit_page(lang))
+            return
 
         if u.path == "/my":   # WEB_MY
             self._send(my_page(lang))
