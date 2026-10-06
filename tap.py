@@ -1702,11 +1702,36 @@ def header(q="", at=None, reg=None, lang="ky"):
 <div class="tin"><a href="/" class="logo"><img class="lgi lgi3" src="/si/brand.jpg?v={secimg.VERSION}" alt=""><span>ТАП!</span><!--HDRICON--></a><style>.logo .lgi{{width:30px;height:30px;border-radius:9px;margin-right:7px;display:block;object-fit:cover}}</style>
 {_region_sheet(lang)}
 {_lang_switch(lang)}</div>
-<button type="button" class="pin pinw" style="display:flex!important;align-items:center!important;gap:12px!important;width:100%!important;max-width:none!important;min-width:0!important;box-sizing:border-box!important;flex:none!important;margin:14px 0 6px!important;padding:0 5px 0 20px!important;height:48px!important;font-family:inherit!important;font-size:18px!important;font-weight:600!important;letter-spacing:0!important;line-height:1.2!important;text-align:left!important;{_pwc}border-radius:999px!important" data-pw2="PINWIDE2 PINWIDE3" onclick="var s=document.getElementById('rsheet');document.body.appendChild(s);s.classList.add('on')"><span class="pwi">📍</span><span class="pwt" style="color:inherit!important;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{esc(_short_place(_place_name(reg, lang)) if reg else T("all_kg", lang))}</span><span class="pwa" data-pa="PINARROW" style="flex:none;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:12px;border:2px solid #2458C6;background:#EAF1FF;color:#17304F!important;box-sizing:border-box;opacity:1!important"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></button><!--PINWIDE-->
+<!--PINMOVE-->
 <form class="s" action="/">{hidden}
 <span class="mg">{_EMPTY}</span>
 <input type="search" name="q" value="{esc(q)}" placeholder="{T("search_ph", lang)}">
 <button>{T("search_btn", lang)}</button></form></div></header>"""
+
+
+
+def _pin_btn(reg, lang, n=None):
+    """PINMOVE: аймак тандоо баскычы — бөлүмдөрдүн астында, облус чиптеринин ордунда."""
+    pwc = ("color:#fff!important;background:linear-gradient(180deg,#2458C6,#163C8C)!important;"
+           "border:1px solid #163C8C!important;box-shadow:0 4px 12px rgba(22,60,140,.45)!important;" if reg else
+           "color:#0B1B30!important;background:#F2F4F7!important;border:1px solid #98A2B3!important;"
+           "box-shadow:0 4px 12px rgba(16,24,40,.59)!important;")
+    name = esc(_short_place(_place_name(reg, lang)) if reg else T("all_kg", lang))
+    num = ('<em style="font-style:normal;font-weight:700;opacity:.8;flex:none;margin-right:4px">%s</em>' % n) if n else ""
+    return ('<div class="pinbox" style="padding:8px 12px 6px;max-width:1040px;margin:0 auto;box-sizing:border-box">'
+            '<button type="button" class="pin pinw" style="display:flex!important;align-items:center!important;gap:12px!important;'
+            'width:100%!important;max-width:none!important;min-width:0!important;box-sizing:border-box!important;flex:none!important;'
+            'margin:0!important;padding:0 5px 0 20px!important;height:48px!important;font-family:inherit!important;'
+            'font-size:18px!important;font-weight:600!important;letter-spacing:0!important;line-height:1.2!important;'
+            'text-align:left!important;' + pwc + 'border-radius:999px!important" '
+            'onclick="var s=document.getElementById(\'rsheet\');document.body.appendChild(s);s.classList.add(\'on\')">'
+            '<span class="pwi">📍</span><span class="pwt" style="color:inherit!important;flex:1 1 auto;min-width:0;'
+            'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + name + '</span>' + num +
+            '<span class="pwa" style="flex:none;display:inline-flex;align-items:center;justify-content:center;width:38px;'
+            'height:38px;border-radius:12px;border:2px solid #2458C6;background:#EAF1FF;color:#17304F!important;'
+            'box-sizing:border-box;opacity:1!important"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" '
+            'stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+            '<path d="M6 9l6 6 6-6"/></svg></span></button></div>')
 
 
 _NOPHOTO = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -2433,9 +2458,10 @@ def _regions_strip(link0, ob, lang, at=None, q=None, di=None, vi=None,
                '<nav class="regbar regsec">'
                f'<a href="{link(at=None, cid=None, sid=None)}" class="rg on">'
                f'{_nm}{_n}<span class="x">✕</span></a></nav>')
-    _r1 = "" if getattr(_RS, "cob", None) else f'<nav class="regbar regbar1">{out}</nav>'   # REGSEL
+    _r1 = _pin_btn(ob, lang, (oc.get(ob, 0) if ob else _all_n))   # PINMOVE
+    _rl = ('<div class="rglb" style="margin:8px 14px 0">' + ("Район") + '</div>') if row2 else ""
     return (css + sec + "<!--RGSPLIT-->" + _r1   # CATUP
-            + row2 + row3 + row4)
+            + _rl + row2 + row3 + row4)
 
 
 # PERF_PATCH: башкы бет ондогон суроо жасайт. Даяр HTML'ди бир нече
