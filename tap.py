@@ -2731,8 +2731,9 @@ def _sections_strip(link, at, lang, ob=None):
             cls = f"cat{on}"
         cats += f'<a href="{link(at=code, cid=None)}" class="{cls}">{inner}</a>'
     _pp = banners.slot_at("p1", getattr(_RS, "cob", None), lang, "catpromo pb")   # PREMSLOT
-    cats += _pp or ('<div class="catpromo" aria-hidden="true"><video autoplay muted loop playsinline '
-             'preload="auto" poster="/media/promo.jpg" src="/media/promo.mp4"></video></div>')   # PROMOVID
+    cats += _pp or ('<div class="catpromo cpfree"><img src="/si/free.jpg?v=%s" alt=""></div>'
+                    '<style>nav.cats .catpromo.cpfree{background:#fff}nav.cats .catpromo.cpfree>img{width:100%%;height:100%%;'
+                    'object-fit:contain;display:block}</style>' % secimg.VERSION)   # CPFREE (мурун PROMOVID)
     nav = f'<nav class="cats">{cats}</nav>'
     if not at:   # SECFOLD: башкы бетте баары көрүнөт
         return nav
