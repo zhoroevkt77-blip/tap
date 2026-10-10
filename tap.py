@@ -2152,7 +2152,7 @@ def _others(lang, ob, at=None, skip=()):
         return ""
     ttl = "🌍 Другие регионы" if lang == "ru" else "🌍 Башка аймактардан"
     return (f'<div class="rl" style="margin-top:22px"><span class="rlb">{ttl}</span></div>'
-            f'<div class="g">{"".join(card(r, lang) for r in rows)}</div>')
+            f'<div class="g">{_gcards(rows, lang, at, None)}</div>')   # GBANALL
 
 
 def header(q="", at=None, reg=None, lang="ky"):
@@ -3038,7 +3038,7 @@ def _gcards(rows, lang="ky", at=None, ob=None):   # GBANS: 2-жарыядан к
     bans = [b for b in _HOUSE(("ban1", "ban3", "brand", "ban2")) if secimg.has(b)]
     for i, r in enumerate(rows, 1):
         out.append(card(r, lang))
-        if bans and i % 6 == 0 and i < len(rows):   # TOPBAN: биринчиси үстүндө
+        if bans and i % 6 == 0 and len(rows) >= 7 * (i // 6):   # GBAN7: k-баннер 7k жарыя болгондо гана
             nm = bans[k % len(bans)]
             k += 1
             _pb = (banners.slot_at("%s:g%d" % (at, k), ob, lang, "gban") if at and k <= 2 else "") or banners.slot("grid", at, ob, k, lang, "gban")   # BANADM SLOTS

@@ -773,7 +773,7 @@ def sell_body(lang="ky"):
         'function price(s,w,o){var t=sp(s)*MUL[w];if(MODE==="video")t=Math.round(t*(100+VP)/1000)*10;var ro=OFFS[o]||0;if(ro)t=Math.round(t*(100-ro)/1000)*10;return t;}'
         'function fr(s,o){return AV&&AV[s]?AV[s][o||""]:null;}'
         'function nm(c){var r="";SL.names.forEach(function(x){if(x[0]===c)r=x[1];});return r;}'
-        'function slab(s){if(s==="p1")return T("⭐ Башкы плитка","⭐ Главная плитка");if(s.charAt(0)==="h")return "Б-"+s.slice(1);var k=s.split(":")[1];return k==="top"?T("Эң үстү","Самый верх"):k==="g1"?T("1-ара · 6-жарыядан кийин","1-й · после 6-го объявл."):T("2-ара · 12-жарыядан кийин","2-й · после 12-го объявл.");}'
+        'function slab(s){if(s==="p1")return T("⭐ Башкы плитка","⭐ Главная плитка");if(s.charAt(0)==="h")return "Б-"+s.slice(1);var k=s.split(":")[1];return k==="top"?T("Эң үстү","Самый верх"):k==="g1"?T("1-ара · 7 жарыя болгондо","1-й · от 7 объявлений"):T("2-ара · 14 жарыя болгондо","2-й · от 14 объявлений");}/* GBAN7 */'
         'var wrap=document.createElement("div");'
         'wrap.appendChild(lab(T("1) Кайсы бет","1) Страница")));'
         'var pc=document.createElement("div");pc.className="cps";wrap.appendChild(pc);'
@@ -1100,8 +1100,8 @@ HOME_N = 13
 HOME_PRICES = [1000, 800, 700, 600, 500, 400, 400, 300, 300, 300, 250, 250, 250]
 SEC_PRICES = {"top": 500, "g1": 300, "g2": 200}
 _SECN = {"top": ("Эң үстү", "Самый верх"),
-         "g1": ("1-ара (6-жарыядан кийин)", "1-й (после 6-го объявления)"),
-         "g2": ("2-ара (12-жарыядан кийин)", "2-й (после 12-го объявления)")}
+         "g1": ("1-ара (бөлүмдө 7 жарыя болгондо)", "1-й (когда в разделе от 7 объявлений)"),
+         "g2": ("2-ара (бөлүмдө 14 жарыя болгондо)", "2-й (когда в разделе от 14 объявлений)")}
 
 
 def slot_ids():
