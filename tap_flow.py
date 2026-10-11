@@ -1004,6 +1004,8 @@ def render(step, data=None):
 
     if step == "svc_group":
         groups, _ = SERVICE_GROUP_TABLES[d["category"]]
+        if d.get("category") == "rent_residential":   # RENT12
+            return _view("Кандай турак жай? / Какое жильё?", _from_groups(groups))
         return _view("Кайсы топко кирет? / К какой группе относится?", _from_groups(groups))
 
     if step == "svc_group_sub":
@@ -1643,7 +1645,7 @@ def advance(step, value, data=None):
     # ── Кызмат/ижара/жумуш/жеткирүү ─────────────────────────
     if step == "category_select":
         d["category"] = value
-        if at == "service" and value in SERVICE_GROUP_TABLES:
+        if at in ("service", "rental") and value in SERVICE_GROUP_TABLES:   # RENT12
             return "svc_group", d
         # «Башка» сыяктуу категорияларда тагыраак тандоо жок —
         # бош экранды көрсөтпөй, кийинки кадамга өтөбүз
@@ -2047,6 +2049,7 @@ _TITLE_EX = {
     "flowers": "Роза гүлдөстөсү", "heating_fuel": "Көмүр, Кара-Кече, 1 тонна",
 }
 _RENT_EX = {
+    "rent_furniture": "Диван жана 2 кресло, жакшы абалда",   # RENT12
     "rent_residential": "2 бөлмө, эмереги менен, интернет бар",
     "rent_commercial": "80 м², 1-кабат, өзүнчө кирүү",
     "rent_land": "10 сотых, суу бар, жол жакын",

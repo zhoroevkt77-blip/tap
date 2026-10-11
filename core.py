@@ -591,6 +591,20 @@ def _migrate_veh_split():
         print("  Унаа көчүрүү катасы:", e, flush=True)
 
 
+def _migrate_rent12():
+    """RENT12: ижара категориялары 12ге бириктирилди."""
+    try:
+        for new, olds in (("rent_car", ("rent_truck", "rent_bus")),
+                          ("rent_agro", ("rent_animals",)),
+                          ("rent_event", ("rent_kids_fun", "rent_clothes")),
+                          ("rent_equipment", ("rent_medical",))):
+            for o in olds:
+                query("UPDATE listings SET cat_id=? WHERE ad_type=? AND cat_id=?",
+                      (new, "rental", o))
+    except Exception as e:
+        print("  Ижара көчүрүү катасы:", e, flush=True)
+
+
 def init_db():
     """Таблицаны түзөт. Кайра-кайра чакырса коопсуз."""
     os.makedirs(MEDIA, exist_ok=True)
@@ -603,6 +617,7 @@ def init_db():
     _migrate_re_split()
     _migrate_veh_split()
     _migrate_taxi_cats()
+    _migrate_rent12()   # RENT12
     query("CREATE INDEX IF NOT EXISTS idx_active ON listings(is_active)")
     query("CREATE INDEX IF NOT EXISTS idx_cat ON listings(category)")
     # SPEED2: чыпка менен иргөө бир индекстен жүрсүн
