@@ -1143,6 +1143,9 @@ def revive(lid, tg_id, days=15, phone=None):
     """Жарыяны кайра жандырат жана мөөнөтүн узартат."""
     if not owns(lid, tg_id, phone):
         return False
+    _st = query("SELECT is_active FROM listings WHERE id=?", (lid,), fetch="one")   # SECFIX
+    if _st and str(_st.get("is_active") if hasattr(_st, "get") else _st[0]) == "2":
+        return False   # админ өчүргөн жарыя кайра жанбайт
     query("UPDATE listings SET warned='' WHERE id=?", (lid,))
     query("UPDATE listings SET is_active=1, expires_at=? WHERE id=?",
           (expiry_from(None, days=days), lid))
@@ -1353,6 +1356,8 @@ def update_listing(lid, tg_id, fields, phone=None):
     row = query("SELECT * FROM listings WHERE id=?", (lid,), fetch="one")
     if not row:
         return False
+    if "contact" in fields and _digits(fields.get("contact"))[-9:] != _digits(row.get("contact"))[-9:]:
+        sets.append("verified=?"); p.append(0)   # SECFIX: жаңы номер ырасталган эмес
     # Аталыш же сүрөттөмө өзгөрсө, издөө талаасын кайра курабыз —
     # антпесе жарыя эски сөздөр боюнча табылып калат.
     if "title" in fields or "description" in fields:
@@ -1374,7 +1379,7 @@ def admin_deactivate(lid):
                 (lid,), fetch="one")
     if not row:
         return False
-    query("UPDATE listings SET is_active=0 WHERE id=?", (lid,))
+    query("UPDATE listings SET is_active=2 WHERE id=?", (lid,))   # SECFIX: админ өчүргөн
     return True
 
 

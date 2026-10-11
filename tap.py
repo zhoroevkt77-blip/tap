@@ -642,11 +642,72 @@ def _wpreview(d, lang):   # PPREVIEW: жарыя сайтта кандай кө�
         return {"preview": "", "atitle": ""}
 
 
+
+# ── SECFIX: алдамчылыкка каршы текшерүү ─────────────────────
+import re as _sre
+_SEC_LINK = _sre.compile(r"(https?://|www\.|t\.me/|wa\.me/|bit\.ly|tinyurl|"
+                         r"\.(com|ru|kg|net|org|xyz|top|site|online|shop|info)(/|\b))", _sre.I)
+_SEC_CARD = _sre.compile(r"(?<!\d)(?:\d[ -]?){16}(?!\d)")
+_SEC_SOFT = ("предоплат", "алдын ала төл", "алдын-ала төл", "аванс", "переведите", "перевести на карт",
+             "которуп бер", "акча которуңуз", "картага котор", "только whatsapp", "пишите в телеграм",
+             "залог вперед", "гарантированный доход", "без вложений", "заработок в интернете")
+
+
+def _sec_banned(phone9="", tg_id=""):
+    bl = {x.strip().lstrip("+") for x in os.environ.get("BANNED", "").replace(" ", "").split(",") if x.strip()}
+    if not bl:
+        return False
+    p = "".join(c for c in str(phone9 or "") if c.isdigit())[-9:]
+    return bool(str(tg_id or "") in bl or (p and (p in bl or ("996" + p) in bl)))
+
+
+def _sec_check(d):
+    """Кайтарат: (ката коду же None, админге ⚠️ сөздөр)."""
+    try:
+        row = bridge.to_listing(dict(d))
+    except Exception:
+        row = {}
+    txt = " ".join(str(x or "") for x in (d.get("title"), row.get("title"), row.get("description"),
+                                          row.get("price"), d.get("personName"), d.get("postComment")))
+    if _SEC_LINK.search(txt):
+        return "link", []
+    if _SEC_CARD.search(txt):
+        return "card", []
+    low = txt.lower()
+    return None, [w for w in _SEC_SOFT if w in low]
+
+
+_SEC_CLEAN = [0.0]
+
+
+def _sec_upload_ok(tok, ext, limit):
+    """SECFIX: бир колдонуучуга жүктөө чеги жана эски файлдарды тазалоо."""
+    pre = "web_%s_" % str(tok)[:8]
+    now = _t.time()
+    try:
+        names = os.listdir(MEDIA)
+    except Exception:
+        return True
+    if now - _SEC_CLEAN[0] > 600:            # 10 мүнөттө бир жолу
+        _SEC_CLEAN[0] = now
+        for n in names:
+            if n.startswith("web_"):
+                fp = os.path.join(MEDIA, n)
+                try:
+                    if now - os.path.getmtime(fp) > 24 * 3600:
+                        os.remove(fp)
+                except Exception:
+                    pass
+    return sum(1 for n in names if n.startswith(pre) and n.endswith(ext)) < limit
+
+
 def _wverified(tok):
     try:
         st = core.web_verify_status(tok)
     except Exception:
         st = None
+    if st and _sec_banned(st.get("phone"), st.get("tg_id")):   # SECFIX
+        return None
     return st if (st and st["verified"] and st.get("tg_id")) else None
 
 
@@ -811,6 +872,8 @@ def _web_photo(tok, raw):
     if not raw or len(raw) > 8 * 1024 * 1024:
         return {"ok": False, "err": "size"}
     import secrets, io
+    if not _sec_upload_ok(tok, ".jpg", 40):   # SECFIX
+        return {"ok": False, "err": "quota"}
     name = "web_%s_%s.jpg" % (str(tok)[:8], secrets.token_hex(5))
     path = os.path.join(MEDIA, name)
     os.makedirs(MEDIA, exist_ok=True)
@@ -851,6 +914,8 @@ def _web_video(tok, raw):
         return {"ok": False, "err": "vfmt"}
     import secrets
     os.makedirs(MEDIA, exist_ok=True)
+    if not _sec_upload_ok(tok, ".mp4", 4):   # SECFIX
+        return {"ok": False, "err": "quota"}
     name = "web_%s_%s.mp4" % (str(tok)[:8], secrets.token_hex(5))
     try:
         with open(os.path.join(MEDIA, name), "wb") as fh:
@@ -874,6 +939,9 @@ def _web_publish(d, st, b):
     t = str(b.get("title") or "").strip()[:120]
     if t:
         d["title"] = t
+    _serr, _ssoft = _sec_check(d)   # SECFIX
+    if _serr:
+        return {"ok": False, "err": _serr}
     hits = []
     try:
         import rules
@@ -932,7 +1000,7 @@ def _web_publish(d, st, b):
                 print("web_publish video:", e, flush=True)
     try:
         import threading
-        threading.Thread(target=_web_notify_admins, args=(lid, dict(row), uid, list(hits or [])),
+        threading.Thread(target=_web_notify_admins, args=(lid, dict(row), uid, list(hits or []) + list(_ssoft or [])),   # SECFIX_SOFT
                          daemon=True).start()
     except Exception as e:
         print("web_notify:", e, flush=True)
@@ -955,7 +1023,7 @@ function api(body){body.token=tok;return fetch('/api/post',{method:'POST',header
 function need(){box.innerHTML='<p style="line-height:1.45">'+T('Жарыя берүү үчүн адегенде номериңизди ырастаңыз.','Сначала подтвердите номер телефона.')+'</p><a class="pbtn" href="/verify?next=post">'+T('Номерди ырастоо','Подтвердить номер')+'</a>';}
 function err(e){
   if(e==='verify'){try{localStorage.removeItem('tap_vok');}catch(x){} tok=null; need(); return;}
-  var m={limit:T('Бүгүнкү жарыя чегине жеттиңиз.','Достигнут дневной лимит объявлений.'),bad:T('Жарыяда тыюу салынган сөздөр бар.','В объявлении есть запрещённые слова.'),image:T('Сүрөттү окуй албадык.','Не удалось прочитать фото.')};
+  var m={limit:T('Бүгүнкү жарыя чегине жеттиңиз.','Достигнут дневной лимит объявлений.'),bad:T('Жарыяда тыюу салынган сөздөр бар.','В объявлении есть запрещённые слова.'),link:T('Жарыяда шилтеме (сайт, t.me, wa.me) болбошу керек.','В объявлении не должно быть ссылок.'),card:T('Жарыяга карта номерин жазбаңыз.','Не указывайте номер карты в объявлении.'),quota:T('Өтө көп файл жүктөлдү. Бир аздан кийин кайталаңыз.','Слишком много файлов. Попробуйте позже.'),image:T('Сүрөттү окуй албадык.','Не удалось прочитать фото.')};
   alert(m[e]||T('Ката чыкты. Кайра аракет кылыңыз.','Ошибка. Попробуйте снова.'));
 }
 function set(j){ if(!j.ok){err(j.err);return;} if(j.restart){start();return;}
@@ -4261,6 +4329,9 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         if cookie:
             self.send_header("Set-Cookie", cookie)
+        self.send_header("X-Content-Type-Options", "nosniff")   # SECFIX
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         self.end_headers()
         self.wfile.write(data)
 
@@ -4276,6 +4347,9 @@ class H(BaseHTTPRequestHandler):
         """Green API'ден келген WhatsApp билдирүүсү."""
         _RS.cob = _cookie_ob(self)   # REGSEL
         u = urllib.parse.urlparse(self.path)
+        if u.path.startswith(("/api/", "/report")) and self._too_fast():   # SECFIX
+            self._send("too many requests", 429)
+            return
         if u.path.startswith("/admin"):  #MSG2
             import admin
             admin.handle(self, u)
@@ -4365,6 +4439,12 @@ class H(BaseHTTPRequestHandler):
 
         if u.path != "/wa":
             self._send("not found", 404)
+            return
+        _wk = os.environ.get("WA_HOOK_TOKEN", "").strip()   # SECFIX
+        _got = (self.headers.get("Authorization") or "").replace("Bearer", "").strip() \
+            or urllib.parse.parse_qs(u.query).get("k", [""])[0]
+        if not _wk or _got != _wk:
+            self._send("forbidden", 403)
             return
         try:
             n = int(self.headers.get("Content-Length") or 0)
@@ -4515,6 +4595,7 @@ class H(BaseHTTPRequestHandler):
             ref = self.headers.get("Referer") or "/"
             if "://" in ref:
                 ref = "/" + ref.split("/", 3)[-1] if ref.count("/") > 2 else "/"
+            ref = "/" + str(ref or "").lstrip("/\\")   # SECFIX: «//evil.com» болбосун
             self._go(ref or "/",
                      "lang=%s; Path=/; Max-Age=31536000; SameSite=Lax" % new)
             return
