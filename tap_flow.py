@@ -2126,3 +2126,24 @@ try:
                 _o["label"] = _o["label"] + " / " + _RUX[_o["value"]]
 except Exception as _e:
     print("RUDICT:", _e)
+
+
+
+# ── OTHERBTN: субкатегорияларда ар дайым «Башка» эң ылдыйда ─────
+_OTHER_STEPS = {"subcategory_select", "svc_group_sub", "trade_group_sub",
+                "trade_heating_fuel_select", "trade_item_type", "trade_realestate_sub",
+                "trade_sub_select", "trade_vehicle_sub"}
+_render_other_base = render
+
+
+def render(step, data=None):
+    v = _render_other_base(step, data)
+    try:
+        if step in _OTHER_STEPS and isinstance(v.get("options"), list):
+            opts = v["options"]
+            isb = lambda o: str(o.get("value") or "").split(" / ")[0].strip().lower() in ("башка", "другое")
+            rest = [o for o in opts if not isb(o)]
+            v["options"] = rest + [{"label": "Башка / Другое", "value": OTHER}]
+    except Exception:
+        pass
+    return v
