@@ -603,3 +603,49 @@ RU_EXTRA = {
 }
 for _k, _v in RU_EXTRA.items():
     RU_MAP.setdefault(_k, _v)
+
+
+# ── RICHQ: жаңы суроолордун жооптору сүрөттөмөгө кошулат ─────
+_RQ_LABELS = [
+    ("rentalPeriod", "Ижара мөөнөтү"), ("rentFurniture", "Эмереги"),
+    ("rentUtilities", "Коммуналдык"), ("rentFor", "Кимге"),
+    ("rentDriver", "Айдоочу"), ("rentMinOrder", "Минималдуу заказ"),
+    ("rentFuel", "Күйүүчү май"), ("rentDelivery", "Жеткирүү"),
+    ("homeArea", "Аянты"), ("homeRooms", "Бөлмө"), ("homeFloor", "Кабаты"),
+    ("homeFloorsTotal", "Кабаттуулугу"), ("homeLand", "Жер участогу"),
+    ("homeCondition", "Ремонту"), ("homeHeating", "Жылытуу"),
+    ("homeFurniture", "Эмереги"), ("homeDocs", "Документтери"), ("homeArea2", "Айланасы"),
+    ("landArea", "Аянты"), ("landUtils", "Коммуникациялар"), ("landDocs", "Документтери"),
+    ("landPlace", "Жайгашкан жери"),
+    ("comArea", "Аянты"), ("comCondition", "Абалы"), ("comDocs", "Документтери"),
+    ("comPlace", "Жайгашкан жери"),
+    ("garArea", "Аянты"), ("garCondition", "Абалы"), ("garDocs", "Документтери"),
+    ("garPlace", "Жайгашкан жери"), ("propSeller", "Ким сатат"),
+    ("vehicleModel", "Модели"), ("vehicleMileage", "Жүрүшү"), ("vehicleFuel", "Отуну"),
+    ("vehicleHistory", "Тарыхы"), ("vehicleReg", "Каттоосу"),
+    ("vehicleOrigin", "Кайдан келген"), ("vehicleColor", "Түсү"),
+    ("vehicleSeller", "Ким сатат"), ("vehicleCredit", "Бөлүп төлөө"),
+]
+_build_description_rq_base = build_description
+
+
+def build_description(data):
+    base = _build_description_rq_base(data)
+    try:
+        have = {ln.split(":", 1)[0].strip().lower() for ln in base.splitlines() if ":" in ln}
+        add = []
+        for key, name in _RQ_LABELS:
+            v = data.get(key)
+            if not v or str(v).strip() in ("", "-", "—") or name.lower() in have:
+                continue
+            _v = _first(str(v))
+            if key in ("homeArea", "garArea") and _v.replace(",", ".").replace(".", "").isdigit():
+                _v += " м²"
+            add.append("%s: %s" % (name, _v))
+            have.add(name.lower())
+        if add:
+            base = (base + "\n" if base else "") + "\n".join(add)
+    except Exception:
+        pass
+    return base[:2000]
+

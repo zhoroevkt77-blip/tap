@@ -5479,6 +5479,20 @@ def page(body, *a, **k):
     return h
 
 
+
+# ── RICHQ: «25 000 сом/ай» → «≈ $286/ай» ──
+_fx_alt_rq_base = _fx_alt
+
+
+def _fx_alt(price):
+    s = str(price or "").strip()
+    m = _fxre.match(r"^(.*?)\s*/\s*(саат|күн|жума|ай)$", s)
+    if m:
+        a = _fx_alt_rq_base(m.group(1))
+        return ("%s/%s" % (a, m.group(2))) if a else ""
+    return _fx_alt_rq_base(price)
+
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)

@@ -2357,3 +2357,212 @@ def advance(step, value, data=None):
         return _advance_cur2_base(step, value, d)
     return _advance_cur2_base(step, value, data)
 
+
+# ── RICHQ: Ижара, Мүлк, Унаа — кошумча суроолор ─────────────
+def _rq(*pairs):
+    return [{"label": a, "value": b} for a, b in pairs]
+
+
+_FURN = _rq(("🛋 Эмереги менен / С мебелью", "Эмереги менен"),
+            ("🪑 Жарым-жартылай / Частично", "Жарым-жартылай"),
+            ("📦 Эмерексиз / Без мебели", "Эмерексиз"))
+_SELLER_RE = _rq(("🙋 Ээси өзү / Собственник", "Ээси өзү"),
+                 ("🏢 Агенттик (риелтор) / Агентство", "Агенттик"),
+                 ("🏗 Курулуш компаниясы / Застройщик", "Курулуш компаниясы"))
+
+# key: (суроо, мисал, баскычтар, бир нечесин тандоо, сан клавиатурасы, бирдиги)
+RICHQ = {
+    # ── Ижара ──
+    "rentFurniture": ("🛋 Эмереги барбы? / Есть ли мебель?", "", _FURN, False, False, ""),
+    "rentUtilities": ("💡 Коммуналдык төлөмдөр? / Коммунальные платежи?", "",
+                      _rq(("✅ Баасына кирет / Включены в цену", "Баасына кирет"),
+                          ("💳 Өзүнчө төлөнөт / Оплачиваются отдельно", "Өзүнчө төлөнөт"),
+                          ("🤝 Келишим боюнча / По договорённости", "Келишим боюнча")), False, False, ""),
+    "rentFor": ("👪 Кимге бересиз? (бир нечесин тандаса болот) / Кому сдаёте? (можно несколько)", "",
+                _rq(("👪 Үй-бүлөгө / Семье", "Үй-бүлөгө"), ("👩 Кыздарга / Девушкам", "Кыздарга"),
+                    ("👨 Балдарга / Парням", "Балдарга"), ("🎓 Студенттерге / Студентам", "Студенттерге"),
+                    ("🌍 Баарына / Всем", "Баарына")), True, False, ""),
+    "rentDriver": ("🧑‍✈️ Айдоочусу (оператору) менен бересизби? / С водителем (оператором)?", "",
+                   _rq(("🧑‍✈️ Айдоочусу менен / С водителем", "Айдоочусу менен"),
+                       ("🔑 Айдоочусуз / Без водителя", "Айдоочусуз"),
+                       ("🔁 Экөө тең болот / Оба варианта", "Экөө тең болот")), False, False, ""),
+    "rentMinOrder": ("⏱ Минималдуу заказ? / Минимальный заказ?", "Же өзүңүз жазыңыз / Или впишите",
+                     _rq(("1 саат / 1 час", "1 саат"), ("2 саат / 2 часа", "2 саат"),
+                         ("4 саат / 4 часа", "4 саат"), ("1 күн / 1 день", "1 күн"),
+                         ("1 жума / 1 неделя", "1 жума")), False, False, ""),
+    "rentFuel": ("⛽ Күйүүчү май баасына киреби? / Топливо включено?", "",
+                 _rq(("✅ Баасына кирет / Включено в цену", "Баасына кирет"),
+                     ("💳 Өзүнчө төлөнөт / Оплачивается отдельно", "Өзүнчө")), False, False, ""),
+    "rentDelivery": ("🚚 Жеткирип бересизби? / Есть доставка?", "",
+                     _rq(("🚚 Жеткирип берем / Доставлю", "Жеткирип берем"),
+                         ("🏠 Өзү алып кетет / Самовывоз", "Өзү алып кетет"),
+                         ("🤝 Келишим боюнча / По договорённости", "Келишим боюнча")), False, False, ""),
+    # ── Мүлк ──
+    "homeLand": ("🌳 Жер участогу канча сотых? / Площадь участка (соток)?", "Мис: 8 / Например: 8",
+                 _rq(("4", "4 сотых"), ("6", "6 сотых"), ("8", "8 сотых"), ("10", "10 сотых"),
+                     ("12", "12 сотых"), ("15+", "15+ сотых")), False, True, " сотых"),
+    "homeFloorsTotal": ("🏢 Үй канча кабаттуу? / Этажность дома?", "Мис: 9 / Например: 9",
+                        _rq(("5", "5 кабаттуу"), ("9", "9 кабаттуу"), ("10–12", "10–12 кабаттуу"),
+                            ("13–16", "13–16 кабаттуу"), ("17+", "17+ кабаттуу")), False, True, " кабаттуу"),
+    "homeHeating": ("🔥 Жылытуу кандай? / Отопление?", "",
+                    _rq(("🏙 Борбордук / Центральное", "Борбордук"), ("🔥 Газ / Газовое", "Газ"),
+                        ("⚡ Электр / Электрическое", "Электр"), ("🪵 Көмүр, печка / Уголь, печь", "Көмүр, печка"),
+                        ("♨️ Автономдук / Автономное", "Автономдук")), False, False, ""),
+    "homeFurniture": ("🛋 Эмереги калабы? / Остаётся ли мебель?", "", _FURN, False, False, ""),
+    "propSeller": ("👤 Ким сатып жатат? / Кто продаёт?", "", _SELLER_RE, False, False, ""),
+    "landUtils": ("🔌 Коммуникациялар (бир нечесин тандаса болот) / Коммуникации (можно несколько)", "",
+                  _rq(("⚡ Свет / Свет", "Свет"), ("💧 Суу / Вода", "Суу"), ("🔥 Газ / Газ", "Газ"),
+                      ("🚽 Канализация / Канализация", "Канализация"),
+                      ("🛣 Асфальт жол / Асфальтированная дорога", "Асфальт жол"),
+                      ("🚫 Эч нерсе жок / Ничего нет", "Коммуникация жок")), True, False, ""),
+    # ── Унаа ──
+    "vehicleReg": ("📋 Каттоосу (учёту) кайсы? / Учёт?", "",
+                   _rq(("🇰🇬 КР учёту / Учёт КР", "КР учёту"),
+                       ("🇰🇿 Казакстан учёту / Учёт Казахстана", "Казакстан учёту"),
+                       ("🇦🇲 Армения учёту / Учёт Армении", "Армения учёту"),
+                       ("🇷🇺 Россия учёту / Учёт России", "Россия учёту"),
+                       ("🌐 Башка өлкө / Другая страна", "Башка өлкөнүн учёту"),
+                       ("🚫 Растаможка жок / Не растаможен", "Растаможка жок")), False, False, ""),
+    "vehicleOrigin": ("🌍 Кайдан келген? / Откуда пригнан?", "Же өзүңүз жазыңыз / Или впишите",
+                      _rq(("🇰🇷 Корея / Корея", "Корея"), ("🇯🇵 Япония / Япония", "Япония"),
+                          ("🇪🇺 Европа / Европа", "Европа"), ("🇺🇸 АКШ / США", "АКШ"),
+                          ("🇨🇳 Кытай / Китай", "Кытай"), ("🇷🇺 Россия / Россия", "Россия"),
+                          ("🇦🇪 БАЭ (Дубай) / ОАЭ (Дубай)", "БАЭ (Дубай)"),
+                          ("🇰🇬 Жергиликтүү / Местная", "Жергиликтүү")), False, False, ""),
+    "vehicleColor": ("🎨 Түсү кандай? / Цвет?", "Же өзүңүз жазыңыз / Или впишите",
+                     _rq(("⚪ Ак / Белый", "Ак"), ("⚫ Кара / Чёрный", "Кара"), ("🔘 Күмүш / Серебристый", "Күмүш"),
+                         ("🩶 Боз / Серый", "Боз"), ("🔵 Көк / Синий", "Көк"), ("🔴 Кызыл / Красный", "Кызыл"),
+                         ("🟢 Жашыл / Зелёный", "Жашыл"), ("🟤 Күрөң / Коричневый", "Күрөң"),
+                         ("🟡 Сары / Жёлтый", "Сары")), False, False, ""),
+    "vehicleSeller": ("👤 Ким сатып жатат? / Кто продаёт?", "",
+                      _rq(("🙋 Ээси өзү / Собственник", "Ээси өзү"),
+                          ("🤝 Ортомчу (перекуп) / Перекупщик", "Ортомчу"),
+                          ("🏢 Автосалон / Автосалон", "Автосалон")), False, False, ""),
+    "vehicleCredit": ("💳 Бөлүп төлөө же кредит барбы? / Рассрочка или кредит?", "",
+                      _rq(("✅ Бар / Есть", "Бар"), ("❌ Жок / Нет", "Жок")), False, False, ""),
+}
+
+# Суроолорду чынжырларга кошобуз (акыркы суроонун алдына — ал аталышты түзөт)
+def _rq_insert(chain, after_key, keys):
+    idx = next((i for i, it in enumerate(chain) if it[0] == after_key), None)
+    if idx is None:
+        idx = len(chain) - 2
+    for k in reversed(keys):
+        if not any(it[0] == k for it in chain):
+            q = RICHQ[k]
+            chain.insert(idx + 1, (k, q[0], q[1], q[2]))
+
+try:
+    _rq_insert(CHAIN_RENTAL, "rentalPeriod",
+               ["rentFurniture", "rentUtilities", "rentFor", "rentDriver",
+                "rentMinOrder", "rentFuel", "rentDelivery"])
+    _rq_insert(CHAIN_HOME, "homeArea", ["homeLand"])
+    _rq_insert(CHAIN_HOME, "homeFloor", ["homeFloorsTotal"])
+    _rq_insert(CHAIN_HOME, "homeCondition", ["homeHeating", "homeFurniture"])
+    for _ch in REALESTATE_CHAINS.values():
+        _rq_insert(_ch, _ch[-2][0], ["propSeller"])
+    _vb = next((i for i, it in enumerate(CHAIN_VEHICLES) if it[0] == "vehicleBargain"), None)
+    _rq_insert(CHAIN_VEHICLES, CHAIN_VEHICLES[_vb - 1][0] if _vb else CHAIN_VEHICLES[-2][0],
+               ["vehicleReg", "vehicleOrigin", "vehicleColor", "vehicleSeller", "vehicleCredit"])
+except Exception as _e:
+    print("RICHQ insert:", _e)
+
+_RENT_Q = {
+    "rent_residential": ("rentFurniture", "rentUtilities", "rentFor"),
+    "rent_commercial": ("rentUtilities",),
+    "rent_car": ("rentDriver",), "rent_bus": ("rentDriver",),
+    "rent_truck": ("rentDriver", "rentMinOrder", "rentFuel"),
+    "rent_special": ("rentDriver", "rentMinOrder", "rentFuel"),
+    "rent_tools": ("rentMinOrder", "rentDelivery"),
+}
+_RENT_DELIV = ("rent_event", "rent_equipment", "rent_kids_fun", "rent_tourism",
+               "rent_photo", "rent_clothes", "rent_medical", "rent_agro")
+_RENT_ALL = ("rentFurniture", "rentUtilities", "rentFor", "rentDriver",
+             "rentMinOrder", "rentFuel", "rentDelivery")
+_PERIOD_SUF = {"саатына": "/саат", "күнүнө": "/күн", "жумасына": "/жума", "айына": "/ай"}
+
+
+def _rq_prefill(step, d):
+    """Бул жарыяга тиешеси жок суроолор бош («») деп белгиленет — суралбайт."""
+    at = d.get("adType")
+    cat = str(d.get("category") or "")
+    if step == "post_name" and at == "rental":
+        need = set(_RENT_Q.get(cat, ()))
+        if cat in _RENT_DELIV:
+            need.add("rentDelivery")
+        for k in _RENT_ALL:
+            if k not in need and d.get(k) is None:
+                d[k] = ""
+        return CHAIN_RENTAL
+    if step == "trade_title" and (cat == "realestate" or cat.startswith("re_")):
+        sub = str(d.get("subcategory") or "").split(" / ")[0].lower()
+        flat = any(w in sub for w in ("батир", "гостинка", "студия", "бөлмө"))
+        house = (not flat) and any(w in sub for w in ("үй", "коттедж", "дача", "бүтпөгөн", "таунхаус"))
+        if not house and d.get("homeLand") is None:
+            d["homeLand"] = ""
+        if (house or d.get("homeFloor") == "—") and d.get("homeFloorsTotal") is None:
+            d["homeFloorsTotal"] = ""
+        return REALESTATE_CHAINS.get(d.get("realestateType") or cat[3:], CHAIN_HOME)
+    if step == "trade_title" and (cat == "vehicles" or cat.startswith("veh_")):
+        return CHAIN_VEHICLES
+    return None
+
+
+_render_rq_base = render
+_advance_rq_base = advance
+
+
+def render(step, data=None):
+    try:
+        if step in ("trade_title", "post_name"):
+            d = dict(data or {})
+            ch = _rq_prefill(step, d)
+            if ch is not None:
+                if step == "trade_title" and str(d.get("category") or "").startswith("veh_"):
+                    _veh_prefill(d)
+                pn = _chain_pending(ch, d)
+                if pn and pn[0] in RICHQ:
+                    q = RICHQ[pn[0]]
+                    v = _view(q[0], list(q[2]) + [SKIP_OPT], input=not q[3],
+                              placeholder=q[1], multi=q[3])
+                    if q[4]:
+                        v["numeric"] = True
+                    return v
+                return _render_rq_base(step, d)
+    except Exception:
+        pass
+    return _render_rq_base(step, data)
+
+
+def advance(step, value, data=None):
+    try:
+        if step in ("trade_title", "post_name"):
+            d = dict(data or {})
+            ch = _rq_prefill(step, d)
+            if ch is not None:
+                if step == "trade_title" and str(d.get("category") or "").startswith("veh_"):
+                    _veh_prefill(d)
+                pn = _chain_pending(ch, d)
+                if pn and pn[0] in RICHQ:
+                    q = RICHQ[pn[0]]
+                    v = str(value or "").strip()
+                    if v == SKIP or SKIP in v:
+                        v = ", ".join(x.strip() for x in v.split(",") if x.strip() and x.strip() != SKIP)
+                    if v and q[5] and v.replace(" ", "").replace(",", ".").replace(".", "").isdigit():
+                        v += q[5]
+                    d[pn[0]] = v
+                    return step, d
+                return _advance_rq_base(step, value, d)
+        if step in ("post_price", "post_price_custom", "price_currency") \
+                and (data or {}).get("adType") == "rental":
+            nxt, d = _advance_rq_base(step, value, data)
+            pr = str(d.get("price") or "")
+            suf = _PERIOD_SUF.get(str(d.get("rentalPeriod") or "").split(" / ")[0].strip().lower())
+            if (suf and pr and "/" not in pr and any(c.isdigit() for c in pr)
+                    and not pr.lower().startswith(("келишим", "договор"))):
+                d["price"] = pr + suf
+            return nxt, d
+    except Exception:
+        pass
+    return _advance_rq_base(step, value, data)
+
