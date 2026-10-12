@@ -946,7 +946,7 @@ def _filters(q=None, cat=None, region=None, sub=None,
     if village:
         sql += " AND " + VILLAGE_EXPR + "=?"; p.append(village)
     if pmin is not None:
-        sql += " AND CAST(NULLIF(CAST(price_num AS TEXT), '') AS BIGINT)>=?"   # PRICEFIX; p.append(int(pmin))
+        sql += " AND CAST(NULLIF(CAST(price_num AS TEXT), '') AS BIGINT)>=?"; p.append(int(pmin))   # PRICEFIX
     if pmax is not None:
         sql += " AND CAST(NULLIF(CAST(price_num AS TEXT), '') AS BIGINT)<=?"; p.append(int(pmax))
     if q and q.strip():

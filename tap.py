@@ -6391,6 +6391,181 @@ def _ai_route(qs, q, at, cid, sid):
 # ── AISEARCH_END
 
 
+
+# ── FXCORE: баа / сүрөт / ээсинен чыпкалары — санактарда жана шилтемелерде сакталат ──
+import inspect as _fxi
+import re as _fxre
+import urllib.parse as _fxup
+
+_FX_SIG = _fxi.signature(core._filters)
+_FX_OWNER_LIKE = "%Ким сатат: Ээси%"
+
+
+def _fx_state():
+    """Учурдагы суроо-талаптагы кошумча чыпкалар: {px, pn, ph, ow}."""
+    if not getattr(_AIX, "on", False):
+        return {}
+    st = {}
+    for k, a in (("px", "pmax"), ("pn", "pmin"), ("ph", "ph"), ("ow", "ow")):
+        v = getattr(_AIX, a, None)
+        if v:
+            st[k] = v
+    return st
+
+
+_core_filters_fx_base = core._filters
+
+
+def _core_filters_fx(*a, **k):
+    st = _fx_state()
+    if not st:
+        return _core_filters_fx_base(*a, **k)
+    try:
+        ba = _FX_SIG.bind_partial(*a, **k)
+        args = ba.arguments
+        if st.get("px") and args.get("pmax") is None:
+            args["pmax"] = st["px"]
+        if st.get("pn") and args.get("pmin") is None:
+            args["pmin"] = st["pn"]
+        sql, p = _core_filters_fx_base(**args)
+    except Exception:
+        return _core_filters_fx_base(*a, **k)
+    if st.get("ph"):
+        sql += " AND photo IS NOT NULL AND photo<>''"
+    if st.get("ow"):
+        sql += " AND description LIKE ?"
+        p = list(p) + [_FX_OWNER_LIKE]
+    return sql, p
+
+
+core._filters = _core_filters_fx
+
+
+def _fx_uncache(name):
+    """Кэштелген санак: чыпка иштеп турганда кэшсиз эсептелет."""
+    w = getattr(core, name, None)
+    inner = None
+    for c in (getattr(w, "__closure__", None) or ()):
+        try:
+            v = c.cell_contents
+        except ValueError:
+            continue
+        if callable(v) and v is not w and getattr(v, "__name__", "") == name:
+            inner = v
+    if inner is None:
+        return
+
+    def f(*a, **k):
+        if _fx_state():
+            return inner(*a, **k)
+        return w(*a, **k)
+    f.__name__ = name
+    setattr(core, name, f)
+
+
+for _fxn in ("count", "catid_counts", "subid_counts", "region_counts",
+             "locality_counts", "villages_in"):
+    try:
+        _fx_uncache(_fxn)
+    except Exception:
+        pass
+
+_FX_HREF = _fxre.compile(r'((?:href|value)=")(/\?[^"]*)(")')
+
+
+def _fx_keep(h, st):
+    """Бет ичиндеги «/?…» шилтемелерге учурдагы чыпкаларды кошот."""
+    add = "".join("&amp;%s=%s" % (k, _fxup.quote(str(st[k]))) for k in ("px", "pn", "ph", "ow") if st.get(k))
+    if not add:
+        return h
+
+    def rep(m):
+        u = m.group(2)
+        if any(("%s=" % k) in u for k in ("px", "pn", "ph", "ow")):
+            return m.group(0)
+        return m.group(1) + u + add + m.group(3)
+    return _FX_HREF.sub(rep, h)
+
+
+def _fx_money(n):
+    return "{:,}".format(int(n)).replace(",", " ")
+
+
+_FX_CSS = ('<style>.fxa{display:flex;flex-wrap:wrap;gap:6px;margin:10px 16px 0}'
+           '.fxa a{display:inline-flex;align-items:center;gap:6px;background:#EEF4FF;color:#163C8C;'
+           'border-radius:999px;padding:6px 6px 6px 11px;font-weight:700;font-size:12.5px;text-decoration:none}'
+           '.fxa a i{font-style:normal;width:18px;height:18px;border-radius:50%;background:#DCE6F7;'
+           'display:grid;place-items:center;font-size:9px}</style>')
+
+
+def _fx_chips(st, cur_url, lang):
+    """Активдүү кошумча чыпкалар — ✕ менен алып салса болот."""
+    ru = (lang == "ru")
+    out = []
+    if st.get("px") or st.get("pn"):
+        if st.get("px") and st.get("pn"):
+            lb = "%s – %s %s" % (_fx_money(st["pn"]), _fx_money(st["px"]), "сом")
+        elif st.get("px"):
+            lb = ("до %s сом" if ru else "%s сомго чейин") % _fx_money(st["px"])
+        else:
+            lb = ("от %s сом" if ru else "%s сомдон жогору") % _fx_money(st["pn"])
+        out.append((("px", "pn"), "💰 " + lb))
+    if st.get("ph"):
+        out.append((("ph",), "📷 " + ("С фото" if ru else "Сүрөтү барлар")))
+    if st.get("ow"):
+        out.append((("ow",), "🙋 " + ("От хозяина" if ru else "Ээсинен")))
+    res = []
+    for keys, lb in out:
+        u = _fxup.urlsplit(cur_url)
+        qs = [(k, v) for k, v in _fxup.parse_qsl(u.query, keep_blank_values=False) if k not in keys]
+        res.append((("/?" + _fxup.urlencode(qs)) if qs else "/", lb, keys))
+    return res
+
+
+_home_fx_inner = _home_ai_base
+
+
+def _home_fx(q, *a, **k):
+    h = _home_fx_inner(q, *a, **k)
+    try:
+        st = _fx_state()
+        if st:
+            h = _fx_keep(h, st)
+            # ИИ тилкеси жок болсо — активдүү чыпкаларды өзүбүз көрсөтөбүз
+            if not getattr(_AIX, "aiq", None) and not getattr(_AIX, "fxui", False):
+                lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
+                cur = getattr(_AIX, "url", "") or "/"
+                ch = _fx_chips(st, cur, lang)
+                if ch:
+                    bar = _FX_CSS + '<div class="fxa">' + "".join(
+                        '<a href="%s">%s<i>✕</i></a>' % (esc(u), esc(lb)) for u, lb, _k in ch) + "</div>"
+                    i = h.find("</header>")
+                    if i >= 0:
+                        h = h[:i + 9] + bar + h[i + 9:]
+    except Exception:
+        pass
+    return h
+
+
+_home_ai_base = _home_fx
+
+_ai_route_fx_base = _ai_route
+
+
+def _ai_route(qs, q, at, cid, sid):
+    r = _ai_route_fx_base(qs, q, at, cid, sid)
+    try:
+        _AIX.ph = 1 if qs.get("ph", [""])[0] == "1" else None
+        _AIX.ow = 1 if qs.get("ow", [""])[0] == "1" else None
+        _AIX.url = "/?" + _fxup.urlencode([(k, v) for k, vs in qs.items() for v in vs])
+    except Exception:
+        _AIX.ph = _AIX.ow = None
+        _AIX.url = "/"
+    return r
+# ── FXCORE_END
+
+
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
