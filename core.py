@@ -911,7 +911,7 @@ def _filters(q=None, cat=None, region=None, sub=None,
     if sub_id and str(sub_id).startswith("@"):   # RGROUP: топ боюнча чыпка
         try:
             import tap_rgroups as _rg
-            if _rg.groups_for(ad_type, cat_id):
+            if _rg.filter_groups(ad_type, cat_id):
                 _gid = str(sub_id)[1:]
                 _ks = (_rg.all_known_kg(ad_type, cat_id) if _gid == "other"
                        else (_rg.members_kg(ad_type, cat_id, _gid) or ["\x00"]))
@@ -1759,3 +1759,5 @@ def act_ok_at(lid):
     _ar_init()
     r = query("SELECT at FROM act_ok WHERE lid=?", (int(lid),), fetch="one")
     return (r or {}).get("at")
+
+# RGROUP2

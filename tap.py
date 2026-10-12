@@ -2676,7 +2676,7 @@ import tap_rgroups as _rgs   # RGROUP
 def _rg_rows(link, at, cid, sid, sc, lang):
     """RGROUP: Түрү (топ) → Тагыраак — тепкич чиптери."""
     ru = (lang == "ru")
-    gs = _rgs.groups_for(at, cid)
+    gs = _rgs.filter_groups(at, cid)
     kg = _rgs._kg
     gcnt = {}
     for k, n in (sc or {}).items():
@@ -2770,7 +2770,7 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
                 _fl = _sub_full(at, cid).get(code)   # SUBALL: орусча аты каталогдон
                 opts.append((code, link(sid=code),
                              L(_fl, lang) if _fl else _ky(code, lang), n))
-            if _rgs.groups_for(at, cid):   # RGROUP: Түрү → Тагыраак
+            if _rgs.filter_groups(at, cid):   # RGROUP: Түрү → Тагыраак
                 inner += _rg_rows(link, at, cid, sid, sc, lang)
             else:
                 _so = [o for o in opts if o[0] == sid] if sid else []
@@ -5013,3 +5013,5 @@ if __name__ == "__main__":
 
 
 # LOGO_IMG
+
+# RGROUP2

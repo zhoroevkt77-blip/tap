@@ -2192,3 +2192,62 @@ def advance(step, value, data=None):
             v = v.replace(OTHER, g[2])
         return _advance_rg_base("subcategory_select", v, d)
     return _advance_rg_base(step, value, data)
+
+
+# ── RGROUP2: мүлк/унаа — Түрү → Тагыраак ───────────────────
+_render_pv_base = render
+_advance_pv_base = advance
+_PV_STEPS = ("trade_realestate_sub", "trade_vehicle_sub")
+
+
+def _pv_gs(step, d):
+    if step == "trade_realestate_sub":
+        c = "re_" + str(d.get("realestateType") or "")
+    else:
+        c = "veh_" + str(d.get("vehicleCategory") or "")
+    return c, (_rgs.pv_groups("property", c) or _rgs.pv_groups("vehicle", c))
+
+
+def _pv_cur(c, gs, d):
+    pg = str(d.get("pvGroup") or "")
+    for g in gs:
+        if c + ":" + g[0] == pg:
+            return g
+    return None
+
+
+def render(step, data=None):
+    d = data or {}
+    if step in _PV_STEPS:
+        c, gs = _pv_gs(step, d)
+        if gs:
+            g = _pv_cur(c, gs, d)
+            if not g:
+                return _view("Кайсы түрү? / Какой тип?",
+                             [{"label": "%s %s" % (em, lb), "value": "@" + gid}
+                              for gid, em, lb, _m in gs]
+                             + [{"label": "📦 Башка / Другое", "value": OTHER}])
+            return _view("Тагыраак тандаңыз / Уточните:",
+                         [{"label": sh, "value": f} for f, sh in g[3]]
+                         + [{"label": "Башка / Другое", "value": OTHER}], multi=True)
+    return _render_pv_base(step, data)
+
+
+def advance(step, value, data=None):
+    if step in _PV_STEPS:
+        d = dict(data or {})
+        c, gs = _pv_gs(step, d)
+        if gs:
+            v = str(value or "").strip()
+            if v.startswith("@") and any(g[0] == v[1:] for g in gs):
+                d["pvGroup"] = c + ":" + v[1:]
+                return step, d
+            g = _pv_cur(c, gs, d)
+            if g:
+                if not v or v == OTHER:
+                    v = g[2]                     # «Башка» → топтун аты
+                elif OTHER in v:
+                    v = v.replace(OTHER, g[2])
+            d.pop("pvGroup", None)
+            return _advance_pv_base(step, v, d)
+    return _advance_pv_base(step, value, data)

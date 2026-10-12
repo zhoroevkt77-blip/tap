@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""RGROUP: ижара категорияларынын топтору.
+"""RGROUP: категориялардын топтору (ижара, мүлк, унаа + соода/кызмат таблицалары).
 
 Категория → Топ (түрү) → Тагыраак.
 Ар бир вариант: "Толук аты KG / RU" же ("Толук аты", "Кыска аты").
@@ -209,23 +209,112 @@ RGROUPS = {
 }
 
 
+# RGROUP2: Кыймылсыз мүлк жана Унаа сатуу
+PGROUPS = {
+    ("property", "re_residential"): [
+        ("apt", "🏢", "Батир / Квартира", [
+            ("Батир / Квартиры (вторичка)", "Экинчи рынок / Вторичка"),
+            ("Жаңы батир / Квартиры (новостройки)", "Жаңы курулуш / Новостройка"),
+            ("Гостинка / Малосемейка, гостинка", "Гостинка / Гостинка"),
+            ("Бөлмө / Комнаты", "Бөлмө / Комната"),
+        ]),
+        ("house", "🏠", "Үй / Дом", [
+            ("Үй / Дома и коттеджи", "Үй, коттедж / Дом, коттедж"),
+            "Бүтпөгөн үй / Недострой",
+            ("Үйдүн жарымы / Полдома, доля в квартире", "Үйдүн жарымы / Полдома, доля"),
+            "Дача / Дачи",
+        ]),
+    ],
+    ("property", "re_commercial"): [
+        ("office", "🏢", "Офис, соода / Офис, торговля", [
+            "Офис / Офисы и бизнес-центры", "Дүкөн / Магазины и торговые площади",
+            ("Даяр бизнес / Готовый бизнес (с оборудованием и клиентами)", "Даяр бизнес / Готовый бизнес"),
+        ]),
+        ("food", "🍽", "Тамак-аш, той / Общепит, торжества", [
+            "Кафе, ашкана / Кафе, ресторан, столовая", "Тойкана / Той-кана и банкетный зал",
+            "Мейманкана / Гостиница, хостел, база отдыха",
+        ]),
+        ("svc", "🔧", "Кызмат көрсөтүү / Сфера услуг", [
+            "Автосервис / Автосервис, автомойка, шиномонтаж", "Мончо, сауна / Баня, сауна, спортзал",
+        ]),
+        ("prod", "🏭", "Өндүрүш, кампа / Производство, склад", [
+            "Цех, наабайкана / Пекарня, цех, мини-производство",
+            "Кампа / Склады и производственные здания", "Ферма, теплица / Ферма, теплица, сельхозобъект",
+        ]),
+    ],
+    ("vehicle", "veh_truck"): [
+        ("weight", "⚖", "Жүк көтөрүмдүүлүгү / Грузоподъёмность", [
+            "3,5 тоннага чейин / До 3.5 тонн", "3,5–10 тонна / От 3.5 до 10 тонн",
+            "10 тоннадан ашык / Свыше 10 тонн",
+        ]),
+        ("body", "🚚", "Кузову / Тип кузова", [
+            "Жүк унаа / Грузовой автомобиль", "Фура / Фура", "Рефрижератор / Рефрижератор",
+            "Самосвал / Самосвал", "Тиркеме менен / С прицепом", "Борттуу / Бортовой грузовик",
+            "Эвакуатор / Эвакуатор",
+        ]),
+    ],
+}
+
+
 def _kg(s):
     return str(s or "").split(" / ")[0].strip()
 
 
-def groups_for(at, cid):
-    """[(id, emoji, label, [(full, short), ...]), ...] же []"""
-    if at != "rental":
-        return []
+def _norm(rows):
     out = []
-    for gid, em, lb, items in RGROUPS.get(cid) or []:
+    for gid, em, lb, items in rows or []:
         mem = [(x, x) if isinstance(x, str) else (x[0], x[1]) for x in items]
         out.append((gid, em, lb, mem))
     return out
 
 
+def groups_for(at, cid):
+    """Ижаранын топтору (жарыя берүүдөгү rent_group кадамы үчүн)."""
+    if at != "rental":
+        return []
+    return _norm(RGROUPS.get(cid))
+
+
+def pv_groups(at, cid):
+    """RGROUP2: мүлк/унаа топтору."""
+    return _norm(PGROUPS.get((at, cid)))
+
+
+def _table_groups(at, cid):
+    try:
+        import tap_catalog as _c
+    except Exception:
+        return []
+    if at == "service":
+        tb = getattr(_c, "SERVICE_GROUP_TABLES", {})
+    elif at in ("trade", "vehicle", "wholesale", "markets"):
+        tb = getattr(_c, "GROUP_TABLES", {})
+    else:
+        return []
+    if cid not in tb:
+        return []
+    groups, subs = tb[cid]
+    out = []
+    for g in groups:
+        mem = [(x, x) for x in (subs.get(g["id"]) or [])
+               if isinstance(x, str) and _kg(x).lower() != "башка"]
+        out.append((g["id"], g.get("emoji") or "", g.get("label") or g["id"], mem))
+    return out
+
+
+_FG = {}
+
+
+def filter_groups(at, cid):
+    """Чыпка үчүн бардык топтор: ижара → мүлк/унаа → соода/кызмат таблицалары."""
+    k = (at, cid)
+    if k not in _FG:
+        _FG[k] = groups_for(at, cid) or pv_groups(at, cid) or _table_groups(at, cid)
+    return _FG[k]
+
+
 def group(at, cid, gid):
-    for g in groups_for(at, cid):
+    for g in filter_groups(at, cid):
         if g[0] == gid:
             return g
     return None
@@ -242,7 +331,7 @@ def members_kg(at, cid, gid):
 def group_of(at, cid, sub_kg):
     """Субкатегория кайсы топко кирет (биринчи табылган)."""
     s = _kg(sub_kg)
-    for gid, _em, lb, mem in groups_for(at, cid):
+    for gid, _em, lb, mem in filter_groups(at, cid):
         if s == _kg(lb) or any(s == _kg(f) for f, _ in mem):
             return gid
     return None
@@ -250,7 +339,7 @@ def group_of(at, cid, sub_kg):
 
 def all_known_kg(at, cid):
     out = []
-    for g in groups_for(at, cid):
+    for g in filter_groups(at, cid):
         out += members_kg(at, cid, g[0])
     return out
 
@@ -258,7 +347,7 @@ def all_known_kg(at, cid):
 def short_of(at, cid, sub_kg):
     """Кыска аты («1 бөлмөлүү / 1-комнатная») же None."""
     s = _kg(sub_kg)
-    for _gid, _em, _lb, mem in groups_for(at, cid):
+    for _gid, _em, _lb, mem in filter_groups(at, cid):
         for f, sh in mem:
             if _kg(f) == s:
                 return sh
