@@ -5159,6 +5159,250 @@ def home(q, *a, **k):
     return _home_sq_base(q, *a, **k)
 
 
+
+# ── DTILES: жарыя барагынын жаңы түзүлүшү ───────────────────
+import re as _dre
+import threading as _dth
+
+_DT = _dth.local()
+_frow_dt_base = _frow
+
+
+def _frow(icon, label, value):
+    lst = getattr(_DT, "rows", None)
+    if lst is not None:
+        lst.append((str(icon), str(label or ""), str(value or "").replace("\x00", "")))
+        return "\x00%d\x00" % (len(lst) - 1)
+    return _frow_dt_base(icon, label, value)
+
+
+_DT_EMO = (
+    (("жылы", "год"), "📅"), (("жүрүш", "пробег"), "🛣"), (("көлөм", "объём", "объем"), "⛽"),
+    (("кутус", "коробк"), "⚙️"), (("руль",), "🛞"), (("привод",), "🚙"),
+    (("отун", "топлив"), "⛽"), (("маркас", "марка"), "🏷"), (("модел",), "🚘"),
+    (("кузов",), "🚗"), (("абал", "состоян"), "✨"), (("түс", "цвет"), "🎨"),
+    (("бөлмө", "комнат"), "🛏"), (("аянт", "площад"), "📐"), (("кабат", "этаж"), "🏢"),
+    (("ремонт",), "🖌"), (("документ",), "📕"), (("жылыт", "отоплен"), "🔥"),
+    (("эмерек", "мебел"), "🛋"), (("айлык", "зарплат", "маяна"), "💰"),
+    (("график",), "🗓"), (("тажрыйба", "опыт"), "🧰"), (("билим", "образов"), "🎓"),
+    (("тил", "язык"), "🗣"), (("жеткир", "доставк"), "🚚"), (("төлөм", "оплат"), "💳"),
+    (("депозит", "залог"), "💰"), (("баа", "цена", "акы"), "💵"),
+    (("мөөнөт", "срок"), "🗓"), (("соодалаш", "торг"), "🤝"), (("кепилд", "гарант"), "🛡"),
+    (("убакт", "время"), "🕘"), (("жаш", "возраст"), "🎂"), (("көтөр", "грузопод"), "⚖"),
+    (("катар", "ряд"), "🔢"), (("контейнер", "бутик", "орун", "место"), "🚪"),
+    (("маршрут", "кайда", "куда"), "🛣"), (("саны", "кол-во", "количеств"), "🔢"),
+    (("өлчөм", "размер"), "📏"), (("сорт",), "🥇"), (("бренд",), "🏷"),
+)
+_DT_HERO = (("жылы", "год"), ("жүрүш", "пробег"), ("көлөм", "объём", "объем"),
+            ("бөлмө", "комнат"), ("аянт", "площад"), ("кабат", "этаж"),
+            ("айлык", "зарплат", "маяна"), ("график",), ("тажрыйба", "опыт"),
+            ("депозит", "залог"), ("көтөрүмдүү", "грузопод"), ("жашы", "возраст"))
+_DT_COL = ("c1", "c2", "c3", "c4", "c5", "c6")
+
+
+def _dt_emo(label):
+    low = label.lower()
+    for keys, em in _DT_EMO:
+        if any(k in low for k in keys):
+            return em
+    return "📌"
+
+
+def _dt_split_engine(label, value, ru):
+    """«1.8 л, Автомат, Сол руль, Алдыңкы привод» → өзүнчө маалыматтар."""
+    out = []
+    for part in [x.strip() for x in value.split(",") if x.strip()]:
+        lw = part.lower()
+        if _dre.search(r"\d", lw) and _dre.search(r"(^|\s|\d)л\.?$", lw):
+            out.append(("Объём" if ru else "Көлөмү", part))
+        elif any(w in lw for w in ("автомат", "механ", "вариатор", "робот")):
+            out.append(("Коробка" if ru else "Кутусу", part))
+        elif "руль" in lw:
+            out.append(("Руль", part))
+        elif "привод" in lw:
+            out.append(("Привод", part))
+        elif any(w in lw for w in ("бензин", "дизел", "газ", "гибрид", "электр", "пропан", "метан")):
+            out.append(("Топливо" if ru else "Отуну", part))
+        else:
+            out.append((label, part))
+    return out
+
+
+_DT_WHO = {"job": ("Иш берүүчү", "Работодатель"), "jobseek": ("Издөөчү", "Соискатель"),
+           "service": ("Аткаруучу", "Исполнитель"), "cargo": ("Аткаруучу", "Исполнитель"),
+           "delivery": ("Аткаруучу", "Исполнитель"), "taxi": ("Айдоочу", "Водитель")}
+
+_DT_CSS = """<style>
+.dx-cr{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 10px}
+.dx-cr span{background:#E6EEFB;color:#163C8C;border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:700}
+.dx-cr i{font-style:normal;color:#9AA9BF;font-size:13px}
+.dx-hero{display:grid;grid-template-columns:repeat(var(--n),1fr);background:linear-gradient(135deg,#1D4AA8,#163C8C);color:#fff;border-radius:18px;padding:14px 4px;margin:0 0 4px;box-shadow:0 6px 18px rgba(22,60,140,.22)}
+.dx-hero>div{text-align:center;border-right:1px solid rgba(255,255,255,.18);padding:0 4px;min-width:0}
+.dx-hero>div:last-child{border:0}.dx-hero em{font-style:normal;font-size:17px}
+.dx-hero b{display:block;font-size:18px;font-weight:900;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dx-hero span{font-size:11.5px;color:#BFD0F0;font-weight:600}
+.dx-h{font-size:12px;font-weight:800;letter-spacing:.07em;color:#5A6B82;text-transform:uppercase;margin:16px 2px 8px}
+.dx-card{background:#fff;border-radius:18px;box-shadow:0 1px 6px rgba(11,27,48,.07)}
+.dx-g{display:grid;grid-template-columns:1fr 1fr;padding:4px 14px;column-gap:12px}
+.dx-it{display:flex;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid #E3E9F2;min-width:0}
+.dx-g .dx-it:nth-last-child(-n+2){border-bottom:0}
+.dx-g .dx-it.dx-w{grid-column:1/-1}
+.dx-ic{flex:none;width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:17px}
+.dx-it>div:last-child{min-width:0}
+.dx-it span{display:block;font-size:11.5px;color:#5A6B82;font-weight:600}
+.dx-it b{display:block;font-size:14.5px;color:#0B1B30;overflow-wrap:anywhere}
+.dx-ic.c1{background:#E6EEFB}.dx-ic.c2{background:#FFF3D6}.dx-ic.c3{background:#E5F6EE}
+.dx-ic.c4{background:#F3E8FB}.dx-ic.c5{background:#FDE8E8}.dx-ic.c6{background:#E3F4F8}
+.dx-sel{display:flex;align-items:center;gap:12px;padding:14px}
+.dx-av{flex:none;width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#2556C7,#163C8C);color:#fff;display:grid;place-items:center;font-weight:900;font-size:18px}
+.dx-sel b{font-size:16px;color:#0B1B30}.dx-sel small{display:block;color:#5A6B82;font-size:12.5px;margin-top:2px}
+.dx-ok{color:#2E9E6E}
+.dx-call{margin-left:auto;flex:none;background:#2E9E6E;color:#fff!important;text-decoration:none;border-radius:13px;padding:11px 14px;font-weight:800;font-size:14px;box-shadow:0 4px 12px rgba(46,158,110,.3)}
+.dx-st{display:flex;gap:8px;margin:12px 0 4px}
+.dx-st>div{flex:1;background:#fff;border-radius:14px;padding:10px 6px;text-align:center;box-shadow:0 1px 6px rgba(11,27,48,.07);min-width:0}
+.dx-st span{display:block;font-size:11px;color:#5A6B82;font-weight:600}
+.dx-st b{font-size:13.5px;color:#0B1B30}
+.dx-bar{height:4px;border-radius:9px;background:#E3E9F2;margin:6px 6px 0;overflow:hidden}
+.dx-bar i{display:block;height:100%;background:#E2B33C}
+</style>"""
+
+
+def _dt_render(h, rows, r, lang):
+    ru = (lang == "ru")
+    st = h.find('<div class="dcard facts">')
+    toks = list(_dre.finditer(r"\x00(\d+)\x00", h))
+    if st < 0 or not toks:
+        raise ValueError("no facts")
+    last = toks[-1].end()
+    en = h.find("</div>", last)
+    inner = h[st + len('<div class="dcard facts">'):en]
+    extra = _dre.sub(r"\x00\d+\x00", "", inner).strip()
+
+    name, place, calltime, crumb, facts = "", [], "", [], []
+    pub, exp, term, views = "", "", "", ""
+    for icon, label, value in rows:
+        low = label.lower()
+        if not value.strip():
+            continue
+        if icon == "user":
+            name = value
+        elif icon in ("pin", "city"):
+            if value not in place and value != "—":
+                place.append(value)
+        elif icon in ("sect", "cat", "sub"):
+            if value not in crumb:
+                crumb.append(value)
+        elif icon == "eye":
+            views = value
+        elif "жарыяланган убакт" in low or "опубликов" in low:
+            pub = value
+        elif "мөөнөтү бүтөт" in low or "срок истека" in low:
+            exp = value
+        elif "мөөнөткө" in low or "срок публик" in low:
+            term = value
+        elif "чалуу" in low or "звон" in low:
+            calltime = value
+        elif ("кыймылдаткыч" in low or "двигател" in low) and "," in value:
+            facts += _dt_split_engine(label, value, ru)
+        else:
+            facts.append((label, value))
+
+    # Көк тилке: эң маанилүү 3 сан
+    hero, used = [], set()
+    for keys in _DT_HERO:
+        for i, (lb, v) in enumerate(facts):
+            if i in used or len(v) > 14:
+                continue
+            if any(k in lb.lower() for k in keys):
+                _m = _dre.match(r"^(\d{5,})(\s*\D*)$", v.strip())
+                if _m:   # 150000 км → 150 000 км
+                    v = "{:,}".format(int(_m.group(1))).replace(",", " ") + _m.group(2)
+                hero.append((lb, v)); used.add(i)
+                break
+        if len(hero) >= 3:
+            break
+    if len(hero) < 2:
+        hero, used = [], set()
+    grid = [f for i, f in enumerate(facts) if i not in used]
+
+    o = _DT_CSS
+    if crumb:
+        o += '<div class="dx-cr">' + "<i>›</i>".join("<span>%s</span>" % esc(x) for x in crumb) + "</div>"
+    if hero:
+        o += '<div class="dx-hero" style="--n:%d">' % len(hero) + "".join(
+            "<div><em>%s</em><b>%s</b><span>%s</span></div>" % (_dt_emo(lb), esc(v), esc(lb))
+            for lb, v in hero) + "</div>"
+    if grid or extra:
+        o += '<div class="dx-h">%s</div><div class="dx-card dx-g">' % ("Характеристики" if ru else "Мүнөздөмөсү")
+        odd = len(grid) % 2 == 1
+        for i, (lb, v) in enumerate(grid):
+            wide = " dx-w" if (len(v) > 26 or (odd and i == len(grid) - 1)) else ""
+            o += ('<div class="dx-it%s"><div class="dx-ic %s">%s</div><div><span>%s</span><b>%s</b></div></div>'
+                  % (wide, _DT_COL[i % 6], _dt_emo(lb), esc(lb), esc(v)))
+        o += "</div>"
+        if extra:
+            o += '<div class="dcard facts">%s</div>' % extra
+
+    # Сатуучу карточкасы
+    who = _DT_WHO.get(r.get("ad_type") or "", ("Сатуучу", "Продавец"))
+    m = _dre.search(r'href="(tel:[^"]+)"', h)
+    ok = ' <span class="dx-ok">✓</span>' if 'class="vbadge"' in h else ""
+    if name or place or calltime or m or 'class="ctc"' in h:
+        o += '<div class="dx-h">%s</div><div class="dx-card dx-sel">' % (who[1] if ru else who[0])
+        o += '<div class="dx-av">%s</div><div style="min-width:0">' % esc((name.strip() or "👤")[0].upper())
+        o += "<b>%s</b>%s" % (esc(name) if name else "", ok)
+        if place:
+            o += "<small>📍 %s</small>" % esc(" · ".join(place))
+        if calltime:
+            o += "<small>🕘 %s</small>" % esc(calltime)
+        o += "</div>"
+        if m:
+            o += '<a class="dx-call" href="%s">📞 %s</a>' % (m.group(1), "Позвонить" if ru else "Чалуу")
+        elif 'class="ctc"' in h:   # номер жашырылган — «Номерди көрсөтүү» басылат
+            o += ('<a class="dx-call" href="#" onclick="var c=document.querySelector(\'.ctc\');'
+                  'if(!c)return false;var b=c.querySelector(\'button\');if(b)b.click();'
+                  'var t=document.querySelector(\'.ctc a[href^=tel]\');if(t){location.href=t.href;}'
+                  'else{c.scrollIntoView({behavior:\'smooth\',block:\'center\'});}return false;">📞 %s</a>'
+                  % ("Позвонить" if ru else "Чалуу"))
+        o += "</div>"
+
+    # 3 плитка: качан коюлду · канча калды · канча көрдү
+    tl = []
+    if pub:
+        tl.append("<div><span>🕒 %s</span><b>%s</b></div>" % ("Опубликовано" if ru else "Коюлду", esc(pub)))
+    if exp:
+        tail = exp.split(" · ")[-1]
+        bar = ""
+        dl = _dre.search(r"\d+", tail)
+        tot = _dre.search(r"\d+", term or "")
+        if dl:
+            t = max(int(tot.group()) if tot else 15, int(dl.group()), 1)
+            bar = '<div class="dx-bar"><i style="width:%d%%"></i></div>' % max(4, int(100 * int(dl.group()) / t))
+        tl.append("<div><span>⏳ %s</span><b>%s</b>%s</div>" % ("Срок" if ru else "Мөөнөтү", esc(tail), bar))
+    if views:
+        tl.append("<div><span>👁 %s</span><b>%s</b></div>" % ("Просмотры" if ru else "Көрдү", esc(views)))
+    if tl:
+        o += '<div class="dx-st">' + "".join(tl) + "</div>"
+
+    return h[:st] + o + h[en + len("</div>"):]
+
+
+_detail_dt_base = detail
+
+
+def detail(r, lang="ky"):
+    _DT.rows = []
+    try:
+        h = _detail_dt_base(r, lang)
+        rows = list(_DT.rows)
+    finally:
+        _DT.rows = None
+    try:
+        return _dt_render(h, rows, r, lang)
+    except Exception:
+        return _dre.sub(r"\x00(\d+)\x00", lambda m: _frow_dt_base(*rows[int(m.group(1))]), h)
+
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
