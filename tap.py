@@ -5005,6 +5005,160 @@ class Server(ThreadingMixIn, HTTPServer):
         super().handle_error(request, client_address)
 
 
+
+# ── SRCHSUG: издөө тилкесинин мисалы жана сунуштары ──────────
+import json as _sj
+import re as _sre2
+import threading as _sth
+
+_SQ_PH = {"ky": "Мисалы: батир Ош, мотоблок…", "ru": "Например: квартира Ош, мотоблок…"}
+_SQ_DEF = {"ky": ["батир", "суткалык батир", "мотоблок", "экскаватор", "Toyota Camry", "үй сатылат"],
+           "ru": ["квартира", "посуточно", "мотоблок", "экскаватор", "Toyota Camry", "дом продается"]}
+_SQ_CACHE = {}
+_SQ_LOCK = _sth.Lock()
+_SQ_READY = [False]
+
+
+def _sq_norm(q):
+    q = " ".join(str(q or "").lower().split())[:40]
+    return q if len(q) >= 2 else ""
+
+
+def _sq_table():
+    if _SQ_READY[0]:
+        return True
+    try:
+        core.query("CREATE TABLE IF NOT EXISTS search_stats "
+                   "(q TEXT PRIMARY KEY, n INTEGER DEFAULT 0)")
+        _SQ_READY[0] = True
+    except Exception:
+        pass
+    return _SQ_READY[0]
+
+
+def _sq_log(q):
+    q = _sq_norm(q)
+    if not q or not _sq_table():
+        return
+    try:
+        core.query("INSERT INTO search_stats (q, n) VALUES (?, 1) "
+                   "ON CONFLICT (q) DO UPDATE SET n = search_stats.n + 1", (q,))
+    except Exception:
+        pass
+
+
+def _sq_ok(q):
+    if _SEC_LINK.search(q) or _sre2.fullmatch(r"[0-9 +()-]+", q):
+        return False
+    try:
+        import rules
+        level, _h = rules.check_text(q)
+        if level in ("hard", "swear"):
+            return False
+    except Exception:
+        pass
+    try:
+        return core.count(q=q) > 0
+    except Exception:
+        return True
+
+
+def _sq_popular(lang):
+    now = _t.time()
+    hit = _SQ_CACHE.get(lang)
+    if hit and hit[0] > now:
+        return hit[1]
+    out = []
+    try:
+        if _sq_table():
+            rows = core.query("SELECT q, n FROM search_stats WHERE n >= 3 "
+                              "ORDER BY n DESC LIMIT 30", fetch="all") or []
+            for r in rows:
+                q = r["q"] if hasattr(r, "keys") else r[0]
+                if _sq_ok(q):
+                    out.append(q)
+                if len(out) >= 8:
+                    break
+    except Exception:
+        out = []
+    for d in _SQ_DEF.get(lang, _SQ_DEF["ky"]):
+        if len(out) >= 6:
+            break
+        if d.lower() not in out and _sq_ok(d):   # жарыясы бар сөздөр гана
+            out.append(d)
+    with _SQ_LOCK:
+        _SQ_CACHE[lang] = (now + 300, out)
+    return out
+
+
+_SQ_CSS = ('<style>.sqd{display:none;position:absolute;z-index:999;background:#fff;'
+           'border:1px solid #E3E9F2;border-radius:16px;box-shadow:0 10px 28px rgba(11,27,48,.16);'
+           'padding:6px 0;max-height:60vh;overflow:auto;text-align:left}'
+           '.sqt{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;'
+           'font-weight:800;letter-spacing:.06em;color:#5A6B82;padding:8px 16px 2px;text-transform:uppercase}'
+           '.sqt button{border:0;background:none;color:#5A6B82;font-weight:700;font-size:12px;'
+           'letter-spacing:0;text-transform:none;padding:2px 0;cursor:pointer}'
+           '.sqi{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;'
+           'padding:10px 16px;font-size:15px;color:#0B1B30;text-align:left;cursor:pointer;font-family:inherit}'
+           '.sqi:active,.sqi:hover{background:#EEF4FF}.sqi span{width:20px;text-align:center}</style>')
+
+_SQ_JS = r"""<script>(function(){
+var f=document.querySelector('form.s'),i=f&&f.querySelector('input[name=q]');if(!i)return;
+var P=__POP__,L=__TXT__,bx=document.createElement('div');bx.className='sqd';document.body.appendChild(bx);
+function rd(){try{return JSON.parse(localStorage.getItem('tap_rq')||'[]')}catch(e){return[]}}
+function wr(a){try{localStorage.setItem('tap_rq',JSON.stringify(a.slice(0,6)))}catch(e){}}
+function save(x){x=String(x||'').trim();if(!x)return;var a=rd().filter(function(y){return y.toLowerCase()!==x.toLowerCase();});a.unshift(x);wr(a);}
+function hide(){bx.style.display='none';}
+function pos(){var r=i.getBoundingClientRect(),fr=f.getBoundingClientRect();
+ bx.style.left=(fr.left+window.scrollX)+'px';bx.style.width=fr.width+'px';bx.style.top=(fr.bottom+window.scrollY+6)+'px';}
+function draw(){var v=i.value.trim().toLowerCase(),m=function(x){return !v||x.toLowerCase().indexOf(v)>=0;};
+ var rc=rd().filter(m).slice(0,4),pp=P.filter(function(x){return m(x)&&rc.indexOf(x)<0;}).slice(0,v?5:6);
+ if(!rc.length&&!pp.length){hide();return;}
+ bx.innerHTML='';
+ function sec(t,arr,ic,clr){var h=document.createElement('div');h.className='sqt';var s=document.createElement('span');s.textContent=t;h.appendChild(s);
+  if(clr){var c=document.createElement('button');c.type='button';c.textContent=L.clr;c.onmousedown=function(e){e.preventDefault();wr([]);draw();};h.appendChild(c);}
+  bx.appendChild(h);
+  arr.forEach(function(x){var a=document.createElement('button');a.type='button';a.className='sqi';var s2=document.createElement('span');s2.textContent=ic;a.appendChild(s2);
+   a.appendChild(document.createTextNode(x));a.onmousedown=function(e){e.preventDefault();i.value=x;save(x);hide();f.submit();};bx.appendChild(a);});}
+ if(rc.length)sec(L.rec,rc,'🕘',1);if(pp.length)sec(L.pop,pp,'🔥');
+ pos();bx.style.display='block';}
+i.addEventListener('focus',draw);i.addEventListener('input',draw);
+i.addEventListener('blur',function(){setTimeout(hide,180);});
+window.addEventListener('resize',function(){if(bx.style.display==='block')pos();});
+f.addEventListener('submit',function(){save(i.value);});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')hide();});
+})();</script>"""
+
+_header_sq_base = header
+
+
+def header(q="", at=None, reg=None, lang="ky"):
+    h = _header_sq_base(q, at, reg, lang)
+    try:
+        ru = (lang == "ru")
+        h = _sre2.sub(r'(<input type="search" name="q"[^>]*?placeholder=")[^"]*(")',
+                      lambda m: m.group(1) + esc(_SQ_PH["ru" if ru else "ky"]) + m.group(2),
+                      h, count=1)
+        txt = ({"rec": "Последние поиски", "pop": "Популярное", "clr": "Очистить"} if ru else
+               {"rec": "Акыркы издөөлөр", "pop": "Популярдуу", "clr": "Тазалоо"})
+        _j = lambda o: _sj.dumps(o, ensure_ascii=False).replace("</", "<\\/")
+        js = (_SQ_JS.replace("__POP__", _j(_sq_popular("ru" if ru else "ky")))
+                    .replace("__TXT__", _j(txt)))
+        h += _SQ_CSS + js
+    except Exception:
+        pass
+    return h
+
+
+_home_sq_base = home
+
+
+def home(q, *a, **k):
+    if q:
+        _sth.Thread(target=_sq_log, args=(q,), daemon=True).start()
+    return _home_sq_base(q, *a, **k)
+
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
