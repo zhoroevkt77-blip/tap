@@ -7097,7 +7097,7 @@ _SMH_TXT = {
 }
 _SMH_CSS = ('<style>.smh{max-width:1040px;margin:8px auto 0;padding:0 18px;font-size:13px;line-height:1.4;'
             'color:#4A5B74;display:flex;gap:6px;align-items:flex-start}'
-            '.smh b{color:#5B3FD6;white-space:nowrap}.smh i{font-style:normal}'
+            '.smh b{color:#163C8C;white-space:nowrap}.smh i{font-style:normal}'
             '.smh.off{display:none}</style>')
 _SMH_JS = r"""<script>(function(){
 var f=document.querySelector('form.s'),i=f&&f.querySelector('input[name=q]');if(!i)return;
