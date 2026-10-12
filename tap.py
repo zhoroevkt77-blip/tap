@@ -5403,6 +5403,82 @@ def detail(r, lang="ky"):
         return _dre.sub(r"\x00(\d+)\x00", lambda m: _frow_dt_base(*rows[int(m.group(1))]), h)
 
 
+
+# ── NBKR: баа сом менен доллар экөө тең ──────────────────────
+import re as _fxre
+
+_FX_NUM = _fxre.compile(r"^\s*(\$)?\s*([\d][\d\s.,]*?)\s*(сом|som|kgs|\$|usd|доллар\w*)?\s*$", _fxre.I)
+
+
+def _fx_group(n):
+    return "{:,}".format(int(n)).replace(",", " ")
+
+
+def _fx_alt(price):
+    s = str(price or "").strip()
+    if not s or is_deal(s):
+        return ""
+    m = _FX_NUM.match(s)
+    if not m:
+        return ""
+    raw = m.group(2).replace(" ", "")
+    if _fxre.search(r"[.,]\d{1,2}$", raw):
+        return ""
+    digits = _fxre.sub(r"\D", "", raw)
+    if not digits or len(digits) > 12:
+        return ""
+    n = int(digits)
+    rate = core.usd_rate()
+    if not rate or n <= 0:
+        return ""
+    usd = bool(m.group(1)) or (m.group(3) or "").lower() in ("$", "usd") or \
+        (m.group(3) or "").lower().startswith("доллар")
+    if usd:
+        som = n * rate
+        som = round(som, -1) if som < 10000 else round(som, -2)
+        return "%s сом" % _fx_group(som)
+    d = n / rate
+    if d < 1:
+        return ""
+    return "$%s" % _fx_group(round(d))
+
+
+_price_fx_base = _price
+
+
+def _price(price, lang):
+    out = _price_fx_base(price, lang)
+    try:
+        alt = _fx_alt(price)
+        if alt:
+            out = "%s ≈ %s" % (out, alt)
+    except Exception:
+        pass
+    return out
+
+
+_FX_HTML = _fxre.compile(r'(<div class="(?:p|dp)(?: [^"]*)?">)([^<]*?) ≈ ([^<]*)(</div>)')
+_page_fx_base = page
+
+
+def page(body, *a, **k):
+    h = _page_fx_base(body, *a, **k)
+    try:
+        if " ≈ " in h:
+            lang = k.get("lang") or (a[2] if len(a) > 2 else "ky")
+            r = core.usd_rate() or 0
+            tip = (("Курс НБКР: 1 $ = %.2f сом" if lang == "ru"
+                    else "Улуттук банктын курсу: 1 $ = %.2f сом") % r) if r else ""
+            h = _FX_HTML.sub(lambda m: '%s%s<small class="px2" title="%s">≈ %s</small>%s'
+                             % (m.group(1), m.group(2), tip, m.group(3), m.group(4)), h)
+            h = h.replace("</head>", '<style>.px2{display:block;font-size:.6em;'
+                          'font-weight:600;opacity:.62;margin-top:1px;white-space:nowrap}'
+                          '</style></head>', 1)
+    except Exception:
+        pass
+    return h
+
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)

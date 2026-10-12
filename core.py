@@ -1772,9 +1772,56 @@ def price_number(price):
     low = str(price or "").lower()
     if n is not None and ("$" in low or "usd" in low or "доллар" in low):
         try:
-            rate = float(os.environ.get("USD_RATE", "87") or 87)
+            rate = usd_rate() or float(os.environ.get("USD_RATE", "87") or 87)   # NBKR
         except Exception:
             rate = 87.0
         n = int(n * rate)
     return n
+
+
+# ── NBKR: Улуттук банктын доллар курсу (6 саатта бир жаңырат) ──
+import threading as _fxth
+import time as _fxt
+
+_FX = {"r": None, "t": 0.0, "try": 0.0, "busy": False}
+_FX_URL = "https://www.nbkr.kg/XML/daily.xml"
+
+
+def _fx_fetch():
+    try:
+        import urllib.request as _ur
+        import re as _fre
+        req = _ur.Request(_FX_URL, headers={"User-Agent": "Mozilla/5.0 (TAP classifieds)"})
+        x = _ur.urlopen(req, timeout=8).read().decode("utf-8", "ignore")
+        m = _fre.search(r'ISOCode="USD"\s*>\s*<Nominal>\s*(\d+)\s*</Nominal>\s*'
+                        r'<Value>\s*([\d.,]+)\s*</Value>', x)
+        if m:
+            v = float(m.group(2).replace(",", ".")) / max(1, int(m.group(1)))
+            if 20 < v < 1000:
+                _FX["r"] = v
+                _FX["t"] = _fxt.time()
+    except Exception:
+        pass
+    finally:
+        _FX["busy"] = False
+
+
+def usd_rate():
+    """1 АКШ доллары канча сом (НБКР). Белгисиз болсо USD_RATE же None."""
+    now = _fxt.time()
+    stale = _FX["r"] is None or now - _FX["t"] > 6 * 3600
+    if stale and not _FX["busy"] and now - _FX["try"] > 600:
+        _FX["busy"] = True
+        _FX["try"] = now
+        _fxth.Thread(target=_fx_fetch, daemon=True).start()
+    if _FX["r"]:
+        return _FX["r"]
+    try:
+        env = os.environ.get("USD_RATE", "").strip()
+        return float(env) if env else None
+    except Exception:
+        return None
+
+
+usd_rate()   # сервер ачылганда эле курсту алып коёбуз
 
