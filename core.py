@@ -946,9 +946,9 @@ def _filters(q=None, cat=None, region=None, sub=None,
     if village:
         sql += " AND " + VILLAGE_EXPR + "=?"; p.append(village)
     if pmin is not None:
-        sql += " AND price_num IS NOT NULL AND price_num>=?"; p.append(int(pmin))
+        sql += " AND CAST(NULLIF(CAST(price_num AS TEXT), '') AS BIGINT)>=?"   # PRICEFIX; p.append(int(pmin))
     if pmax is not None:
-        sql += " AND price_num IS NOT NULL AND price_num<=?"; p.append(int(pmax))
+        sql += " AND CAST(NULLIF(CAST(price_num AS TEXT), '') AS BIGINT)<=?"; p.append(int(pmax))
     if q and q.strip():
         # Ар бир сөз өз-өзүнчө изделет — «кызыл кийим» деп жазса да табылат.
         # Ар бир сөзгө синонимдери да кошулат, ошондуктан «квартира» деп
@@ -970,8 +970,8 @@ def _filters(q=None, cat=None, region=None, sub=None,
 SORTS = {
     "new":   "id DESC",                                   # жаңысынан
     "old":   "id ASC",                                    # эскисинен
-    "cheap": "price_num IS NULL, price_num ASC, id DESC",  # арзандан
-    "rich":  "price_num IS NULL, price_num DESC, id DESC",  # кымбаттан
+    "cheap": "CAST(NULLIF(CAST(price_num AS TEXT), '') AS BIGINT) IS NULL, CAST(NULLIF(CAST(price_num AS TEXT), '') AS BIGINT) ASC, id DESC",  # арзандан
+    "rich":  "CAST(NULLIF(CAST(price_num AS TEXT), '') AS BIGINT) IS NULL, CAST(NULLIF(CAST(price_num AS TEXT), '') AS BIGINT) DESC, id DESC",  # кымбаттан
     "views": "views DESC, id DESC",                        # көп көрүлгөн
 }
 
