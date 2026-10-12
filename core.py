@@ -907,8 +907,9 @@ def _filters(q=None, cat=None, region=None, sub=None,
         sql += " AND ad_type=?"; p.append(ad_type)
     if cat_id:
         sql += " AND cat_id=?"; p.append(cat_id)
-    if sub_id:
-        sql += " AND sub_id=?"; p.append(sub_id)
+    if sub_id:   # SUBALL: бир нече субкатегория «А | Б»
+        sql += " AND (' | ' || COALESCE(sub_id,'') || ' | ') LIKE ?"
+        p.append("% | " + sub_id + " | %")
     if oblast:
         _tn = _taxi_names(oblast)   # TAXIOB
         if _tn:
@@ -1436,7 +1437,13 @@ def subid_counts(ad_type=None, cat_id=None, oblast=None, district=None,
                         district=district, village=village, locality=locality)
     rows = query("SELECT sub_id, COUNT(*) AS n FROM listings WHERE is_active=1"
                  + where + " GROUP BY sub_id", tuple(p), fetch="all")
-    return {r["sub_id"]: r["n"] for r in rows if r["sub_id"]}
+    out = {}   # SUBALL
+    for r in rows:
+        for s in str(r["sub_id"] or "").split(" | "):
+            s = s.strip()
+            if s:
+                out[s] = out.get(s, 0) + r["n"]
+    return out
 
 
 # Айыл да, кичи район да ушул бир туюнтма менен эсептелет.

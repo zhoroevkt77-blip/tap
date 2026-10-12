@@ -2627,6 +2627,16 @@ _CAT_CHIPS_CSS = ('<style>.regcat{display:flex;gap:8px;overflow-x:auto;'
                   '</style>')
 
 
+def _sub_full(at, cid):   # SUBALL
+    out = {"Башка": "Башка / Другое"}
+    for c in (_CAT_LISTS.get(at) or []):
+        if c.get("id") == cid:
+            for x in (c.get("subs") or []):
+                if isinstance(x, str) and " / " in x:
+                    out[x.split(" / ")[0].strip()] = x
+    return out
+
+
 def _chips_row(label, opts, cur, lang):
     """Тандоо тизмесинин ордуна горизонталдуу чиптер.
 
@@ -2672,10 +2682,22 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
             if at == "taxi" and cid == "taxi_airport":   # TAXI_AIR
                 sc = {k: sc.get(k, 0) for k in TAXI_AIRPORT_SUBS}
                 _items = list(sc.items())
-            else:
-                _items = sorted(sc.items(), key=lambda x: (-x[1], x[0]))
+            else:   # SUBALL: каталогдогу бардык субкатегориялар
+                _cat = [str(x).split(" / ")[0].strip()
+                        for c in (_CAT_LISTS.get(at) or []) if c.get("id") == cid
+                        for x in (c.get("subs") or []) if isinstance(x, str)]
+                _cat = [x for x in dict.fromkeys(_cat) if x]
+                _oth = [x for x in _cat if x.lower() == "башка"]
+                _cat = [x for x in _cat if x.lower() != "башка"]
+                _ex = [k for k in sc if k not in _cat and k.lower() != "башка"]
+                _items = sorted([(k, sc.get(k, 0)) for k in _cat + _ex],
+                                key=lambda x: -x[1])
+                if _oth or "Башка" in sc:
+                    _items.append(("Башка", sc.get("Башка", 0)))
             for code, n in _items:
-                opts.append((code, link(sid=code), _ky(code, lang), n))
+                _fl = _sub_full(at, cid).get(code)   # SUBALL: орусча аты каталогдон
+                opts.append((code, link(sid=code),
+                             L(_fl, lang) if _fl else _ky(code, lang), n))
             if len(opts) > 1:
                 inner += _chips_row("Субкатегория", opts, sid, lang)
 
