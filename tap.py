@@ -2626,6 +2626,9 @@ def _chips_row(label, opts, cur, lang):
     жок болсо, баары көрсөтүлөт (тизме бош калбасын).
     """
     live = opts   # CHIP_ALL: бардык категориялар ар дайым көрүнөт
+    if cur:   # CHIPLEFT: тандалганы эң солго
+        live = ([o for o in live if o[0] == cur]
+                + [o for o in live if o[0] != cur])
     out = ""
     for code, href, nm, n in live:
         out += _chip(href, nm, code == cur, n or 0, lang, short=False)
