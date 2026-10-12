@@ -6325,7 +6325,7 @@ def _ai_bar(aiq, lang):
     chips = _ai_chips(r, aiq, lang)
     h = ('<div class="aib"><div class="aih"><span class="ait">✨ %s</span>'
          '<a class="aio" href="/?%s">%s</a></div>'
-         % ("ИИ понял" if ru else "ИИ түшүндү", _aup.urlencode({"q": aiq, "ai": "0"}),
+         % ("Умный поиск" if ru else "Акылдуу издөө", _aup.urlencode({"q": aiq, "ai": "0"}),
             "Обычный поиск ›" if ru else "Кадимки издөө ›"))
     for key, lb in chips:
         h += '<a class="aic" href="%s">%s<i>✕</i></a>' % (esc(_ai_url(r, aiq, key)), esc(lb))
@@ -7081,6 +7081,53 @@ def page(body, *a, **k):
         pass
     return h
 # ── BADGES_END
+
+
+
+
+# ── SMARTHINT: «✨ Акылдуу издөө» — алмашып турган мисалдар жана кеңеш ──
+_SMH_EX = {
+    "ky": ["2 бөлмө батир Ош 40 миң", "Арзан Camry Бишкек", "Суткалык батир Ош", "Үй Жалал-Абад 3 млн"],
+    "ru": ["квартира Бишкек до 30 тыс", "Camry Ош до 15000$", "посуточно Ош", "дом Джалал-Абад до 3 млн"],
+}
+_SMH_TXT = {
+    "ky": ("Акылдуу издөө:", "сүйлөм менен жазыңыз — баасын, шаарын, бөлмөсүн өзүбүз түшүнөбүз"),
+    "ru": ("Умный поиск:", "пишите как говорите — цену, город и комнаты поймём сами"),
+}
+_SMH_CSS = ('<style>.smh{max-width:1040px;margin:8px auto 0;padding:0 18px;font-size:13px;line-height:1.4;'
+            'color:#4A5B74;display:flex;gap:6px;align-items:flex-start}'
+            '.smh b{color:#5B3FD6;white-space:nowrap}.smh i{font-style:normal}'
+            '.smh.off{display:none}</style>')
+_SMH_JS = r"""<script>(function(){
+var f=document.querySelector('form.s'),i=f&&f.querySelector('input[name=q]');if(!i)return;
+var E=__EX__,k=0,h=document.querySelector('.smh');
+try{if(document.querySelector('.aib'))localStorage.setItem('tap_aiok','1');
+ if(h&&localStorage.getItem('tap_aiok'))h.classList.add('off');}catch(e){}
+function nx(){if(document.activeElement===i||i.value)return;k=(k+1)%E.length;i.setAttribute('placeholder',E[k]);}
+i.setAttribute('placeholder',E[0]);setInterval(nx,3000);
+})();</script>"""
+
+_header_smh_base = header
+
+
+def header(q="", at=None, reg=None, lang="ky"):
+    h = _header_smh_base(q, at, reg, lang)
+    try:
+        lg = "ru" if lang == "ru" else "ky"
+        ex = _SMH_EX[lg]
+        h = _sre2.sub(r'(<input type="search" name="q"[^>]*?placeholder=")[^"]*(")',
+                      lambda m: m.group(1) + esc(ex[0]) + m.group(2), h, count=1)
+        if not q:
+            m = _sre2.search(r'<form[^>]*class="s[" ][^>]*>.*?</form>', h, _sre2.S)
+            if m:
+                t1, t2 = _SMH_TXT[lg]
+                tip = '<div class="smh"><span>✨</span><i><b>%s</b> %s</i></div>' % (esc(t1), esc(t2))
+                h = h[:m.end()] + tip + h[m.end():]
+        h += _SMH_CSS + _SMH_JS.replace("__EX__", _sj.dumps(ex, ensure_ascii=False).replace("</", "<\\/"))
+    except Exception:
+        pass
+    return h
+# ── SMARTHINT_END
 
 
 
