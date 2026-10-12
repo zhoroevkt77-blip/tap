@@ -5639,6 +5639,213 @@ def header(q="", at=None, reg=None, lang="ky"):
     return h + _SS_CSS + _SS_JS
 
 
+
+# ── CALCX: 1 м² баасы, ипотека, кредит, растаможка ───────────
+import re as _cre2
+import threading as _cth
+import time as _ctt
+
+_FXE = {"usd": None, "eur": None, "t": 0.0, "try": 0.0, "busy": False}
+
+
+def _fxe_fetch():
+    try:
+        import urllib.request as _ur
+        x = _ur.urlopen(_ur.Request("https://www.nbkr.kg/XML/daily.xml",
+                                    headers={"User-Agent": "Mozilla/5.0 (TAP)"}), timeout=8
+                        ).read().decode("utf-8", "ignore")
+        for cur in ("USD", "EUR"):
+            m = _cre2.search(r'ISOCode="%s"\s*>\s*<Nominal>\s*(\d+)\s*</Nominal>\s*'
+                             r'<Value>\s*([\d.,]+)\s*</Value>' % cur, x)
+            if m:
+                v = float(m.group(2).replace(",", ".")) / max(1, int(m.group(1)))
+                if 20 < v < 1000:
+                    _FXE[cur.lower()] = v
+        _FXE["t"] = _ctt.time()
+    except Exception:
+        pass
+    finally:
+        _FXE["busy"] = False
+
+
+def _fxe():
+    now = _ctt.time()
+    if (not _FXE["eur"] or now - _FXE["t"] > 6 * 3600) and not _FXE["busy"] and now - _FXE["try"] > 600:
+        _FXE["busy"] = True
+        _FXE["try"] = now
+        _cth.Thread(target=_fxe_fetch, daemon=True).start()
+    usd = _FXE["usd"]
+    try:
+        usd = usd or core.usd_rate()
+    except Exception:
+        pass
+    return usd or 87.45, _FXE["eur"] or 0
+
+
+_fxe()
+
+
+def _cx_facts(r):
+    f = {}
+    for ln in str(r.get("description") or "").splitlines():
+        if ":" in ln:
+            k, v = ln.split(":", 1)
+            f[k.strip().lower()] = v.strip()
+    return f
+
+
+def _cx_num(s):
+    m = _cre2.search(r"\d+(?:[.,]\d+)?", str(s or "").replace(" ", ""))
+    return float(m.group().replace(",", ".")) if m else None
+
+
+_CX_CSS = """<style>
+.cx{background:#fff;border-radius:18px;box-shadow:0 1px 6px rgba(11,27,48,.07);margin:12px 0;overflow:hidden}
+.cx summary{list-style:none;cursor:pointer;padding:14px 16px;font-weight:800;font-size:15.5px;display:flex;justify-content:space-between;color:#0B1B30}
+.cx summary::-webkit-details-marker{display:none}.cx summary::after{content:'▾';color:#5A6B82}.cx[open] summary::after{content:'▴'}
+.cxb{padding:0 16px 14px}.cxr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0}
+.cxr label{color:#5A6B82;font-size:13.5px;font-weight:600}
+.cxr input,.cxr select{width:46%;border:1.5px solid #D5DEEC;border-radius:10px;padding:8px 10px;font-size:15px;font-weight:700;text-align:right;background:#fff;color:#0B1B30}
+.cxp{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}.cxp button{border:1.5px solid #D5DEEC;background:#fff;border-radius:999px;padding:6px 11px;font-weight:700;font-size:12.5px;cursor:pointer}
+.cxo{margin-top:10px;background:#EEF4FF;border-radius:14px;padding:12px}
+.cxo .k{font-size:12px;color:#5A6B82;font-weight:700}.cxo .v{font-size:22px;font-weight:900;color:#163C8C}
+.cxo .br{font-size:12.5px;color:#33435a;margin-top:6px;line-height:1.55}
+.cxn{font-size:11.5px;color:#7A889C;margin-top:8px;line-height:1.45}.cxn a{color:#2556C7}
+.ppm{font-size:13px;color:#5A6B82;font-weight:700;margin-top:2px}
+</style>"""
+
+_CX_JS = r"""<script>(function(){
+function g(id){return document.getElementById(id);}
+function v(id){var e=g(id);return e?parseFloat(String(e.value).replace(/\s/g,'').replace(',','.'))||0:0;}
+function f(n){return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ');}
+function ann(P,y,n){var i=y/1200;return i?P*i/(1-Math.pow(1+i,-n)):P/n;}
+var ru=document.documentElement.lang==='ru';
+function mort(){if(!g('cxm_p'))return;var P=v('cxm_p'),d=v('cxm_d'),y=v('cxm_r'),n=v('cxm_y')*12;
+ var L=P*(1-d/100);g('cxm_o').textContent=n>0&&L>0?('≈ '+f(ann(L,y,n))+(ru?' сом/мес':' сом/ай')):'—';
+ g('cxm_b').textContent=(ru?'Кредит: ':'Кредит: ')+f(L)+(ru?' сом · переплата ≈ ':' сом · ашыкча төлөм ≈ ')+f(ann(L,y,n)*n-L)+' сом';}
+function cred(){if(!g('cxc_p'))return;var P=v('cxc_p'),d=v('cxc_d'),y=v('cxc_r'),n=v('cxc_m');
+ var L=P*(1-d/100);g('cxc_o').textContent=n>0&&L>0?('≈ '+f(ann(L,y,n))+(ru?' сом/мес':' сом/ай')):'—';
+ g('cxc_b').textContent=(ru?'Кредит: ':'Кредит: ')+f(L)+(ru?' сом · переплата ≈ ':' сом · ашыкча төлөм ≈ ')+f(ann(L,y,n)*n-L)+' сом';}
+function cust(){if(!g('cxt_v'))return;var U=+g('cxt').getAttribute('data-usd'),E=+g('cxt').getAttribute('data-eur');
+ var val=v('cxt_v')*U,yr=v('cxt_y'),cc=v('cxt_c'),fu=g('cxt_f').value,age=new Date().getFullYear()-yr,du=0,note='';
+ if(!E||!yr||!cc&&fu!=='e'){g('cxt_o').textContent='—';g('cxt_b').textContent='';return;}
+ var pb=[[1000,.36],[1500,.4],[1800,.36],[3000,.44],[1e9,.8]],db=[[1500,.32],[2500,.4],[1e9,.8]];
+ var po=[[1000,1.4],[1500,1.5],[1800,1.6],[3000,2.2],[1e9,3.2]],dO=[[1500,1.5],[2500,2.2],[1e9,3.2]];
+ function band(t){for(var i=0;i<t.length;i++)if(cc<=t[i][0])return t[i][1];return t[t.length-1][1];}
+ var dz=(fu==='d');
+ if(fu==='e'){du=0;note=ru?'Электромобиль: пошлина 0 в пределах льготной квоты':'Электромобиль: жеңилдик квотасы ичинде пошлина 0';}
+ else if(age<3){du=val*((!dz&&cc>2800)?0.125:0.15);}
+ else if(age<=7){du=Math.max(val*0.2,band(dz?db:pb)*cc*E);}
+ else{du=band(dz?dO:po)*cc*E;}
+ var fee=val*0.004,vat=(fu==='e'&&age<5)?0:(val+du)*0.12,tot=du+fee+vat;
+ g('cxt_o').textContent='≈ '+f(tot)+' сом';
+ g('cxt_b').innerHTML=(ru?'Пошлина':'Пошлина')+': '+f(du)+' сом<br>'+(ru?'Таможенный сбор 0,4%':'Бажы жыйымы 0,4%')+': '+f(fee)+' сом<br>'+(ru?'НДС 12%':'НДС 12%')+': '+f(vat)+' сом'+(note?'<br>'+note:'')+'<br>≈ $'+f(tot/U);}
+document.querySelectorAll('.cx input,.cx select').forEach(function(e){e.addEventListener('input',function(){mort();cred();cust();});});
+document.querySelectorAll('.cxp button').forEach(function(b){b.onclick=function(){var t=g(b.getAttribute('data-t'));if(t){t.value=b.getAttribute('data-v');mort();cred();}};});
+mort();cred();cust();})();</script>"""
+
+
+def _cx_row(lb, iid, val, step="any"):
+    return ('<div class="cxr"><label for="%s">%s</label><input id="%s" type="number" inputmode="decimal" step="%s" value="%s"></div>'
+            % (iid, esc(lb), iid, step, esc(str(val))))
+
+
+def _cx_block(r, lang):
+    ru = (lang == "ru")
+    at = r.get("ad_type") or ""
+    price = core.price_number(r.get("price")) if not is_deal(r.get("price")) else None
+    f = _cx_facts(r)
+    usd, eur = _fxe()
+    out, ppm = "", ""
+    nb = ("Примерный расчёт. Точную сумму уточняйте в банке." if ru
+          else "Болжолдуу эсеп. Так сумманы банктан тактаңыз.")
+    if at == "property" and price:
+        area = None
+        for k in ("аянты", "площадь"):
+            if f.get(k):
+                area = _cx_num(f[k])
+                break
+        if area and area >= 5 and "сотых" not in str(f.get("аянты", "")):
+            ppm = "%s сом / 1 м²" % "{:,}".format(int(round(price / area))).replace(",", " ")
+        out += ('<details class="cx"><summary>🏦 %s</summary><div class="cxb">' % ("Ипотека" if ru else "Ипотека калькулятору")
+                + _cx_row("Баасы, сом" if ru else "Баасы, сом", "cxm_p", int(price), "1000")
+                + _cx_row("Первый взнос, %" if ru else "Алгачкы төлөм, %", "cxm_d", 20, "1")
+                + _cx_row("Ставка, % годовых" if ru else "Пайызы, жылдык %", "cxm_r", 18, "0.5")
+                + _cx_row("Срок, лет" if ru else "Мөөнөтү, жыл", "cxm_y", 15, "1")
+                + '<div class="cxp"><button type="button" data-t="cxm_r" data-v="8">🏛 %s ~8%%</button>'
+                  '<button type="button" data-t="cxm_r" data-v="18">🏦 %s ~18%%</button></div>'
+                  % ("ГИК (госипотека)" if ru else "ГИК (мамлекеттик)", "Банк")
+                + '<div class="cxo"><div class="k">%s</div><div class="v" id="cxm_o">—</div><div class="br" id="cxm_b"></div></div>'
+                  % ("В месяц" if ru else "Айына")
+                + '<div class="cxn">≈ %s</div></div></details>' % nb)
+    if at == "vehicle":
+        if price:
+            out += ('<details class="cx"><summary>💳 %s</summary><div class="cxb">' % ("Автокредит" if ru else "Кредит калькулятору")
+                    + _cx_row("Цена, сом" if ru else "Баасы, сом", "cxc_p", int(price), "1000")
+                    + _cx_row("Первый взнос, %" if ru else "Алгачкы төлөм, %", "cxc_d", 30, "1")
+                    + _cx_row("Ставка, % годовых" if ru else "Пайызы, жылдык %", "cxc_r", 20, "0.5")
+                    + _cx_row("Срок, мес." if ru else "Мөөнөтү, ай", "cxc_m", 24, "1")
+                    + '<div class="cxo"><div class="k">%s</div><div class="v" id="cxc_o">—</div><div class="br" id="cxc_b"></div></div>'
+                      % ("В месяц" if ru else "Айына")
+                    + '<div class="cxn">≈ %s</div></div></details>' % nb)
+        yr = _cx_num(f.get("жылы") or f.get("год"))
+        eng = ""
+        for k in ("көлөмү", "кыймылдаткыч", "объём", "двигатель"):
+            if f.get(k):
+                m = _cre2.search(r"(\d+(?:[.,]\d)?)\s*л", f[k])
+                if m:
+                    eng = m.group(1).replace(",", ".")
+                    break
+        cc = int(float(eng) * 1000) if eng else ""
+        fl = str(f.get("отуну") or f.get("топливо") or f.get("кыймылдаткыч") or "").lower()
+        fu = "e" if "электр" in fl else ("d" if "дизел" in fl else "p")
+        val = int(round(price / usd)) if price and usd else ""
+        sel = lambda k, t: '<option value="%s"%s>%s</option>' % (k, " selected" if k == fu else "", t)
+        out += ('<details class="cx"><summary>🧮 %s</summary><div class="cxb" id="cxt" data-usd="%.4f" data-eur="%.4f">'
+                % ("Калькулятор растаможки" if ru else "Растаможка калькулятору", usd, eur or 0)
+                + _cx_row("Стоимость авто, $" if ru else "Унаанын баасы, $", "cxt_v", val, "100")
+                + _cx_row("Год выпуска" if ru else "Чыккан жылы", "cxt_y", int(yr) if yr else "", "1")
+                + _cx_row("Объём, см³" if ru else "Көлөмү, см³", "cxt_c", cc, "100")
+                + '<div class="cxr"><label for="cxt_f">%s</label><select id="cxt_f">%s%s%s</select></div>'
+                  % ("Топливо" if ru else "Отуну", sel("p", "Бензин / гибрид"), sel("d", "Дизель"),
+                     sel("e", "Электр" if not ru else "Электро"))
+                + '<div class="cxo"><div class="k">%s</div><div class="v" id="cxt_o">—</div><div class="br" id="cxt_b"></div></div>'
+                  % ("Платежи на таможне" if ru else "Бажы төлөмдөрү")
+                + '<div class="cxn">≈ %s %s <a href="https://www.customs.gov.kg" target="_blank" rel="noopener">customs.gov.kg</a></div></div></details>'
+                  % ("Примерный расчёт по ставкам ЕТТ ЕАЭС (общий порядок): 2026 г. Курс НБКР: 1 € = %.2f сом. Точную сумму уточняйте в"
+                     % (eur or 0) if ru else
+                     "ЕАЭБ ставкалары (жалпы тартип) боюнча болжолдуу эсеп, 2026-ж. НБКР курсу: 1 € = %.2f сом. Так сумманы бажыдан тактаңыз:"
+                     % (eur or 0), ""))
+    return out, ppm
+
+
+_detail_cx_base = detail
+
+
+def detail(r, lang="ky"):
+    h = _detail_cx_base(r, lang)
+    try:
+        blk, ppm = _cx_block(r, lang)
+        if ppm:
+            m = _cre2.search(r'(<div class="dp[^"]*">.*?</div>)', h, _cre2.S)
+            if m:
+                h = h[:m.end()] + '<div class="ppm">%s</div>' % ppm + h[m.end():]
+        if blk:
+            blk = _CX_CSS + blk + _CX_JS
+            i = h.find('<div class="share">')
+            if i < 0:
+                i = h.rfind("</main>")
+            if i >= 0:
+                h = h[:i] + blk + h[i:]
+            elif ppm:
+                h = h.replace("</body>", _CX_CSS + "</body>", 1)
+        elif ppm:
+            h = h.replace("</head>", _CX_CSS + "</head>", 1)
+    except Exception:
+        pass
+    return h
+
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
