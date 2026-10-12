@@ -4607,6 +4607,9 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/ss":   # SAVEDSRCH
             _json_out(self, _ss_check(qs.get("s", ["[]"])[0], lang))
             return
+        if u.path == "/voicetest":   # VOICETEST
+            self._send(_VOICE_PAGE)
+            return
         if u.path == "/api/verify/start":   # WEB_VERIFY
             tok = core.web_verify_start(qs.get("phone", [""])[0])
             _json_out(self, {"ok": bool(tok), "token": tok,
@@ -5844,6 +5847,71 @@ def detail(r, lang="ky"):
     except Exception:
         pass
     return h
+
+
+
+# ── VOICETEST: үн менен издөөнү сынап көрүү ──────────────────
+_VOICE_PAGE = """<!DOCTYPE html><html lang="ky"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>🎤 Үн сыноо — ТАП!</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#F3F6FB;color:#0B1B30;padding:18px 16px 40px}
+h1{font-size:22px;margin:4px 0 6px}.sub{color:#5A6B82;font-size:14px;margin-bottom:16px;line-height:1.45}
+.seg{display:flex;background:#E6ECF5;border-radius:14px;padding:4px;gap:4px;margin-bottom:18px}
+.seg button{flex:1;border:0;background:none;padding:11px;border-radius:11px;font-weight:800;font-size:15px;color:#5A6B82}
+.seg button.on{background:#fff;color:#163C8C;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.mic{display:block;margin:6px auto 10px;width:112px;height:112px;border-radius:50%;border:0;font-size:46px;color:#fff;
+background:linear-gradient(135deg,#2556C7,#163C8C);box-shadow:0 10px 26px rgba(22,60,140,.35)}
+.mic.rec{background:linear-gradient(135deg,#E5484D,#B3261E);animation:p 1.1s infinite}
+@keyframes p{0%{box-shadow:0 0 0 0 rgba(229,72,77,.5)}100%{box-shadow:0 0 0 26px rgba(229,72,77,0)}}
+.st{text-align:center;color:#5A6B82;font-weight:700;min-height:22px;margin-bottom:12px}
+.box{background:#fff;border-radius:16px;padding:14px;box-shadow:0 1px 6px rgba(11,27,48,.07);margin-bottom:12px}
+.box .k{font-size:12px;font-weight:800;color:#5A6B82;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.txt{font-size:20px;font-weight:700;min-height:28px}.tmp{color:#8A97AB}
+.alt{font-size:14px;color:#33435a;padding:5px 0;border-bottom:1px solid #EEF2F7}.alt b{color:#163C8C}
+.err{background:#FDE8E8;color:#8A1C1C;border-radius:14px;padding:12px;font-size:14px;line-height:1.45;display:none;margin-bottom:12px}
+.ok{background:#FFF6DC;border-radius:14px;padding:12px;font-size:13.5px;line-height:1.5;color:#5B4300}
+.hist .alt{display:flex;justify-content:space-between;gap:8px}.hist small{color:#8A97AB;white-space:nowrap}
+</style></head><body>
+<h1>🎤 Үн менен издөө — сыноо</h1>
+<div class="sub">Тилди тандап, микрофонду басыңыз да, издегениңизди айтыңыз. Мисалы: <b>«Оштон 40 миңге чейин эки бөлмөлүү батир»</b></div>
+<div class="seg"><button type="button" data-l="ky-KG" class="on">🇰🇬 Кыргызча</button><button type="button" data-l="ru-RU">🇷🇺 Русский</button></div>
+<div class="err" id="err"></div>
+<button class="mic" id="mic" type="button">🎤</button>
+<div class="st" id="st">Басып, сүйлөңүз</div>
+<div class="box"><div class="k">Таанылган текст</div><div class="txt" id="txt"><span class="tmp">…</span></div></div>
+<div class="box"><div class="k">Башка варианттар (ишенимдүүлүгү)</div><div id="alts"><div class="alt" style="color:#8A97AB">—</div></div></div>
+<div class="box hist"><div class="k">Сыноолор</div><div id="hist"><div class="alt" style="color:#8A97AB">—</div></div></div>
+<div class="ok">💡 Ар бир тилде 3–4 сүйлөм айтып көрүңүз. Канчалык так тааныганын скриншот кылып жибериңиз — ошого жараша чечебиз.</div>
+<script>
+(function(){
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition,lang='ky-KG',rec=null,on=false,hist=[];
+var $=function(i){return document.getElementById(i);};
+function err(t){var e=$('err');e.innerHTML=t;e.style.display=t?'block':'none';}
+var ua=navigator.userAgent||'';
+if(/Telegram/i.test(ua))err('⚠️ Бул бет Telegram\\'дын ичинде ачылды. Микрофон иштебеши мүмкүн. ⋮ → <b>«Открыть в браузере»</b> басып, Chrome\\'до ачыңыз.');
+if(!SR){err('❌ Бул браузерде үн таануу жок. Android\\'де <b>Chrome</b> менен ачыңыз.');$('mic').disabled=true;$('mic').style.opacity=.4;return;}
+document.querySelectorAll('.seg button').forEach(function(b){b.onclick=function(){
+ document.querySelectorAll('.seg button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');lang=b.getAttribute('data-l');
+ $('st').textContent=lang==='ru-RU'?'Нажмите и говорите':'Басып, сүйлөңүз';if(on&&rec)rec.stop();};});
+function start(){
+ err('');rec=new SR();rec.lang=lang;rec.interimResults=true;rec.maxAlternatives=4;rec.continuous=false;
+ var t0=Date.now();
+ rec.onstart=function(){on=true;$('mic').classList.add('rec');$('st').textContent=lang==='ru-RU'?'Слушаю…':'Угуп жатам…';};
+ rec.onresult=function(e){var fin='',tmp='';for(var i=e.resultIndex;i<e.results.length;i++){var r=e.results[i];
+   if(r.isFinal){fin+=r[0].transcript;var h='';for(var k=0;k<r.length;k++)h+='<div class="alt"><b>'+Math.round((r[k].confidence||0)*100)+'%</b> · '+r[k].transcript.replace(/</g,'&lt;')+'</div>';$('alts').innerHTML=h||'—';}
+   else tmp+=r[0].transcript;}
+  if(fin){$('txt').textContent=fin;hist.unshift({l:lang==='ru-RU'?'RU':'KG',t:fin,s:((Date.now()-t0)/1000).toFixed(1)});
+   $('hist').innerHTML=hist.slice(0,8).map(function(x){return '<div class="alt"><span>'+x.l+' · '+x.t.replace(/</g,'&lt;')+'</span><small>'+x.s+' сек</small></div>';}).join('');}
+  else if(tmp)$('txt').innerHTML='<span class="tmp">'+tmp.replace(/</g,'&lt;')+'</span>';};
+ rec.onerror=function(e){var m={'not-allowed':'🎤 Микрофонго уруксат берилген жок. Браузердин жөндөөсүнөн уруксат бериңиз.',
+   'language-not-supported':'❌ Бул тил ('+lang+') бул браузерде колдоого алынбайт.','no-speech':'🤫 Үн угулган жок, кайра аракет кылыңыз.',
+   'network':'📶 Интернет байланышы жок же үн таануу кызматы жеткиликсиз.','audio-capture':'🎤 Микрофон табылган жок.'};
+  err(m[e.error]||('Ката: '+e.error));};
+ rec.onend=function(){on=false;$('mic').classList.remove('rec');$('st').textContent=lang==='ru-RU'?'Нажмите и говорите':'Басып, сүйлөңүз';};
+ try{rec.start();}catch(x){err('Ката: '+x.message);}}
+$('mic').onclick=function(){if(on&&rec){rec.stop();return;}start();};
+})();
+</script></body></html>"""
 
 
 if __name__ == "__main__":
