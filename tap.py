@@ -6566,6 +6566,183 @@ def _ai_route(qs, q, at, cid, sid):
 
 
 
+
+# ── FXUI: «⚙ Чыпкалар» панели (баа, тартиби, сүрөт, ээсинен) ──
+_FXUI_CSS = """<style>
+.fxr{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;
+ margin:10px 0 0;padding:0 16px 2px}
+.fxr::-webkit-scrollbar{display:none}
+.fxr .fxbtn{flex:none;display:inline-flex;align-items:center;gap:7px;border:0;cursor:pointer;
+ background:#163C8C;color:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-weight:800;font-size:13.5px;
+ box-shadow:0 3px 10px rgba(22,60,140,.25)}
+.fxr .fxbtn b{background:#fff;color:#163C8C;border-radius:999px;min-width:19px;height:19px;
+ display:grid;place-items:center;font-size:11.5px;padding:0 5px}
+.fxr .fxch{flex:none;display:inline-flex;align-items:center;gap:6px;background:#EEF4FF;color:#163C8C;
+ border-radius:999px;padding:7px 7px 7px 12px;font-weight:700;font-size:12.5px;text-decoration:none;white-space:nowrap}
+.fxr .fxch i{font-style:normal;width:18px;height:18px;border-radius:50%;background:#DCE6F7;
+ display:grid;place-items:center;font-size:9px}
+.fxs{position:fixed;inset:0;z-index:9999;display:none}
+.fxs.on{display:block}
+.fxs .fxbg{position:absolute;inset:0;background:rgba(11,27,48,.45)}
+.fxs .fxp{position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:560px;max-height:88vh;overflow:auto;
+ background:#fff;border-radius:22px 22px 0 0;padding:8px 18px calc(18px + env(safe-area-inset-bottom));
+ box-shadow:0 -10px 30px rgba(0,0,0,.18);animation:fxu .22s ease-out;box-sizing:border-box;color:#0B1B30}
+@keyframes fxu{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.fxp .fxgr{width:42px;height:5px;border-radius:9px;background:#D5DDE9;margin:2px auto 10px}
+.fxp .fxh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.fxp .fxh b{font-size:19px}
+.fxp .fxh button{border:0;background:#EEF2F7;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer}
+.fxp .fxl{font-size:12px;font-weight:800;color:#5A6B82;text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px}
+.fxp .fx2{display:flex;align-items:center;gap:8px}
+.fxp .fx2 input{flex:1;min-width:0;border:1.5px solid #D5DDE9;border-radius:12px;padding:12px;font:inherit;font-size:16px}
+.fxp .fx2 input:focus{outline:0;border-color:#2556C7}
+.fxp .fxq{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.fxp .fxq button{border:1px solid #D5DDE9;background:#fff;border-radius:999px;padding:6px 11px;font:inherit;font-size:12.5px;font-weight:700;color:#33435a;cursor:pointer}
+.fxp .fxrd{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fxp .fxrd label,.fxp .fxc{display:flex;align-items:center;gap:9px;border:1.5px solid #E1E7F0;border-radius:12px;
+ padding:11px 12px;font-weight:700;font-size:14px;cursor:pointer}
+.fxp .fxc{margin-top:8px}
+.fxp .fxrd label:has(input:checked),.fxp .fxc:has(input:checked){border-color:#2556C7;background:#EEF4FF;color:#163C8C}
+.fxp input[type=radio],.fxp input[type=checkbox]{width:18px;height:18px;accent-color:#2556C7;margin:0}
+.fxp .fxc small{display:block;font-weight:500;color:#6B7A90;font-size:12px}
+.fxp .fxf{display:flex;gap:10px;margin-top:20px;position:sticky;bottom:0;background:#fff;padding-top:8px}
+.fxp .fxf a{flex:1;text-align:center;padding:14px;border-radius:14px;background:#EEF2F7;color:#33435a;font-weight:800;text-decoration:none}
+.fxp .fxf button{flex:2;border:0;padding:14px;border-radius:14px;background:linear-gradient(180deg,#2458C6,#163C8C);
+ color:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
+</style>"""
+
+_FXUI_JS = """<script>
+function fxo(o){var s=document.getElementById('fxs');if(!s)return;s.classList.toggle('on',!!o);
+document.documentElement.style.overflow=o?'hidden':'';}
+(function(){var f=document.getElementById('fxf');if(!f)return;
+f.querySelectorAll('.fxq button').forEach(function(b){b.onclick=function(){
+ f.querySelector('[name=pn]').value=b.getAttribute('data-n')||'';f.querySelector('[name=px]').value=b.getAttribute('data-x')||'';};});
+f.querySelectorAll('[name=pn],[name=px]').forEach(function(i){i.oninput=function(){
+ var d=i.value.replace(/\\D/g,'');i.value=d?(+d).toLocaleString('ru-RU').replace(/,/g,' '):'';};});
+f.onsubmit=function(){f.querySelectorAll('input').forEach(function(i){
+ if(i.name==='pn'||i.name==='px')i.value=i.value.replace(/\\D/g,'');
+ if((i.type==='text'||i.type==='hidden')&&!i.value)i.disabled=true;
+ if(i.type==='radio'&&i.checked&&i.value==='new')i.disabled=true;});};
+})();
+</script>"""
+
+_FX_OWNER_AT = ("property", "vehicle", "trade", "markets", "malls")
+_FX_QUICK = {
+    "rental": ((None, 15000), (None, 30000), (None, 50000), (50000, None)),
+    "property": ((None, 3000000), (None, 6000000), (None, 10000000), (10000000, None)),
+    "vehicle": ((None, 500000), (None, 1000000), (None, 2000000), (2000000, None)),
+    "job": ((30000, None), (50000, None), (80000, None)),
+    "jobseek": ((None, 30000), (None, 50000), (None, 80000)),
+}
+_FX_QUICK_DEF = ((None, 1000), (None, 5000), (None, 20000), (20000, None))
+
+
+def _fx_short(n):
+    n = int(n)
+    if n >= 1000000:
+        v = n / 1000000.0
+        return ("%g" % round(v, 1)).replace(".", ",") + " млн"
+    if n >= 1000:
+        return "%g миң" % round(n / 1000.0, 1)
+    return str(n)
+
+
+def _fxui(cur, st, at, lang, skip_price):
+    ru = (lang == "ru")
+    T = (lambda k, r: r if ru else k)
+    u = _fxup.urlsplit(cur or "/")
+    qs = [(k, v) for k, v in _fxup.parse_qsl(u.query) if v]
+    base = [(k, v) for k, v in qs if k not in ("px", "pn", "ph", "ow", "sort", "ai", "aiq")]
+    srt = next((v for k, v in qs if k == "sort"), "new")
+    nact = (1 if (st.get("px") or st.get("pn")) else 0) + (1 if st.get("ph") else 0) \
+        + (1 if st.get("ow") else 0) + (1 if srt and srt != "new" else 0)
+    # Активдүү чыпкалар тилкеси
+    row = ('<div class="fxr"><button type="button" class="fxbtn" onclick="fxo(1)">⚙ %s%s</button>'
+           % (T("Чыпкалар", "Фильтры"), ("<b>%d</b>" % nact) if nact else ""))
+    for href, lb, keys in _fx_chips(st, cur, lang):
+        if skip_price and "px" in keys:
+            continue
+        row += '<a class="fxch" href="%s">%s<i>✕</i></a>' % (esc(href), esc(lb))
+    if srt and srt != "new":
+        sn = {"cheap": T("Арзандан", "Сначала дешёвые"), "rich": T("Кымбаттан", "Сначала дорогие"),
+              "views": T("Көп көрүлгөн", "Популярные"), "old": T("Эскисинен", "Сначала старые")}.get(srt)
+        if sn:
+            rq = [(k, v) for k, v in qs if k != "sort"]
+            row += '<a class="fxch" href="%s">↕ %s<i>✕</i></a>' % (
+                esc(("/?" + _fxup.urlencode(rq)) if rq else "/"), esc(sn))
+    row += "</div>"
+    # Панель
+    hid = "".join('<input type="hidden" name="%s" value="%s">' % (esc(k), esc(v)) for k, v in base)
+    if any(k == "q" for k, v in base):
+        hid += '<input type="hidden" name="ai" value="0">'
+    f = lambda n: "{:,}".format(int(n)).replace(",", " ") if n else ""
+    quick = ""
+    for a, b in _FX_QUICK.get(at, _FX_QUICK_DEF):
+        lb = (T("%s чейин", "до %s") % _fx_short(b)) if b and not a else \
+             (T("%s жогору", "от %s") % _fx_short(a)) if a and not b else "%s–%s" % (_fx_short(a), _fx_short(b))
+        quick += '<button type="button" data-n="%s" data-x="%s">%s</button>' % (a or "", b or "", esc(lb))
+    sorts = (("new", T("🆕 Жаңысынан", "🆕 Новые")), ("cheap", T("⬇️ Арзандан", "⬇️ Дешевле")),
+             ("rich", T("⬆️ Кымбаттан", "⬆️ Дороже")), ("views", T("🔥 Көп көрүлгөн", "🔥 Популярные")))
+    rad = "".join('<label><input type="radio" name="sort" value="%s"%s>%s</label>'
+                  % (c, " checked" if c == (srt or "new") else "", esc(n)) for c, n in sorts)
+    own = ""
+    if at in _FX_OWNER_AT or not at:
+        own = ('<label class="fxc"><input type="checkbox" name="ow" value="1"%s><span>🙋 %s<small>%s</small></span></label>'
+               % (" checked" if st.get("ow") else "", T("Ээсинен гана", "Только от хозяина"),
+                  T("Ортомчусуз, ээси өзү жарыялагандар", "Без посредников")))
+    clear = ("/?" + _fxup.urlencode(base)) if base else "/"
+    panel = ('<div class="fxs" id="fxs"><div class="fxbg" onclick="fxo(0)"></div>'
+             '<form class="fxp" id="fxf" method="get" action="/"><div class="fxgr"></div>'
+             '<div class="fxh"><b>⚙ %s</b><button type="button" onclick="fxo(0)" aria-label="close">✕</button></div>%s'
+             '<div class="fxl">💰 %s</div><div class="fx2">'
+             '<input type="text" name="pn" inputmode="numeric" placeholder="%s" value="%s"><span>—</span>'
+             '<input type="text" name="px" inputmode="numeric" placeholder="%s" value="%s"></div>'
+             '<div class="fxq">%s</div>'
+             '<div class="fxl">↕ %s</div><div class="fxrd">%s</div>'
+             '<div class="fxl">✔ %s</div>'
+             '<label class="fxc"><input type="checkbox" name="ph" value="1"%s><span>📷 %s<small>%s</small></span></label>%s'
+             '<div class="fxf"><a href="%s">%s</a><button type="submit">%s</button></div>'
+             '</form></div>'
+             % (T("Чыпкалар", "Фильтры"), hid,
+                T("Баасы, сом", "Цена, сом"), T("Мин.", "От"), f(st.get("pn")),
+                T("Макс.", "До"), f(st.get("px")), quick,
+                T("Тартиби", "Сортировка"), rad,
+                T("Кошумча", "Дополнительно"),
+                " checked" if st.get("ph") else "", T("Сүрөтү барлар гана", "Только с фото"),
+                T("Сүрөтсүз жарыялар көрүнбөйт", "Без фото не показывать"), own,
+                esc(clear), T("Тазалоо", "Сбросить"), T("Көрсөтүү", "Показать")))
+    return _FXUI_CSS + row + panel + _FXUI_JS
+
+
+_home_fxui_inner = _home_ai_base
+
+
+def _home_fxui(q, *a, **k):
+    _AIX.fxui = True
+    try:
+        h = _home_fxui_inner(q, *a, **k)
+    finally:
+        _AIX.fxui = False
+    try:
+        at = a[0] if a else k.get("at")
+        lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
+        listing = bool(q or any(x for x in a[:6]) or (len(a) > 9 and a[9]))
+        if listing and "</header>" in h:
+            st = _fx_state() if getattr(_AIX, "on", False) else {}
+            ui = _fxui(getattr(_AIX, "url", "") or "/", st, at, lang,
+                       bool(getattr(_AIX, "aiq", None)))
+            i = h.find("</header>")
+            h = h[:i + 9] + ui + h[i + 9:]
+    except Exception:
+        pass
+    return h
+
+
+_home_ai_base = _home_fxui
+# ── FXUI_END
+
+
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
