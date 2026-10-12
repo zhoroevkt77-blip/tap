@@ -1761,3 +1761,20 @@ def act_ok_at(lid):
     return (r or {}).get("at")
 
 # RGROUP2
+
+
+# ── CURRENCY: доллардагы баа иргөө/чыпка үчүн сомго которулат ──
+_price_number_cur_base = price_number
+
+
+def price_number(price):
+    n = _price_number_cur_base(price)
+    low = str(price or "").lower()
+    if n is not None and ("$" in low or "usd" in low or "доллар" in low):
+        try:
+            rate = float(os.environ.get("USD_RATE", "87") or 87)
+        except Exception:
+            rate = 87.0
+        n = int(n * rate)
+    return n
+

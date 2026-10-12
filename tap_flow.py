@@ -2251,3 +2251,63 @@ def advance(step, value, data=None):
             d.pop("pvGroup", None)
             return _advance_pv_base(step, v, d)
     return _advance_pv_base(step, value, data)
+
+
+# ── CURRENCY: баанын валютасы (сом / доллар) ─────────────────
+import re as _cre
+_render_cur_base = render
+_advance_cur_base = advance
+_CUR_STEPS = ("trade_price_custom", "post_price_custom")
+_CUR_WORDS = ("сом", "som", "kgs", "$", "usd", "доллар", "долл", "€", "евро", "руб", "₽", "тенге", "₸")
+
+
+def _cur_need(v):
+    low = v.lower()
+    return bool(_cre.search(r"\d", low)) and not any(w in low for w in _CUR_WORDS)
+
+
+def _cur_fmt(raw, cur):
+    raw = " ".join(str(raw or "").split())
+    sign = "$" if cur == "USD" else "сом"
+    if _cre.fullmatch(r"[\d\s.,]+", raw):
+        digits = _cre.sub(r"[^\d]", "", raw)
+        if digits and len(digits) <= 12 and not _cre.search(r"[.,]\d{1,2}$", raw):
+            raw = "{:,}".format(int(digits)).replace(",", " ")
+        return "%s %s" % (raw, sign)
+    if "/" in raw:                      # «1500/саат» → «1500 сом/саат»
+        a, b = raw.split("/", 1)
+        return "%s %s/%s" % (a.strip(), sign, b.strip())
+    return "%s %s" % (raw, sign)
+
+
+def render(step, data=None):
+    d = data or {}
+    if step == "price_currency":
+        amt = str(d.get("_priceRaw") or "")
+        return _view("Кайсы валютада? %s / В какой валюте?" % ("«%s»" % amt if amt else ""),
+                     [{"label": "🇰🇬 Кыргыз сому / Кыргызский сом", "value": "KGS"},
+                      {"label": "🇺🇸 АКШ доллары / Доллар США", "value": "USD"}])
+    v = _render_cur_base(step, data)
+    try:
+        if step in ("trade_price", "post_price") + _CUR_STEPS:
+            v["text"] = str(v.get("text") or "").replace(" (сом)", "")
+            if v.get("placeholder"):
+                v["placeholder"] = v["placeholder"].replace(" сом", "")
+    except Exception:
+        pass
+    return v
+
+
+def advance(step, value, data=None):
+    if step in _CUR_STEPS and _cur_need(str(value or "").strip()):
+        d = dict(data or {})
+        d["_priceRaw"] = str(value).strip()
+        d["_priceFrom"] = step
+        return "price_currency", d
+    if step == "price_currency":
+        d = dict(data or {})
+        raw = d.pop("_priceRaw", "")
+        frm = d.pop("_priceFrom", "post_price_custom")
+        return _advance_cur_base(frm, _cur_fmt(raw, "USD" if value == "USD" else "KGS"), d)
+    return _advance_cur_base(step, value, data)
+
