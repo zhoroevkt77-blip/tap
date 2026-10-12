@@ -4604,6 +4604,9 @@ class H(BaseHTTPRequestHandler):
 
         lang = _lang(self)
 
+        if u.path == "/api/ss":   # SAVEDSRCH
+            _json_out(self, _ss_check(qs.get("s", ["[]"])[0], lang))
+            return
         if u.path == "/api/verify/start":   # WEB_VERIFY
             tok = core.web_verify_start(qs.get("phone", [""])[0])
             _json_out(self, {"ok": bool(tok), "token": tok,
@@ -5491,6 +5494,149 @@ def _fx_alt(price):
         a = _fx_alt_rq_base(m.group(1))
         return ("%s/%s" % (a, m.group(2))) if a else ""
     return _fx_alt_rq_base(price)
+
+
+
+# ── SAVEDSRCH: сакталган издөөлөр жана сайттагы билдирүү ──────
+import json as _ssj
+
+_SS_KEYS = ("q", "at", "cid", "sid", "ob", "di", "vi", "vv")
+
+
+def _ss_label(f, lang):
+    parts = []
+    try:
+        at = f.get("at")
+        if at:
+            parts.append(section_name(at, lang))
+        if at and f.get("cid"):
+            parts.append(cat_label(at, f["cid"], lang))
+        sid = f.get("sid") or ""
+        if sid.startswith("@"):
+            try:
+                import tap_rgroups as _r
+                g = _r.group(at, f.get("cid"), sid[1:])
+                if g:
+                    parts.append(L(g[2], lang))
+            except Exception:
+                pass
+        elif sid:
+            parts.append(_ky(sid, lang))
+        for k in ("vv", "vi", "di", "ob"):
+            if f.get(k):
+                parts.append(_short_place(_place_name(f[k], lang)))
+                break
+        if f.get("q"):
+            parts.append("«%s»" % f["q"])
+    except Exception:
+        pass
+    return " · ".join(x for x in parts if x) or ("Все объявления" if lang == "ru" else "Бардык жарыялар")
+
+
+def _ss_check(raw, lang="ky"):
+    try:
+        items = _ssj.loads(raw or "[]")
+    except Exception:
+        items = []
+    out = []
+    for it in (items or [])[:10]:
+        try:
+            u = str(it.get("u") or "")[:400]
+            last = int(it.get("l") or 0)
+            qd = urllib.parse.parse_qs(u)
+            f = {k: (qd.get(k, [""])[0].strip() or None) for k in _SS_KEYS}
+            if f["at"] and f["at"] not in SECTION_NAME:
+                f["at"] = None
+            rows = core.find(f["q"], limit=60, ad_type=f["at"], cat_id=f["cid"],
+                             sub_id=f["sid"], oblast=f["ob"], district=f["di"],
+                             locality=f["vi"], village=f["vv"]) or []
+            ids = [int(r["id"]) for r in rows if r.get("id") is not None]
+            mx = max(ids) if ids else 0
+            out.append({"u": u, "n": sum(1 for i in ids if i > last) if last else 0,
+                        "m": mx, "label": _ss_label(f, lang)})
+        except Exception:
+            out.append({"u": str(it.get("u") or ""), "n": 0, "m": int(it.get("l") or 0), "label": ""})
+    return {"ok": True, "items": out}
+
+
+_SS_CSS = ('<style>'
+    '.ssbell{position:relative;border:0;background:#EEF3FB;width:40px;height:40px;border-radius:50%;'
+    'font-size:19px;cursor:pointer;margin-left:6px;flex:none}'
+    '.ssbell b{position:absolute;top:-3px;right:-3px;min-width:19px;height:19px;border-radius:999px;'
+    'background:#E5484D;color:#fff;font-size:11px;font-weight:800;line-height:19px;padding:0 5px;display:none}'
+    '.sssave{display:flex;justify-content:center;margin:8px 16px 0}'
+    '.sssave button{border:1.5px solid #2E9E6E;background:#fff;color:#1F7A55;border-radius:999px;'
+    'padding:9px 16px;font-weight:800;font-size:14px;cursor:pointer}'
+    '.sssave button.on{background:#E5F6EE;border-color:#E5F6EE}'
+    '.sspan{display:none;position:fixed;z-index:1000;left:12px;right:12px;top:70px;max-width:440px;margin:0 auto;'
+    'background:#fff;border-radius:18px;box-shadow:0 14px 40px rgba(11,27,48,.25);padding:8px 0;max-height:70vh;overflow:auto}'
+    '.ssh{display:flex;justify-content:space-between;align-items:center;padding:8px 16px 10px;'
+    'font-weight:900;font-size:16px;border-bottom:1px solid #E3E9F2}'
+    '.ssh button{border:0;background:none;font-size:18px;cursor:pointer;color:#5A6B82}'
+    '.ssi{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #F0F3F8;'
+    'text-decoration:none;color:#0B1B30}'
+    '.ssi span{flex:1;font-weight:700;font-size:14.5px;line-height:1.3}'
+    '.ssi em{font-style:normal;background:#E5484D;color:#fff;border-radius:999px;padding:2px 8px;'
+    'font-size:12px;font-weight:800}.ssi em.z{background:#EEF3FB;color:#5A6B82}'
+    '.ssi button{border:0;background:#F3F6FB;width:28px;height:28px;border-radius:50%;color:#5A6B82;cursor:pointer}'
+    '.sse{padding:18px 16px;color:#5A6B82;font-size:14px;line-height:1.5}'
+    '</style>')
+
+_SS_JS = r"""<script>(function(){
+var ru=(document.documentElement.lang==='ru'),K='tap_ss',KEYS=['q','at','cid','sid','ob','di','vi','vv'];
+var T=function(k,r){return ru?r:k;};
+function rd(){try{return JSON.parse(localStorage.getItem(K)||'[]')}catch(e){return[]}}
+function wr(a){try{localStorage.setItem(K,JSON.stringify(a.slice(0,10)))}catch(e){}}
+function cur(){if(location.pathname!=='/')return'';var p=new URLSearchParams(location.search),o=[];
+ KEYS.forEach(function(k){var v=p.get(k);if(v)o.push([k,v]);});o.sort(function(a,b){return a[0]<b[0]?-1:1;});
+ return o.map(function(x){return encodeURIComponent(x[0])+'='+encodeURIComponent(x[1]);}).join('&');}
+var row=document.querySelector('header .tin')||document.querySelector('header');if(!row)return;
+var bell=document.createElement('button');bell.type='button';bell.className='ssbell';bell.setAttribute('aria-label','🔔');
+bell.innerHTML='🔔<b></b>';var ls=row.querySelector('.lgs,.lang,[class*=lang]');
+if(ls&&ls.parentNode===row)row.insertBefore(bell,ls);else row.appendChild(bell);
+var pan=document.createElement('div');pan.className='sspan';document.body.appendChild(pan);
+var data={};
+function badge(){var a=rd(),n=0;a.forEach(function(x){var d=data[x.u];if(d)n+=d.n;});
+ var b=bell.querySelector('b');b.textContent=n>99?'99+':n;b.style.display=n?'block':'none';bell.style.display=a.length?'':'none';return n;}
+function draw(){var a=rd();var h='<div class="ssh">🔔 '+T('Сакталган издөөлөр','Сохранённые поиски')+'<button type="button" data-x="1">✕</button></div>';
+ if(!a.length)h+='<div class="sse">'+T('Азырынча жок. Чыпка коюп «🔔 Ушул издөөнү сактоо» басыңыз.','Пока нет. Задайте фильтр и нажмите «🔔 Сохранить поиск».')+'</div>';
+ a.forEach(function(x,i){var d=data[x.u]||{},n=d.n||0,lb=d.label||x.t||'…';
+  h+='<a class="ssi" href="/?'+x.u+'" data-i="'+i+'"><span></span><em class="'+(n?'':'z')+'">'+(n?('+'+n+' '+T('жаңы','новых')):T('жаңы жок','нет новых'))+'</em><button type="button" data-d="'+i+'">✕</button></a>';});
+ pan.innerHTML=h;pan.querySelectorAll('.ssi').forEach(function(el){var i=+el.getAttribute('data-i');var x=a[i],d=data[x.u]||{};
+  el.querySelector('span').textContent=d.label||x.t||'…';
+  el.onclick=function(e){if(e.target.getAttribute('data-d')!==null){e.preventDefault();var b=rd();b.splice(i,1);wr(b);draw();badge();sv();return;}
+   var b=rd();if(b[i]&&d.m){b[i].l=d.m;wr(b);}};});
+ var cx=pan.querySelector('[data-x]');if(cx)cx.onclick=function(){pan.style.display='none';};}
+bell.onclick=function(){if(pan.style.display==='block'){pan.style.display='none';return;}draw();pan.style.display='block';};
+document.addEventListener('click',function(e){if(pan.style.display==='block'&&!pan.contains(e.target)&&!bell.contains(e.target))pan.style.display='none';});
+var prevN=-1;
+function check(){var a=rd();if(!a.length){badge();return;}
+ fetch('/api/ss?s='+encodeURIComponent(JSON.stringify(a.map(function(x){return{u:x.u,l:x.l||0};})))).then(function(r){return r.json();}).then(function(j){
+  var b=rd(),c=cur(),ch=false;(j.items||[]).forEach(function(it){data[it.u]=it;
+   b.forEach(function(x){if(x.u===it.u){if(!x.l||x.u===c){if(x.l!==it.m){x.l=it.m;ch=true;}it.n=0;}if(it.label&&x.t!==it.label){x.t=it.label;ch=true;}}});});
+  if(ch)wr(b);var n=badge();
+  if(prevN>=0&&n>prevN&&window.Notification&&Notification.permission==='granted'){
+   try{new Notification('ТАП! · '+n+' '+T('жаңы жарыя','новых объявлений'),{body:T('Сакталган издөөңүз боюнча','По вашему сохранённому поиску'),icon:'/pwa/icon-192.png'});}catch(e){}}
+  prevN=n;if(pan.style.display==='block')draw();}).catch(function(){});}
+var sbar=null;function sv(){var c=cur();if(!c){if(sbar)sbar.remove();sbar=null;return;}
+ if(!sbar){sbar=document.createElement('div');sbar.className='sssave';sbar.innerHTML='<button type="button"></button>';
+  var hd=document.querySelector('header');if(hd&&hd.parentNode)hd.parentNode.insertBefore(sbar,hd.nextSibling);else return;}
+ var bt=sbar.querySelector('button'),saved=rd().some(function(x){return x.u===c;});
+ bt.className=saved?'on':'';bt.textContent=saved?('✓ '+T('Издөө сакталды · 🔔 жаңысы чыкса билдиребиз','Поиск сохранён · 🔔 сообщим о новых')):('🔔 '+T('Ушул издөөнү сактоо','Сохранить этот поиск'));
+ bt.onclick=function(){var a=rd(),i=-1;a.forEach(function(x,k){if(x.u===c)i=k;});
+  if(i>=0){a.splice(i,1);}else{a.unshift({u:c,l:0,t:''});
+   try{if(window.Notification&&Notification.permission==='default')Notification.requestPermission();}catch(e){}}
+  wr(a);sv();check();};}
+sv();badge();check();setInterval(check,180000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});
+})();</script>"""
+
+_header_ss_base = header
+
+
+def header(q="", at=None, reg=None, lang="ky"):
+    h = _header_ss_base(q, at, reg, lang)
+    return h + _SS_CSS + _SS_JS
 
 
 if __name__ == "__main__":
