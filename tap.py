@@ -6743,6 +6743,347 @@ _home_ai_base = _home_fxui
 
 
 
+
+# ── BADGES: «🙋 Ээсинен», «↓ %» арзандады, «✅ Сатылды», окшош жарыялар ──
+import datetime as _bdt
+import threading as _bth
+import time as _btime
+
+try:
+    for _bc in ("price_old", "sold_at"):
+        if _bc not in core.NEW_COLUMNS:
+            core.NEW_COLUMNS.append(_bc)
+except Exception:
+    pass
+
+_BD = {"cols": None, "clean": 0.0}
+_BD_LOCK = _bth.Lock()
+SOLD_DAYS = 3
+
+
+def _bd_cols():
+    """price_old / sold_at тилкелери базада барбы (бир жолу текшерилет)."""
+    if _BD["cols"] is None:
+        try:
+            core._add_missing_columns()
+        except Exception:
+            pass
+        try:
+            core.query("SELECT price_old, sold_at FROM listings LIMIT 1", fetch="one")
+            _BD["cols"] = True
+        except Exception:
+            _BD["cols"] = False
+    return _BD["cols"]
+
+
+def _bd_cut():
+    return (_bdt.datetime.now() - _bdt.timedelta(days=SOLD_DAYS)).isoformat(timespec="seconds")
+
+
+def _bd_cleanup():
+    """3 күндөн ашкан «Сатылды» жарыялар жабылат (30 мүнөттө бир жолу)."""
+    now = _btime.time()
+    with _BD_LOCK:
+        if now - _BD["clean"] < 1800:
+            return
+        _BD["clean"] = now
+    try:
+        core.query("UPDATE listings SET is_active=0 WHERE is_active=1 AND sold_at IS NOT NULL "
+                   "AND sold_at<>'' AND sold_at<?", (_bd_cut(),))
+    except Exception:
+        pass
+
+
+_core_filters_bd_base = core._filters
+
+
+def _core_filters_bd(*a, **k):
+    sql, p = _core_filters_bd_base(*a, **k)
+    try:
+        if _bd_cols():
+            sql += " AND (sold_at IS NULL OR sold_at='' OR sold_at>=?)"
+            p = list(p) + [_bd_cut()]
+            _bd_cleanup()
+    except Exception:
+        pass
+    return sql, p
+
+
+core._filters = _core_filters_bd
+
+# Баа түшсө — мурунку баасы эсте калат
+_core_update_bd_base = core.update_listing
+
+
+def _core_update_bd(lid, tg_id, fields, phone=None):
+    old = None
+    if "price" in (fields or {}) and _bd_cols():
+        try:
+            row = core.query("SELECT price_num, price_old FROM listings WHERE id=?", (lid,), fetch="one")
+            old = row
+        except Exception:
+            old = None
+    ok = _core_update_bd_base(lid, tg_id, fields, phone)
+    if ok and old is not None:
+        try:
+            was = int(str(old.get("price_num") or "0") or 0)
+            new = int(core.price_number(fields["price"]) or 0)
+            prev = int(str(old.get("price_old") or "0") or 0)
+            if was and new and new < was:
+                core.query("UPDATE listings SET price_old=? WHERE id=?", (str(max(was, prev)), lid))
+            elif new and prev and new >= prev:
+                core.query("UPDATE listings SET price_old=NULL WHERE id=?", (lid,))
+        except Exception:
+            pass
+    return ok
+
+
+core.update_listing = _core_update_bd
+
+_core_revive_bd_base = core.revive
+
+
+def _core_revive_bd(lid, tg_id, *a, **k):
+    ok = _core_revive_bd_base(lid, tg_id, *a, **k)
+    if ok and _bd_cols():
+        try:
+            core.query("UPDATE listings SET sold_at=NULL WHERE id=?", (lid,))
+        except Exception:
+            pass
+    return ok
+
+
+core.revive = _core_revive_bd
+
+
+def _bd_mark_sold(lid, tg_id, phone=None):
+    if not _bd_cols() or not core.owns(lid, tg_id, phone):
+        return False
+    core.query("UPDATE listings SET sold_at=? WHERE id=? AND is_active=1",
+               (_bdt.datetime.now().isoformat(timespec="seconds"), lid))
+    try:
+        core.cache_clear()
+    except Exception:
+        pass
+    return True
+
+
+_web_my_act_bd_base = _web_my_act
+
+
+def _web_my_act(b):
+    if (b or {}).get("op") == "sold":
+        st = _wverified(b.get("token"))
+        if not st:
+            return {"ok": False, "err": "verify"}
+        try:
+            lid = int(b.get("id"))
+        except Exception:
+            return {"ok": False, "err": "id"}
+        ok = _bd_mark_sold(lid, st["tg_id"], "+996" + st["phone"])
+        if ok:
+            try:
+                _act_clear(lid)
+            except Exception:
+                pass
+        return {"ok": bool(ok), "err": None if ok else "owner"}
+    return _web_my_act_bd_base(b)
+
+
+_MY_JS = _MY_JS.replace(
+    "(it.active?'<button class=\"mx\" data-op=\"close\" data-id=\"'+it.id+'\">'+T('✅ Сатылды / Жабуу','✅ Продано / Закрыть')+'</button>':'')",
+    "(it.active&&!it.sold?'<button class=\"mx\" data-op=\"sold\" data-id=\"'+it.id+'\">'+T('✅ Сатылды','✅ Продано')+'</button>':'')"
+    "+(it.active?'<button class=\"mx\" data-op=\"close\" data-id=\"'+it.id+'\">'+T('🗑 Жабуу','🗑 Закрыть')+'</button>':'')"
+).replace(
+    "if(op==='close'&&!confirm(T('Жарыяны жабасызбы?','Закрыть объявление?')))return;",
+    "if(op==='close'&&!confirm(T('Жарыяны жабасызбы?','Закрыть объявление?')))return;"
+    "if(op==='sold'&&!confirm(T('Сатылды деп белгилейсизби? Жарыяда «✅ Сатылды» белгиси 3 күн турат, анан жабылат.',"
+    "'Отметить как продано? Метка «✅ Продано» будет видна 3 дня, затем объявление закроется.')))return;"
+).replace(
+    "function st(it){if(!it.active)",
+    "function st(it){if(it.sold&&it.active)return '<span class=\"mst warn\">'+T('✅ Сатылды','✅ Продано')+'</span>';if(!it.active)")
+
+_web_my_list_bd = None
+for _bn in ("_web_my_list",):
+    if callable(globals().get(_bn)):
+        _web_my_list_bd = _bn
+        break
+if _web_my_list_bd:
+    _web_my_bd_base = globals()[_web_my_list_bd]
+
+    def _web_my_bd(*a, **k):
+        res = _web_my_bd_base(*a, **k)
+        try:
+            if isinstance(res, dict) and res.get("items") and _bd_cols():
+                ids = [int(it["id"]) for it in res["items"]]
+                ph = ",".join("?" * len(ids))
+                rows = core.query("SELECT id, sold_at FROM listings WHERE id IN (%s)" % ph,
+                                  tuple(ids), fetch="all") or []
+                sold = {int(r["id"]) for r in rows if r.get("sold_at")}
+                for it in res["items"]:
+                    it["sold"] = int(it["id"]) in sold
+        except Exception:
+            pass
+        return res
+    globals()[_web_my_list_bd] = _web_my_bd
+
+
+def _bd_owner(r):
+    return "Ким сатат: Ээси" in str(r.get("description") or "")
+
+
+def _bd_drop(r):
+    try:
+        old = int(str(r.get("price_old") or "0") or 0)
+        new = int(str(r.get("price_num") or "0") or 0)
+        if old and new and new < old:
+            pc = int(round((old - new) * 100.0 / old))
+            if pc >= 1:
+                return pc, old
+    except Exception:
+        pass
+    return None
+
+
+_BD_CSS = """<style>
+.c .ph .bdg{position:absolute;left:7px;top:7px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;z-index:4;pointer-events:none}
+.bdg span{display:inline-block;font-size:11px;font-weight:800;line-height:1;padding:5px 7px;border-radius:8px;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.bdg .bo{background:#0E8A5F}.bdg .bp{background:#E5484D}
+.c .ph .bsold{position:absolute;inset:0;background:rgba(11,27,48,.55);display:grid;place-items:center;z-index:4;pointer-events:none}
+.c .ph .bsold b{background:#fff;color:#0E8A5F;font-weight:900;font-size:13px;padding:7px 12px;border-radius:10px;letter-spacing:.04em;transform:rotate(-6deg)}
+.dbd{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+.dbd span{font-size:12.5px;font-weight:800;padding:6px 10px;border-radius:999px}
+.dbd .bo{background:#E3F6EE;color:#0E7A54}.dbd .bp{background:#FDECEC;color:#C02D33}
+.dsold{background:#0E8A5F;color:#fff;border-radius:16px;padding:14px 16px;margin:12px 0;font-weight:800;font-size:15px;line-height:1.4}
+.dsold small{display:block;font-weight:600;opacity:.9;font-size:13px}
+.sim{margin:22px 0 10px}.sim h3{font-size:18px;margin:0 0 12px}
+</style>"""
+
+
+def _bd_money(n):
+    return "{:,}".format(int(n)).replace(",", " ")
+
+
+_card_bd_base = card
+
+
+def card(r, lang="ky"):
+    h = _card_bd_base(r, lang)
+    try:
+        ru = (lang == "ru")
+        add = ""
+        if r.get("sold_at"):
+            add += '<div class="bsold"><b>%s</b></div>' % ("✅ ПРОДАНО" if ru else "✅ САТЫЛДЫ")
+        else:
+            bs = ""
+            dr = _bd_drop(r)
+            if dr:
+                bs += '<span class="bp">↓ %d%%</span>' % dr[0]
+            if _bd_owner(r):
+                bs += '<span class="bo">🙋 %s</span>' % ("Хозяин" if ru else "Ээсинен")
+            if bs:
+                add += '<div class="bdg">' + bs + '</div>'
+        if add:
+            i = h.find('<div class="ph">')
+            if i >= 0:
+                j = i + len('<div class="ph">')
+                h = h[:j] + add + h[j:]
+    except Exception:
+        pass
+    return h
+
+
+def _bd_similar(r, lang):
+    """Окшош жарыялар: ошол эле категория (мүмкүн болсо — ошол эле түр жана аймак)."""
+    at, cid = r.get("ad_type"), r.get("cat_id")
+    if not at:
+        return ""
+    sid = str(r.get("sub_id") or "").split(" | ")[0].strip() or None
+    ob = r.get("oblast") or None
+    seen, out = {r.get("id")}, []
+    tries = [dict(cat_id=cid, sub_id=sid, oblast=ob), dict(cat_id=cid, oblast=ob),
+             dict(cat_id=cid), dict()]
+    for kw in tries:
+        if len(out) >= 6:
+            break
+        if not cid and kw.get("cat_id") is None and kw:
+            continue
+        kw = {k: v for k, v in kw.items() if v}
+        try:
+            rows = core.find(limit=12, ad_type=at, **kw)
+        except Exception:
+            rows = []
+        for x in rows:
+            if x["id"] not in seen and not x.get("sold_at"):
+                seen.add(x["id"])
+                out.append(x)
+            if len(out) >= 6:
+                break
+    if not out:
+        return ""
+    ttl = "Похожие объявления" if lang == "ru" else "Окшош жарыялар"
+    return '<section class="sim"><h3>%s</h3><div class="g">%s</div></section>' % (
+        ttl, "".join(card(x, lang) for x in out))
+
+
+_detail_bd_base = detail
+
+
+def detail(r, lang="ky"):
+    h = _detail_bd_base(r, lang)
+    try:
+        ru = (lang == "ru")
+        css = False
+        if r.get("sold_at"):
+            ban = ('<div class="dsold">✅ %s<small>%s</small></div>'
+                   % ("Этот товар уже продан" if ru else "Бул жарыя боюнча товар сатылды",
+                      "Посмотрите похожие объявления ниже" if ru else "Төмөндө окшош жарыяларды караңыз"))
+            i = h.find('<div class="dcard">')
+            if i >= 0:
+                h = h[:i] + ban + h[i:]
+                css = True
+            # байланыш жашырылат
+            h = h.replace('class="ctc"', 'class="ctc" style="display:none"', 1)
+            h = h.replace('class="dx-call"', 'class="dx-call" style="display:none"', 1)
+        else:
+            bs = ""
+            dr = _bd_drop(r)
+            if dr:
+                bs += '<span class="bp">↓ %d%% %s · %s %s</span>' % (
+                    dr[0], "дешевле" if ru else "арзандады", "было" if ru else "мурун", _bd_money(dr[1]))
+            if _bd_owner(r):
+                bs += '<span class="bo">🙋 %s</span>' % ("От хозяина" if ru else "Ээсинен — ортомчусуз")
+            if bs:
+                m = _cre2.search(r'<div class="dp">.*?</div>', h, _cre2.S)
+                if m:
+                    h = h[:m.end()] + '<div class="dbd">%s</div>' % bs + h[m.end():]
+                    css = True
+        sim = _bd_similar(r, lang)
+        if sim:
+            i = h.rfind("</main>")
+            if i >= 0:
+                h = h[:i] + sim + h[i:]
+                css = True
+    except Exception:
+        pass
+    return h
+
+
+_page_bd_base = page
+
+
+def page(body, *a, **k):
+    h = _page_bd_base(body, *a, **k)
+    try:
+        if _BD_CSS not in h:
+            h = h.replace("</head>", _BD_CSS + "</head>", 1)
+    except Exception:
+        pass
+    return h
+# ── BADGES_END
+
+
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
