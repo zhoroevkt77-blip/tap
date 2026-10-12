@@ -2654,6 +2654,21 @@ def _chips_row(label, opts, cur, lang):
             f'<nav class="regcat">{out}</nav>')
 
 
+
+def _cpath(label, href, nm, n):   # CATPATH: тандалган кадам — узун көк чип ✕ менен
+    num = f' <em>{n}</em>' if n else ""
+    return (f'<div class="rglb">{esc(label)}</div>'
+            '<nav class="regbar cpath">'
+            f'<a href="{href}" class="rg on">{esc(nm)}{num}<span class="x">✕</span></a></nav>')
+
+
+_CPATH_CSS = ('<style>.cpath{padding:2px 0 6px;overflow:visible}'
+              '.cpath .rg{flex:1 1 100%;max-width:100%;text-align:center;font-weight:800;'
+              'font-size:14px;padding:10px 14px;white-space:normal}'
+              '.cpath .rg em{font-style:normal;opacity:.85;margin-left:4px}'
+              '.cpath .x{margin-left:8px;opacity:.7;font-weight:700}</style>')
+
+
 def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
                  vv=None):
     """Бөлүм жана аймак чыпкалары — тандоо тизмелери менен."""
@@ -2672,7 +2687,12 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
         for code, nm in items:
             opts.append((code, link(cid=code, sid=None),
                          _ce(code) + nm, cc.get(code, 0)))
-        inner = _chips_row("Категория", opts, cid, lang)
+        _co = [o for o in opts if o[0] == cid] if cid else []
+        if _co:   # CATPATH: категория тандалды — чип ✕ менен
+            inner = _CPATH_CSS + _cpath("Категория", link(cid=None, sid=None),
+                                        _co[0][2], _co[0][3])
+        else:
+            inner = _chips_row("Категория", opts, cid, lang)
 
         if cid:
             sc = core.subid_counts(at, cid, ob, di, vv, q or None,
@@ -2698,7 +2718,12 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
                 _fl = _sub_full(at, cid).get(code)   # SUBALL: орусча аты каталогдон
                 opts.append((code, link(sid=code),
                              L(_fl, lang) if _fl else _ky(code, lang), n))
-            if len(opts) > 1:
+            _so = [o for o in opts if o[0] == sid] if sid else []
+            if sid:   # CATPATH: субкатегория тандалды — чип ✕ менен
+                inner += _cpath("Субкатегория", link(sid=None),
+                                _so[0][2] if _so else _ky(sid, lang),
+                                _so[0][3] if _so else sc.get(sid, 0))
+            elif len(opts) > 1:
                 inner += _chips_row("Субкатегория", opts, sid, lang)
 
         # QUICKFLT: бөлүмгө жараша тез чыпкалар
