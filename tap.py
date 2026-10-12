@@ -4785,6 +4785,13 @@ class H(BaseHTTPRequestHandler):
                       "personal": "trade", "service": "service",
                       "shop": "markets", "business": "job"}.get(old)
 
+            _air = _ai_route(qs, q, at, cid, sid)   # AISEARCH
+            if _air:
+                self.send_response(302)
+                self.send_header("Location", _air)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
             self._send(home(q, at, cid, sid, ob, di, vi, lang, sort, vv, rl))
 
         elif u.path == "/fav":
@@ -5912,6 +5919,476 @@ function start(){
 $('mic').onclick=function(){if(on&&rec){rec.stop();return;}start();};
 })();
 </script></body></html>"""
+
+
+
+
+# ── AISEARCH: AISEARCH_V2 «акылдуу» издөө — сүйлөмдү чыпкаларга айлантуу (ИИсиз, эрежелер) ──
+import re as _are
+import threading as _ath
+import urllib.parse as _aup
+
+_AIX = _ath.local()
+
+_AI_SUF = {"", "та", "те", "то", "тө", "да", "де", "до", "дө", "тан", "тен", "тон", "төн",
+           "дан", "ден", "дон", "дөн", "ка", "ке", "ко", "кө", "га", "ге", "го", "гө",
+           "дын", "дин", "дун", "дүн", "тын", "тин", "тун", "түн", "нын", "нин", "нун", "нүн",
+           "ун", "он", "а", "е", "у", "ом", "ым", "ы", "ке", "та", "тагы", "дагы", "даги"}
+_AI_STOP = set("""керек керекпи нужен нужна нужно нужны мага мне сатам сатылат сатып алам алабыз
+издейм издейбиз ищу ищем бар чейин дейре до в во на из от у и а менен жана үчүн для жакын около
+срочно шашылыш тез сом сомго сомдон сомдук миң миңге миңден тыс тысяч тысячи к млн миллион
+кирем кирүү жашайм ижарага ижара берилет берем беремин аренда арендага снять сниму сдаю сдам сдается сдаётся
+продаю продам продается продаётся куплю купить ким бирөө кимдир бир жана же или
+суткалык посуточно сутки суткага күнүгө айына жылга ай күн саат
+батир батирлер квартира квартиру квартиры кв үй дом дома коттедж дача бөлмө бөлмөлүү комната
+комнату комнатная комнатную арзан арзаныраак дешево дешевле недорого жаңы жаны
+доллар долларга долларов бакс сатуу сатып алуу издөө кр учет учету учёт учёту растаможка
+работу работа работы жумуш жумушка ошол ошону ошого ошондо ошондой""".split())
+
+
+def _ai_norm(s):
+    s = str(s or "").lower().replace("ё", "е")
+    s = _are.sub(r"[«»\"'.,!?;:()\[\]/\\]", " ", s)
+    s = s.replace("-", " ")
+    return " ".join(s.split())
+
+
+def _ai_stem(name):
+    s = _ai_norm(str(name).split(" / ")[0])
+    s = _are.sub(r"\s+(шаары|облусу|району|айыл аймагы|шаарчасы|айылы|кыштагы)$", "", s)
+    return s.replace("-", " ").strip()
+
+
+_AI_PLACES = []   # (токендер, ob, di, vi, приоритет)
+
+
+def _ai_build_places():
+    if _AI_PLACES:
+        return
+    out = []
+
+    def add(stem, ob, di, vi, pr):
+        t = tuple(stem.split())
+        if t and len(t[0]) >= 2:
+            out.append((t, ob, di, vi, pr))
+    try:
+        for ob in OBLASTS:
+            ob = ob if isinstance(ob, str) else (ob.get("name") or "")
+            city = ob.endswith("шаары")
+            add(_ai_stem(ob), ob, None, None, 0 if city else 2)
+            try:
+                ru = _ai_norm(ru_name(ob) or "")
+                ru = _are.sub(r"^город\s+", "", ru)
+                if ru and not ru.endswith(("область", "район")):
+                    add(ru.replace("-", " "), ob, None, None, 0 if city else 2)
+            except Exception:
+                pass
+            for di in get_districts(ob):
+                dcity = str(di).endswith("шаары")
+                add(_ai_stem(di), ob, di, None, 1 if dcity else 3)
+                try:
+                    ru = _ai_norm(ru_name(di) or "")
+                    if ru.startswith("город "):
+                        add(ru[6:].replace("-", " "), ob, di, None, 1)
+                except Exception:
+                    pass
+                try:
+                    for vi in get_localities(ob, di):
+                        kg = str(vi).split(" / ")[0]
+                        if "шаары" in kg or "шаарча" in kg:
+                            add(_ai_stem(kg), ob, di, vi, 1)
+                            ru = _ai_norm(str(vi).split(" / ")[-1])
+                            ru = _are.sub(r"^(город|поселок|пгт)\s+", "", ru)
+                            add(ru.replace("-", " "), ob, di, vi, 1)
+                        else:
+                            add(_ai_stem(kg), ob, di, vi, 4)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    for al, ob in (("фрунзе", "Бишкек шаары"), ("бишкек", "Бишкек шаары"), ("ош", "Ош шаары"),
+                   ("джалал абад", "Жалал-Абад облусу"), ("жалалабад", "Жалал-Абад облусу"),
+                   ("иссык куль", "Ысык-Көл облусу"), ("ыссык көл", "Ысык-Көл облусу"),
+                   ("исык куль", "Ысык-Көл облусу"), ("чуй", "Чүй облусу"), ("чүй", "Чүй облусу")):
+        out.append((tuple(al.split()), ob, None, None, 0))
+    out.sort(key=lambda x: (-len(x[0]), x[4]))
+    _AI_PLACES.extend(out)
+
+
+def _ai_tokmatch(tok, stem):
+    if not tok.startswith(stem):
+        return False
+    suf = tok[len(stem):]
+    if suf in _AI_SUF:
+        return True
+    return len(stem) >= 5 and len(suf) <= 4
+
+
+def _ai_place(toks, used):
+    _ai_build_places()
+    for st, ob, di, vi, pr in _AI_PLACES:
+        n = len(st)
+        for i in range(len(toks) - n + 1):
+            if any(j in used for j in range(i, i + n)):
+                continue
+            if all(toks[i + k] == st[k] for k in range(n - 1)) and _ai_tokmatch(toks[i + n - 1], st[-1]):
+                if n == 1 and len(st[0]) <= 3 and toks[i] in ("ошол", "ошону", "ошого", "ошондо", "ошондой"):
+                    continue
+                for j in range(i, i + n):
+                    used.add(j)
+                return ob, di, vi
+    return None, None, None
+
+
+_AI_NUMW = {"бир": 1, "эки": 2, "үч": 3, "уч": 3, "төрт": 4, "торт": 4, "беш": 5,
+            "один": 1, "одна": 1, "одно": 1, "два": 2, "две": 2, "двух": 2, "три": 3, "трех": 3,
+            "четыре": 4, "пять": 5, "кырк": 40, "отуз": 30, "жыйырма": 20, "элүү": 50, "алтымыш": 60,
+            "жетимиш": 70, "сексен": 80, "токсон": 90, "он": 10, "жүз": 100}
+_AI_RENT = ("ижара", "аренд", "сутк", "кирем", "квартирага", "снять", "сниму", "сдаю", "сдам", "сдает", "сдаёт", "суткалык",
+            "посуточ", "сутки", "квартирант", "жашаганга", "убактылуу")
+_AI_SALE = ("сатам", "сатыл", "продаю", "продам", "продает", "продаёт", "продаж", "купить",
+            "куплю", "сатып ал", "покупк")
+_AI_CARS = {"toyota": "toyota", "тойота": "toyota", "камри": "camry", "camry": "camry",
+            "lexus": "lexus", "лексус": "lexus", "honda": "honda", "хонда": "honda",
+            "hyundai": "hyundai", "хендай": "hyundai", "хундай": "hyundai", "хюндай": "hyundai",
+            "kia": "kia", "киа": "kia", "mercedes": "mercedes", "мерс": "mercedes",
+            "мерседес": "mercedes", "bmw": "bmw", "бмв": "bmw", "audi": "audi", "ауди": "audi",
+            "daewoo": "daewoo", "дэу": "daewoo", "матиз": "matiz", "matiz": "matiz",
+            "нексия": "nexia", "nexia": "nexia", "спарк": "spark", "spark": "spark",
+            "lada": "lada", "лада": "lada", "ваз": "ваз", "nissan": "nissan", "ниссан": "nissan",
+            "mitsubishi": "mitsubishi", "митсубиси": "mitsubishi", "subaru": "subaru",
+            "субару": "subaru", "mazda": "mazda", "мазда": "mazda", "chevrolet": "chevrolet",
+            "шевроле": "chevrolet", "volkswagen": "volkswagen", "фольксваген": "volkswagen",
+            "opel": "opel", "опель": "opel", "ford": "ford", "форд": "ford", "byd": "byd",
+            "chery": "chery", "черри": "chery", "haval": "haval", "хавал": "haval",
+            "geely": "geely", "джили": "geely", "zeekr": "zeekr", "приус": "prius", "prius": "prius",
+            "соната": "sonata", "sonata": "sonata", "фит": "fit", "алфард": "alphard",
+            "alphard": "alphard", "рав4": "rav4", "rav4": "rav4", "элантра": "elantra",
+            "гольф": "golf", "пассат": "passat", "одиссей": "odyssey", "одиссея": "odyssey"}
+_AI_PHONE = {"айфон": "iphone", "iphone": "iphone", "самсунг": "samsung", "samsung": "samsung",
+             "редми": "redmi", "redmi": "redmi", "xiaomi": "xiaomi", "сяоми": "xiaomi",
+             "ксиоми": "xiaomi", "poco": "poco", "поко": "poco", "honor": "honor",
+             "хонор": "honor", "huawei": "huawei", "хуавей": "huawei", "pixel": "pixel"}
+# сөз → (бөлүм, категория, топ/субкатегория) — бөлүм None болсо ижара/сатуу өзү аныкталат
+_AI_OBJ = [
+    (("сантехник", "электрик", "усто", "мастер", "ремонт", "сварщик", "плиточник", "маляр",
+      "курулуш", "строител"), ("service", "construction", None)),
+    (("репетитор", "окутуу", "курс"), ("service", "edu", None)),
+    (("чач тарач", "парикмахер", "маникюр", "косметолог", "визаж"), ("service", "beauty", None)),
+    (("тамада", "той ", "свадьб"), ("service", "events", None)),
+    (("суткалык", "посуточ", "сутки", "мейманкана", "гостиниц", "хостел"), ("rental", "rent_residential", "@hotel")),
+    (("батир", "квартир", "кв"), ("?", "residential", "@apt")),
+    (("коттедж", "дача", "үй", "дом", "дома"), ("?", "residential", "@house")),
+    (("бөлмө", "комнат", "өлмө"), ("rental", "rent_residential", "@room")),
+    (("участок", "сотых", "сотик", "жер тилке"), ("?", "land", None)),
+    (("офис", "дүкөн", "магазин", "помещени", "кафе", "склад", "кампа"), ("?", "commercial", None)),
+    (("гараж",), ("?", "garage", None)),
+    (("экскаватор", "спецтехник", "трактор", "погрузчик", "бульдозер", "кран"), ("?", "special", None)),
+    (("фура", "грузовик", "жүк унаа", "самосвал"), ("?", "truck", None)),
+    (("машина", "унаа", "авто", "автомобил", "тачка"), ("?", "car", None)),
+    (("ноутбук", "компьютер", "ноут"), ("trade", "computers", None)),
+    (("телефон", "смартфон"), ("trade", "smartphones", None)),
+    (("жүк ташуу", "грузоперевоз", "портер", "газель", "переезд", "көчүрүү"), ("cargo", None, None)),
+    (("жеткирүү", "доставк", "курьер"), ("delivery", None, None)),
+    (("такси",), ("taxi", None, None)),
+    (("жумуш издейм", "ищу работу", "резюме"), ("jobseek", None, None)),
+    (("жумуш", "работа", "вакансия", "работник", "кызматкер"), ("job", None, None)),
+]
+
+
+def _ai_price(text):
+    """«40 миң», «1,5 млн», «$500», «500 доллар» → (сан сом менен, max/min), алынган бөлүк."""
+    t = text
+    best = None
+    for m in _are.finditer(r"(\$\s*)?(\d+(?:[.,]\d+)?|кырк|отуз|жыйырма|элүү|алтымыш|жетимиш|сексен|токсон|жүз)"
+                           r"\s*(миң\w*|мин\b|тыс\w*|к\b|млн\w*|миллион\w*)?\s*(\$|доллар\w*|бакс\w*|usd|сом\w*)?", t):
+        raw, mul, cur = m.group(2), m.group(3) or "", m.group(4) or ""
+        try:
+            n = float(raw.replace(",", ".")) if raw[0].isdigit() else float(_AI_NUMW[raw])
+        except Exception:
+            continue
+        usd = bool(m.group(1)) or cur.startswith(("$", "доллар", "бакс", "usd"))
+        if mul.startswith(("миң", "мин", "тыс", "к")):
+            n *= 1000
+        elif mul.startswith(("млн", "миллион")):
+            n *= 1000000
+        elif not cur and not usd:
+            if n < 1000 or 1950 <= n <= 2035:
+                continue
+        if usd:
+            try:
+                n *= (core.usd_rate() or 87)
+            except Exception:
+                n *= 87
+        after = t[m.end():m.end() + 25]
+        before = t[max(0, m.start() - 12):m.start()]
+        kind = "min" if _are.search(r"^\s*\S*\s*(дан|ден|тан|тен|дон|тон)?\s*(жогору|ашык|баштап)|^\s*(и выше|и больше)", after) \
+            or _are.search(r"(от|минимум)\s*$", before) else "max"
+        best = (int(n), kind, m.group(0))
+        break
+    return best
+
+
+def _ai_parse(q):
+    raw = str(q or "").strip()
+    t = _ai_norm(raw)
+    if len(t) < 2:
+        return None
+    r = {"at": None, "cid": None, "sid": None, "ob": None, "di": None, "vi": None,
+         "pmax": None, "pmin": None, "sort": None, "q": "", "rooms": None}
+    rest_extra = []
+    # баасы
+    pr = _ai_price(t)
+    if pr:
+        r["pmax" if pr[1] == "max" else "pmin"] = pr[0]
+        t = t.replace(pr[2], " ", 1)
+    # жылдар (2018ден жаңы) — издөө сөзүнөн алынат
+    t = _are.sub(r"\b(19[5-9]\d|20[0-3]\d)\s*(-?\s*(жыл\w*|ж|год\w*|г|ден|дан|тен|тан))?\s*(жаңы|новее|кийинки)?", " ", t)
+    # бөлмө саны
+    m = _are.search(r"(\d|бир|эки|үч|уч|төрт|торт|беш|один|одна|два|две|двух|три|трех|четыре|пять)"
+                    r"\s*-?\s*(х\s*)?(б?[өо]лм[өо]\w*|комнат\w*|к\b|кв\b)", t)
+    if m:
+        w = m.group(1)
+        n = int(w) if w.isdigit() else _AI_NUMW.get(w, 0)
+        if 1 <= n <= 9:
+            r["rooms"] = n
+            t = t.replace(m.group(0), " батир ", 1)
+    # арзан → иргөө
+    if _are.search(r"\b(арзан\w*|дешев\w*|недорог\w*)\b", t):
+        r["sort"] = "cheap"
+    rent = any(w in t for w in _AI_RENT)
+    sale = any(w in t for w in _AI_SALE)
+    # объект
+    obj = None
+    for keys, val in _AI_OBJ:
+        for k in keys:
+            if (" " in k and k in t) or _are.search(r"(^|\s)" + _are.escape(k), t):
+                obj = val
+                break
+        if obj:
+            break
+    # «квартира с ремонтом» — бул кызмат эмес, батир
+    if obj and obj[1] == "construction" and _are.search(r"(^|\s)(ремонт|евроремонт)", t) \
+            and not _are.search(r"(^|\s)(сантехник|электрик|усто|мастер|сварщик|плиточник|маляр|строител|курулуш)", t) \
+            and _are.search(r"(^|\s)(батир|квартир|үй|дом|коттедж)", t) \
+            and (rent or sale or r["pmax"] or r["pmin"]):
+        obj = ("?", "residential", "@house" if _are.search(r"(^|\s)(үй|дом|коттедж)", t) else "@apt")
+    # унаа маркасы / телефон
+    toks = t.split()
+    car = [(_AI_CARS[x]) for x in toks if x in _AI_CARS]
+    phone = [(_AI_PHONE[x]) for x in toks if x in _AI_PHONE]
+    if phone:
+        r["at"], r["cid"] = "trade", "smartphones"
+        num = _are.search(r"(?:айфон|iphone)\s*(\d{1,2}\s*(?:pro\s*max|pro|max|plus|mini)?)", t)
+        rest_extra.append(" ".join(phone) + ((" " + num.group(1)) if num else ""))
+    elif car and (not obj or obj[1] in ("car", "truck", "special")):
+        obj = ("?", obj[1] if obj else "car", None)
+        rest_extra.append(" ".join(dict.fromkeys(car)))
+    if obj and not r["at"]:
+        sec, kind, grp = obj
+        if sec == "?":
+            if kind in ("residential", "land", "commercial", "garage"):
+                big = (r["pmax"] or r["pmin"] or 0)
+                if not rent and not sale and kind == "residential":
+                    rent = bool(big and big < 300000) or grp == "@room"
+                    if not rent and not big:
+                        # ижарабы же сатуубу — белгисиз: бөлүм коюлбайт, сөз издөөдө калат
+                        rest_extra.append({"@house": "үй"}.get(grp, "батир"))
+                        kind = None
+                if kind is None:
+                    pass
+                elif rent and not sale:
+                    r["at"] = "rental"
+                    r["cid"] = {"residential": "rent_residential", "land": "rent_land",
+                                "commercial": "rent_commercial", "garage": "rent_commercial"}[kind]
+                    if kind == "residential":
+                        r["sid"] = grp
+                        if r["rooms"] and grp in ("@apt", None):
+                            n = r["rooms"]
+                            r["sid"] = ("%d бөлмөлүү батир" % n) if n <= 3 else "4+ бөлмөлүү батир"
+                else:
+                    r["at"] = "property"
+                    r["cid"] = "re_" + kind
+                    if kind == "residential" and grp in ("@apt", "@house"):
+                        r["sid"] = grp
+                    if r["rooms"]:
+                        rest_extra.append("%d-бөлмө" % r["rooms"])
+            else:
+                if rent and not sale:
+                    r["at"] = "rental"
+                    r["cid"] = {"car": "rent_car", "truck": "rent_truck", "special": "rent_special"}[kind]
+                else:
+                    r["at"] = "vehicle"
+                    r["cid"] = {"car": "veh_light", "truck": "veh_truck", "special": "veh_special"}[kind]
+        else:
+            r["at"], r["cid"], r["sid"] = sec, kind, grp
+            if sec == "rental" and r["rooms"] and grp == "@room":
+                pass
+    # жер-суу
+    used = set()
+    toks = t.split()
+    ob, di, vi = _ai_place(toks, used)
+    if r["at"] == "taxi":
+        ob = di = vi = None
+        used = set()
+    r["ob"], r["di"], r["vi"] = ob, di, vi
+    # калган сөздөр → издөө сөзү
+    objwords = set()
+    for keys, _v in _AI_OBJ:
+        objwords.update(k for k in keys if " " not in k)
+    left = []
+    for i, w in enumerate(toks):
+        if i in used or w in _AI_STOP or w in _AI_CARS or w in _AI_PHONE:
+            continue
+        if any(w.startswith(k) for k in objwords) or any(w.startswith(k) for k in _AI_RENT + _AI_SALE):
+            continue
+        if _are.fullmatch(r"\d{1,2}", w) and phone:
+            continue
+        if len(w) < 2:
+            continue
+        left.append(w)
+    r["q"] = " ".join(rest_extra + left).strip()
+    found = any(r[k] for k in ("at", "ob", "pmax", "pmin"))
+    return r if found else None
+
+
+def _ai_url(r, aiq, drop=None):
+    p = {}
+    for k in ("at", "cid", "sid", "ob", "di", "vi", "sort"):
+        if r.get(k) and k != drop and not (drop == "at" and k in ("cid", "sid")) \
+                and not (drop == "cid" and k == "sid") and not (drop == "ob" and k in ("di", "vi")):
+            p[k] = r[k]
+    if r.get("q") and drop != "q":
+        p["q"] = r["q"]
+    if r.get("pmax") and drop != "price":
+        p["px"] = r["pmax"]
+    if r.get("pmin") and drop != "price":
+        p["pn"] = r["pmin"]
+    p["ai"] = "0"
+    p["aiq"] = aiq
+    return "/?" + _aup.urlencode(p)
+
+
+def _ai_chips(r, aiq, lang):
+    ru = (lang == "ru")
+    ch = []
+    try:
+        if r.get("at"):
+            ch.append(("at", section_name(r["at"], lang)))
+        if r.get("at") and r.get("cid"):
+            ch.append(("cid", cat_label(r["at"], r["cid"], lang)))
+        sid = r.get("sid") or ""
+        if sid.startswith("@"):
+            try:
+                import tap_rgroups as _r
+                g = _r.group(r["at"], r["cid"], sid[1:])
+                if g:
+                    ch.append(("sid", (g[1] + " " + L(g[2], lang)).strip()))
+            except Exception:
+                pass
+        elif sid:
+            ch.append(("sid", _ky(sid, lang)))
+        pl = r.get("vi") or r.get("di") or r.get("ob")
+        if pl:
+            ch.append(("ob", "📍 " + _short_place(_place_name(pl, lang))))
+        f = lambda n: "{:,}".format(int(n)).replace(",", " ")
+        if r.get("pmax"):
+            ch.append(("price", "💰 " + (("до %s сом" if ru else "%s сомго чейин") % f(r["pmax"]))))
+        if r.get("pmin"):
+            ch.append(("price", "💰 " + (("от %s сом" if ru else "%s сомдон жогору") % f(r["pmin"]))))
+        if r.get("sort") == "cheap":
+            ch.append(("sort", "↓ " + ("Сначала дешёвые" if ru else "Арзандан")))
+        if r.get("q"):
+            ch.append(("q", "🔍 «%s»" % r["q"]))
+    except Exception:
+        pass
+    return ch
+
+
+_AI_CSS = ('<style>.aib{margin:10px 16px 0;background:#fff;border-radius:16px;padding:10px 12px;'
+           'box-shadow:0 1px 6px rgba(11,27,48,.08)}'
+           '.aib .aih{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}'
+           '.aib .ait{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#7B5CF5,#2556C7);'
+           'color:#fff;border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:800}'
+           '.aib .aio{font-size:12px;color:#5A6B82;text-decoration:none;font-weight:700}'
+           '.aib .aic{display:inline-flex;align-items:center;gap:6px;background:#EEF4FF;color:#163C8C;'
+           'border-radius:999px;padding:6px 6px 6px 11px;font-weight:700;font-size:12.5px;margin:0 5px 6px 0;text-decoration:none}'
+           '.aib .aic i{font-style:normal;width:18px;height:18px;border-radius:50%;background:#DCE6F7;'
+           'display:grid;place-items:center;font-size:9px}</style>')
+
+
+def _ai_bar(aiq, lang):
+    r = _ai_parse(aiq)
+    if not r:
+        return ""
+    ru = (lang == "ru")
+    chips = _ai_chips(r, aiq, lang)
+    h = ('<div class="aib"><div class="aih"><span class="ait">✨ %s</span>'
+         '<a class="aio" href="/?%s">%s</a></div>'
+         % ("ИИ понял" if ru else "ИИ түшүндү", _aup.urlencode({"q": aiq, "ai": "0"}),
+            "Обычный поиск ›" if ru else "Кадимки издөө ›"))
+    for key, lb in chips:
+        h += '<a class="aic" href="%s">%s<i>✕</i></a>' % (esc(_ai_url(r, aiq, key)), esc(lb))
+    return _AI_CSS + h + "</div>"
+
+
+_core_find_ai_base = core.find
+
+
+def _core_find_ai(*a, **k):
+    try:
+        if getattr(_AIX, "on", False) and len(a) < 9:
+            if getattr(_AIX, "pmax", None) and k.get("pmax") is None:
+                k["pmax"] = _AIX.pmax
+            if getattr(_AIX, "pmin", None) and k.get("pmin") is None:
+                k["pmin"] = _AIX.pmin
+    except Exception:
+        pass
+    return _core_find_ai_base(*a, **k)
+
+
+core.find = _core_find_ai
+_home_ai_base = home
+
+
+def home(q, *a, **k):
+    try:
+        h = _home_ai_base(q, *a, **k)
+    finally:
+        _AIX.on = False
+        _AIX.pmax = _AIX.pmin = None
+    try:
+        aiq = getattr(_AIX, "aiq", None)
+        _AIX.aiq = None
+        if aiq:
+            lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
+            bar = _ai_bar(aiq, lang)
+            i = h.find("</header>")
+            if bar and i >= 0:
+                h = h[:i + 9] + bar + h[i + 9:]
+    except Exception:
+        pass
+    return h
+
+
+def _ai_route(qs, q, at, cid, sid):
+    """«/» бетинде: жөнөкөй издөө сөзүн чыпкаларга айлантып, багыттайт."""
+    _AIX.on = True
+    try:
+        _AIX.pmax = int(qs.get("px", ["0"])[0] or 0) or None
+        _AIX.pmin = int(qs.get("pn", ["0"])[0] or 0) or None
+    except Exception:
+        _AIX.pmax = _AIX.pmin = None
+    _AIX.aiq = (qs.get("aiq", [""])[0] or "").strip()[:200] or None
+    if q and not (at or cid or sid) and qs.get("ai", ["1"])[0] != "0" and len(q) <= 200:
+        try:
+            r = _ai_parse(q)
+        except Exception:
+            r = None
+        if r:
+            return _ai_url(r, q)
+    return None
+# ── AISEARCH_END
 
 
 if __name__ == "__main__":
