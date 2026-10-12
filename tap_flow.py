@@ -2311,3 +2311,49 @@ def advance(step, value, data=None):
         return _advance_cur_base(frm, _cur_fmt(raw, "USD" if value == "USD" else "KGS"), d)
     return _advance_cur_base(step, value, data)
 
+
+# ── CURRENCY2: валюта баскычтары баа жазылганга чейин ─────────
+_render_cur2_base = render
+_advance_cur2_base = advance
+_CUR2_PICK = ("trade_price", "post_price")
+
+
+def render(step, data=None):
+    d = data or {}
+    v = _render_cur2_base(step, data)
+    try:
+        if step in _CUR2_PICK and isinstance(v.get("options"), list):
+            out = []
+            for o in v["options"]:
+                if o.get("value") == "__custom__":
+                    out.append({"label": "✍️ Сом менен жазам / Ввести в сомах", "value": "__custom__"})
+                    out.append({"label": "💵 Доллар менен жазам / Ввести в долларах", "value": "__custom_usd__"})
+                else:
+                    out.append(o)
+            v["options"] = out
+        elif step in _CUR_STEPS and d.get("_cur"):
+            usd = d.get("_cur") == "USD"
+            jb = d.get("adType") in ("job", "jobseek")
+            what = ("Айлыкты" if jb else "Баасын", "зарплату" if jb else "цену")
+            v["text"] = ("%s долларда жазыңыз 💵 / Введите %s в долларах ($)" if usd
+                         else "%s сом менен жазыңыз / Введите %s в сомах") % what
+            v["placeholder"] = "Мис: 12 500" if usd else "Мис: 1 500 000"
+    except Exception:
+        pass
+    return v
+
+
+def advance(step, value, data=None):
+    if step in _CUR2_PICK and value in ("__custom__", "__custom_usd__"):
+        d = dict(data or {})
+        d["_cur"] = "USD" if value == "__custom_usd__" else "KGS"
+        return _advance_cur2_base(step, "__custom__", d)
+    if step in _CUR_STEPS:
+        d = dict(data or {})
+        cur = d.pop("_cur", None)
+        v = str(value or "").strip()
+        if cur and _cur_need(v):
+            return _advance_cur_base(step, _cur_fmt(v, cur), d)
+        return _advance_cur2_base(step, value, d)
+    return _advance_cur2_base(step, value, data)
+
