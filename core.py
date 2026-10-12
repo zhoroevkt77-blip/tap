@@ -907,6 +907,20 @@ def _filters(q=None, cat=None, region=None, sub=None,
         sql += " AND ad_type=?"; p.append(ad_type)
     if cat_id:
         sql += " AND cat_id=?"; p.append(cat_id)
+    _rgk = None
+    if sub_id and str(sub_id).startswith("@"):   # RGROUP: топ боюнча чыпка
+        try:
+            import tap_rgroups as _rg
+            if _rg.groups_for(ad_type, cat_id):
+                _gid = str(sub_id)[1:]
+                _ks = (_rg.all_known_kg(ad_type, cat_id) if _gid == "other"
+                       else (_rg.members_kg(ad_type, cat_id, _gid) or ["\x00"]))
+                _or = " OR ".join(["(' | ' || COALESCE(sub_id,'') || ' | ') LIKE ?"] * len(_ks))
+                sql += (" AND NOT (%s)" if _gid == "other" else " AND (%s)") % _or
+                p += ["% | " + k + " | %" for k in _ks]
+        except Exception:
+            pass
+        sub_id = None
     if sub_id:   # SUBALL: бир нече субкатегория «А | Б»
         sql += " AND (' | ' || COALESCE(sub_id,'') || ' | ') LIKE ?"
         p.append("% | " + sub_id + " | %")

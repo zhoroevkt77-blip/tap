@@ -2669,6 +2669,58 @@ _CPATH_CSS = ('<style>.cpath{padding:2px 0 6px;overflow:visible}'
               '.cpath .x{margin-left:8px;opacity:.7;font-weight:700}</style>')
 
 
+
+import tap_rgroups as _rgs   # RGROUP
+
+
+def _rg_rows(link, at, cid, sid, sc, lang):
+    """RGROUP: Түрү (топ) → Тагыраак — тепкич чиптери."""
+    ru = (lang == "ru")
+    gs = _rgs.groups_for(at, cid)
+    kg = _rgs._kg
+    gcnt = {}
+    for k, n in (sc or {}).items():
+        g = _rgs.group_of(at, cid, k) or "other"
+        gcnt[g] = gcnt.get(g, 0) + n
+    s = str(sid or "")
+    if s.startswith("@"):
+        gid = s[1:]
+    elif s:
+        gid = _rgs.group_of(at, cid, s) or "other"
+    else:
+        gid = None
+    t1 = "Тип" if ru else "Түрү"
+    t2 = "Уточнить" if ru else "Тагыраак"
+    oth = "📦 " + ("Другое" if ru else "Башка")
+    if not gid:
+        opts = [(None, link(sid=None), "Вся категория" if ru else "Бүт категория", None)]
+        for g in sorted(gs, key=lambda g: -gcnt.get(g[0], 0)):
+            opts.append(("@" + g[0], link(sid="@" + g[0]),
+                         g[1] + " " + L(g[2], lang), gcnt.get(g[0], 0)))
+        opts.append(("@other", link(sid="@other"), oth, gcnt.get("other", 0)))
+        return _chips_row(t1, opts, None, lang)
+    g = _rgs.group(at, cid, gid)
+    out = _cpath(t1, link(sid=None), (g[1] + " " + L(g[2], lang)) if g else oth,
+                 gcnt.get(gid, 0))
+    if s.startswith("@"):
+        opts = [(s, link(sid=s), "Все" if ru else "Баары", gcnt.get(gid, 0))]
+        if g:
+            for f, sh in sorted(g[3], key=lambda m: -sc.get(kg(m[0]), 0)):
+                k = kg(f)
+                opts.append((k, link(sid=k), L(sh, lang), sc.get(k, 0)))
+        else:
+            for k in sorted((k for k in sc if not _rgs.group_of(at, cid, k)),
+                            key=lambda k: -sc.get(k, 0)):
+                opts.append((k, link(sid=k), _ky(k, lang), sc.get(k, 0)))
+        if len(opts) > 1:
+            out += _chips_row(t2, opts, s, lang)
+    else:
+        sh = _rgs.short_of(at, cid, s)
+        out += _cpath(t2, link(sid="@" + gid), L(sh, lang) if sh else _ky(s, lang),
+                      sc.get(s, 0))
+    return out
+
+
 def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
                  vv=None):
     """Бөлүм жана аймак чыпкалары — тандоо тизмелери менен."""
@@ -2718,13 +2770,16 @@ def _filter_bars(link, q, at, cid, sid, ob, di, vi, lang, sort="new",
                 _fl = _sub_full(at, cid).get(code)   # SUBALL: орусча аты каталогдон
                 opts.append((code, link(sid=code),
                              L(_fl, lang) if _fl else _ky(code, lang), n))
-            _so = [o for o in opts if o[0] == sid] if sid else []
-            if sid:   # CATPATH: субкатегория тандалды — чип ✕ менен
-                inner += _cpath("Субкатегория", link(sid=None),
-                                _so[0][2] if _so else _ky(sid, lang),
-                                _so[0][3] if _so else sc.get(sid, 0))
-            elif len(opts) > 1:
-                inner += _chips_row("Субкатегория", opts, sid, lang)
+            if _rgs.groups_for(at, cid):   # RGROUP: Түрү → Тагыраак
+                inner += _rg_rows(link, at, cid, sid, sc, lang)
+            else:
+                _so = [o for o in opts if o[0] == sid] if sid else []
+                if sid:   # CATPATH: субкатегория тандалды — чип ✕ менен
+                    inner += _cpath("Субкатегория", link(sid=None),
+                                    _so[0][2] if _so else _ky(sid, lang),
+                                    _so[0][3] if _so else sc.get(sid, 0))
+                elif len(opts) > 1:
+                    inner += _chips_row("Субкатегория", opts, sid, lang)
 
         # QUICKFLT: бөлүмгө жараша тез чыпкалар
         # QUICKFLT2: категория тандалганда гана чыгат

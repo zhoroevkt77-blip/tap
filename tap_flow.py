@@ -2147,3 +2147,48 @@ def render(step, data=None):
     except Exception:
         pass
     return v
+
+
+# ── RGROUP: ижара — Категория → Түрү → Тагыраак ─────────────
+import tap_rgroups as _rgs
+_render_rg_base = render
+_advance_rg_base = advance
+
+
+def render(step, data=None):
+    d = data or {}
+    if step == "rent_group":
+        gs = _rgs.groups_for(d.get("adType"), d.get("category"))
+        return _view("Кайсы түрү? / Какой тип?",
+                     [{"label": "%s %s" % (em, lb), "value": gid} for gid, em, lb, _m in gs]
+                     + [{"label": "📦 Башка / Другое", "value": OTHER}])
+    if step == "rent_group_sub":
+        g = _rgs.group(d.get("adType"), d.get("category"), d.get("rentGroup"))
+        opts = [{"label": sh, "value": f} for f, sh in (g[3] if g else [])]
+        return _view("Тагыраак тандаңыз / Уточните:",
+                     opts + [{"label": "Башка / Другое", "value": OTHER}], multi=True)
+    return _render_rg_base(step, data)
+
+
+def advance(step, value, data=None):
+    d = dict(data or {})
+    at = d.get("adType")
+    if step == "category_select" and _rgs.groups_for(at, value):
+        d["category"] = value
+        d.pop("rentGroup", None)
+        return "rent_group", d
+    if step == "rent_group":
+        if value == OTHER or not _rgs.group(at, d.get("category"), value):
+            d.update(subcategory=OTHER, title=OTHER)
+            return _after_subcategory(d), d
+        d["rentGroup"] = value
+        return "rent_group_sub", d
+    if step == "rent_group_sub":
+        g = _rgs.group(at, d.get("category"), d.get("rentGroup"))
+        v = str(value or "").strip()
+        if g and (not v or v == OTHER):
+            v = g[2]                       # «Башка» → топтун өз аты («Батир»)
+        elif g and OTHER in v:
+            v = v.replace(OTHER, g[2])
+        return _advance_rg_base("subcategory_select", v, d)
+    return _advance_rg_base(step, value, data)
