@@ -1067,6 +1067,11 @@ function draw(){
     h+='<div class="popts">';
     v.options.forEach(function(o,i){h+='<button class="popt'+(S.picked.indexOf(o.value)>=0?' on':'')+(WIDE?' pw':'')+'" data-i="'+i+'">'+esc(o.label)+'</button>';});
     h+='</div>';
+    if(v.multi&&S.picked.length){h+='<div class="psel"><div class="psl"><span>✓ '+T('Тандалды','Выбрано')+' · '+S.picked.length+'</span>'   /* PICKED */
+      +'<button type="button" id="pclr">'+T('Тазалоо','Очистить')+'</button></div><div class="pcs">'
+      +S.picked.map(function(pv,k){var o=v.options.filter(function(x){return x.value===pv;})[0];var lb=o?String(o.label):String(pv);
+        return '<span class="pc">'+esc(lb.length>30?lb.slice(0,29)+'…':lb)+'<button type="button" data-pk="'+k+'" aria-label="✕">✕</button></span>';}).join('')
+      +'</div></div>';}
     if(v.multi){h+='<button class="pbtn" id="pmd"'+(S.picked.length?'':' style="opacity:.5"')+'>'+T('Даяр','Готово')+(S.picked.length?' · '+S.picked.length+T(' тандалды',' выбрано'):'')+'</button>';}
     if(v.input){h+=(v.long?'<textarea id="pi" class="pfld" rows="5" placeholder="'+esc(v.placeholder)+'"></textarea>'
       :'<input id="pi" class="pfld" autocomplete="off" enterkeyhint="next"'+(v.numeric?' inputmode="decimal"':'')+' placeholder="'+esc(v.placeholder)+'">')
@@ -1081,6 +1086,8 @@ function draw(){
   box.querySelectorAll('.popt').forEach(function(b){b.onclick=function(){var o=v.options[+b.getAttribute('data-i')];
     if(v.multi){var k=S.picked.indexOf(o.value);if(k>=0)S.picked.splice(k,1);else S.picked.push(o.value);draw();}
     else{b.classList.add('tap');next(o.value,o.label);}};});   // POPT_TAP
+  box.querySelectorAll('.psel [data-pk]').forEach(function(x){x.onclick=function(){S.picked.splice(+x.getAttribute('data-pk'),1);draw();};});   /* PICKED */
+  var pclr=document.getElementById('pclr'); if(pclr)pclr.onclick=function(){S.picked=[];draw();};
   var md=document.getElementById('pmd'); if(md)md.onclick=function(){if(!S.picked.length){alert(T('Жок дегенде бирөөнү тандаңыз.','Выберите хотя бы один вариант.'));return;} var ex=((document.getElementById('pi')||{}).value||'').trim();next(S.picked.concat(ex?[ex]:[]).join(', '),v.options.filter(function(o){return S.picked.indexOf(o.value)>=0;}).map(function(o){return o.label;}).concat(ex?[ex]:[]).join(', '));};   /* LANDMULTI */
   var pi0=document.getElementById('pi'); if(pi0&&pi0.tagName==='INPUT')pi0.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();var b=document.getElementById('pnx');if(b)b.click();}};
   var nx=document.getElementById('pnx'); if(nx)nx.onclick=function(){var t=(document.getElementById('pi').value||'').trim(); if(!t){alert(T('Жооп жазыңыз.','Введите ответ.'));return;} next(t,t);};
@@ -1165,6 +1172,7 @@ _POST_CSS = """<style>/* PBACK4 */
 .ptrail{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.pprev{margin:14px 0 4px}.pplab{font-size:14px;font-weight:800;color:#5A6B82;margin:0 0 8px}.pprev .g{pointer-events:none}.ptrail span{cursor:pointer}/* PPREVIEW */
 .ptrail span{padding:4px 10px;border-radius:999px;background:#E6EDF6;color:#17304F;font-size:13px;font-weight:700;line-height:1.3}/* PTRAIL */
 .pdraft{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:12px;background:#E3F5EA;color:#155C33;font-size:14px;font-weight:700}.pdraft button{border:1.5px solid #155C33;background:#fff;color:#155C33;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:800}/* DRAFT1 */
+.popts .popt.on::before{content:'✓ ';font-weight:800}.psel{margin:16px 0 0;padding:12px;border-radius:16px;background:#EEF4FF;border:1px dashed #9DB6E3}.psl{display:flex;justify-content:space-between;align-items:center;margin:0 0 8px;font-size:13px;font-weight:800;color:#163C8C}.psl button{border:0;background:none;color:#5A6B82;font-weight:700;font-size:13px;padding:2px 4px;cursor:pointer}.pcs{display:flex;flex-wrap:wrap;gap:7px}.pc{display:inline-flex;align-items:center;gap:6px;padding:5px 5px 5px 12px;border-radius:999px;background:#fff;border:1px solid #C9D6E8;font-weight:700;font-size:13px;color:#0B1B30}.pc button{width:22px;height:22px;border:0;border-radius:50%;background:#E4EBF5;color:#163C8C;font-size:11px;font-weight:800;padding:0;cursor:pointer;line-height:22px}.pc button:active{background:#163C8C;color:#fff}/* PICKED */
 .pok{width:84px;height:84px;margin:30px auto 10px;border-radius:42px;background:#2E9E5B;color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center}
 </style>"""
 
