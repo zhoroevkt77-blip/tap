@@ -649,3 +649,18 @@ def build_description(data):
         pass
     return base[:2000]
 
+
+# MOREQ_LABELS: калган бөлүмдөрдүн кошумча жооптору сүрөттөмөгө
+_RQ_LABELS += [
+    ("tradeCond", "Абалы"), ("tradeWarranty", "Кепилдик"), ("tradeSeller", "Ким сатат"),
+    ("tradePay", "Төлөм"), ("mktDayOff", "Дем алыш күнү"),
+    ("wsOrigin", "Өндүрүлгөн жери"), ("wsDocs", "Документтери"),
+    ("svcExp", "Тажрыйбасы"), ("svcVisit", "Кабыл алуу"), ("svcSched", "Иш убактысы"),
+    ("svcWarranty", "Кепилдик"),
+    ("delTransport", "Транспорту"), ("delSpeed", "Жеткирүү мөөнөтү"),
+    ("cargoLoaders", "Жүк көтөрүүчүлөр"), ("cargoPriceBasis", "Баа эсеби"),
+    ("jobSched", "График"), ("jobOfficial", "Расмийлиги"), ("jobExtras", "Кошумча"),
+    ("jobPayFreq", "Айлык берилет"),
+    ("seekLang", "Тилдер"), ("seekLicense", "Айдоочулук күбөлүк"),
+    ("taxiCond", "Шарттары"),
+]
