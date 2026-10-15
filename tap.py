@@ -7103,7 +7103,7 @@ _SMH_JS = r"""<script>(function(){
 var f=document.querySelector('form.s'),i=f&&f.querySelector('input[name=q]');if(!i)return;
 var E=__EX__,k=0,h=document.querySelector('.smh');
 try{if(document.querySelector('.aib'))localStorage.setItem('tap_aiok','1');
- if(h&&localStorage.getItem('tap_aiok'))h.classList.add('off');}catch(e){}
+ /* SMARTSHOW: ар дайым көрүнөт */}catch(e){}
 function nx(){if(document.activeElement===i||i.value)return;k=(k+1)%E.length;i.setAttribute('placeholder',E[k]);}
 i.setAttribute('placeholder',E[0]);setInterval(nx,3000);
 })();</script>"""
