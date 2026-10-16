@@ -2813,3 +2813,15 @@ def advance(step, value, data=None):
 # ── MOREQ_END
 
 
+# FIX3_RENTSELLER: ижарада «Ким берип жатат?» (Турак жай, Коммерциялык)
+try:
+    RICHQ["rentSeller"] = ("👤 Ким берип жатат? / Кто сдаёт?", "",
+                           _rq(("🙋 Ээси өзү / Собственник", "Ээси өзү"),
+                               ("🏢 Агенттик (риелтор) / Агентство", "Агенттик"),
+                               ("🤝 Ортомчу / Посредник", "Ортомчу")), False, False, "")
+    for _c in ("rent_residential", "rent_commercial"):
+        _RENT_Q[_c] = tuple(_RENT_Q.get(_c, ())) + ("rentSeller",)
+    _RENT_ALL = tuple(_RENT_ALL) + ("rentSeller",)
+    _rq_insert(CHAIN_RENTAL, "rentDelivery", ["rentSeller"])
+except Exception as _e:
+    print("FIX3_RENTSELLER:", _e)

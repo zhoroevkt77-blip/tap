@@ -6434,8 +6434,8 @@ def _core_filters_fx(*a, **k):
     if st.get("ph"):
         sql += " AND photo IS NOT NULL AND photo<>''"
     if st.get("ow"):
-        sql += " AND description LIKE ?"
-        p = list(p) + [_FX_OWNER_LIKE]
+        sql += " AND (description LIKE ? OR description LIKE ?)"
+        p = list(p) + [_FX_OWNER_LIKE, "%Ким берет: Ээси%"]
     return sql, p
 
 
@@ -6627,7 +6627,7 @@ f.onsubmit=function(){f.querySelectorAll('input').forEach(function(i){
 })();
 </script>"""
 
-_FX_OWNER_AT = ("property", "vehicle", "trade", "markets", "malls")
+_FX_OWNER_AT = ("property", "vehicle", "trade", "markets", "malls", "rental")
 _FX_QUICK = {
     "rental": ((None, 15000), (None, 30000), (None, 50000), (50000, None)),
     "property": ((None, 3000000), (None, 6000000), (None, 10000000), (10000000, None)),
@@ -6638,13 +6638,13 @@ _FX_QUICK = {
 _FX_QUICK_DEF = ((None, 1000), (None, 5000), (None, 20000), (20000, None))
 
 
-def _fx_short(n):
+def _fx_short(n, ru=False):   # FIX3
     n = int(n)
     if n >= 1000000:
         v = n / 1000000.0
         return ("%g" % round(v, 1)).replace(".", ",") + " млн"
     if n >= 1000:
-        return "%g миң" % round(n / 1000.0, 1)
+        return ("%g тыс" if ru else "%g миң") % round(n / 1000.0, 1)
     return str(n)
 
 
@@ -6679,8 +6679,8 @@ def _fxui(cur, st, at, lang, skip_price):
     f = lambda n: "{:,}".format(int(n)).replace(",", " ") if n else ""
     quick = ""
     for a, b in _FX_QUICK.get(at, _FX_QUICK_DEF):
-        lb = (T("%s чейин", "до %s") % _fx_short(b)) if b and not a else \
-             (T("%s жогору", "от %s") % _fx_short(a)) if a and not b else "%s–%s" % (_fx_short(a), _fx_short(b))
+        lb = (T("%s чейин", "до %s") % _fx_short(b, ru)) if b and not a else \
+             (T("%s жогору", "от %s") % _fx_short(a, ru)) if a and not b else "%s–%s" % (_fx_short(a, ru), _fx_short(b, ru))
         quick += '<button type="button" data-n="%s" data-x="%s">%s</button>' % (a or "", b or "", esc(lb))
     sorts = (("new", T("🆕 Жаңысынан", "🆕 Новые")), ("cheap", T("⬇️ Арзандан", "⬇️ Дешевле")),
              ("rich", T("⬆️ Кымбаттан", "⬆️ Дороже")), ("views", T("🔥 Көп көрүлгөн", "🔥 Популярные")))
@@ -6930,7 +6930,8 @@ if _web_my_list_bd:
 
 
 def _bd_owner(r):
-    return "Ким сатат: Ээси" in str(r.get("description") or "")
+    _d = str(r.get("description") or "")
+    return "Ким сатат: Ээси" in _d or "Ким берет: Ээси" in _d
 
 
 def _bd_drop(r):

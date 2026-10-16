@@ -664,3 +664,6 @@ _RQ_LABELS += [
     ("seekLang", "Тилдер"), ("seekLicense", "Айдоочулук күбөлүк"),
     ("taxiCond", "Шарттары"),
 ]
+
+# FIX3_LABEL
+_RQ_LABELS.append(("rentSeller", "Ким берет"))
