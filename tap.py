@@ -7247,7 +7247,7 @@ def _tp_badges(tg_id, lang, small=False):
     if t:
         out += '<span class="tpb">ТАП+</span> '
         if t == "tulpar":
-            out += '<span class="tpt">ТУЛПАР</span> '
+            out += '<span class="tpt">АЛМАЗ</span> '
     if _tp.ishenim(tg_id):
         out += '<span class="tpi">✅ %s</span>' % ("Доверие" if lang == "ru" else "Ишеним")
     return out
@@ -7261,7 +7261,7 @@ def card(r, lang="ky"):
     try:
         t = _tp.tier(r.get("tg_id"))
         if t:
-            b = '<span class="bpl">ТАП+</span>' + ('<span class="btl">ТУЛПАР</span>' if t == "tulpar" else "")
+            b = '<span class="bpl">ТАП+</span>' + ('<span class="btl">АЛМАЗ</span>' if t == "tulpar" else "")
             if '<div class="bdg">' in h:
                 h = h.replace('<div class="bdg">', '<div class="bdg">' + b, 1)
             else:
@@ -7400,14 +7400,14 @@ def _tp_store(slug, lang):
 _TP_FEAT = {
     "kulun": ("ТАП+ белгиси жана алтын алкак", "🏪 Дүкөнүңүздүн барагы: tapmeni…/d/сиздин-атыңыз",
               "Жарыяларыңызда «🏪 Дүкөнгө өтүү» баскычы"),
-    "tai": ("Кулундагы бардыгы", "⬆️ Тизмеде Кулундан жогору турат"),
-    "tulpar": ("Тайдагы бардыгы", "🏇 «ТУЛПАР» белгиси", "⬆️ Тизмеде эң жогоруда"),
+    "tai": ("Күмүштөгү бардыгы", "⬆️ Тизмеде Күмүштөн жогору турат"),
+    "tulpar": ("Алтындагы бардыгы", "💎 «АЛМАЗ» белгиси", "⬆️ Тизмеде эң жогоруда"),
 }
 _TP_FEAT_RU = {
     "kulun": ("Значок ТАП+ и золотая рамка", "🏪 Страница магазина: tapmeni…/d/ваше-имя",
               "Кнопка «🏪 Перейти в магазин» в объявлениях"),
-    "tai": ("Всё из Кулун", "⬆️ В списке выше Кулун"),
-    "tulpar": ("Всё из Тай", "🏇 Значок «ТУЛПАР»", "⬆️ В списке выше всех"),
+    "tai": ("Всё из «Серебра»", "⬆️ В списке выше «Серебра»"),
+    "tulpar": ("Всё из «Золота»", "💎 Значок «АЛМАЗ»", "⬆️ В списке выше всех"),
 }
 
 
@@ -7627,8 +7627,8 @@ _card_tp2_base = card
 def card(r, lang="ky"):
     h = _card_tp2_base(r, lang)
     try:
-        h = h.replace('<span class="bpl">ТАП+</span><span class="btl">ТУЛПАР</span>',
-                      '<span class="btl">ТАП+ · ТУЛПАР</span>', 1)
+        h = h.replace('<span class="bpl">ТАП+</span><span class="btl">АЛМАЗ</span>',
+                      '<span class="btl">ТАП+ · АЛМАЗ</span>', 1)
         s = _tp.get(r.get("tg_id"))
         pr = _tp.promo(s) if s and _tp.tier(r.get("tg_id")) else ""
         if pr:
@@ -7676,8 +7676,8 @@ def _tp_page(lang):
         ru = (lang == "ru")
         t = ('<div class="tpish" style="background:#FFF6DC;color:#5B4300"><b>🎁 %s</b><br>%s</div>'
              % ("Первые 7 дней — бесплатно" if ru else "Алгачкы 7 күн — акысыз",
-                esc("Попробуйте ТАП+ неделю без оплаты: напишите нам — подключим тариф «Тай» на 7 дней." if ru else
-                    "ТАП+'ты бир жума акысыз сынап көрүңүз: бизге жазыңыз — «Тай» тарифин 7 күнгө жандырабыз.")))
+                esc("Попробуйте ТАП+ неделю без оплаты: напишите нам — подключим тариф «Золото» на 7 дней." if ru else
+                    "ТАП+'ты бир жума акысыз сынап көрүңүз: бизге жазыңыз — «Алтын» тарифин 7 күнгө жандырабыз.")))
         i = h.find('<div class="tpish">')
         if i >= 0:
             h = h[:i] + t + h[i:]
@@ -8694,7 +8694,7 @@ function draw(){var f=D.f;
  document.getElementById('lgin').onchange=function(){var f0=this.files[0];if(f0)img(f0,300,300,1,function(d){LOGO=d;document.getElementById('lgpv').style.backgroundImage='url('+d+')';});};
  document.getElementById('bnin').onchange=function(){var f0=this.files[0];if(f0)img(f0,1200,400,1,function(d){BAN=d;document.getElementById('bnpv').style.backgroundImage='url('+d+')';});};
  document.getElementById('mssv').onclick=save;var ak=document.getElementById('msask');if(ak)ak.onclick=ask;}
-function ask(){var t=prompt('Эмнени өзгөртүү керек?\nМис: «Түрүн Уста бригада кылыңыз», «Тулпар тарифине өтөм», «Шилтемени /d/armana-mebel кылыңыз»');if(!t||!t.trim())return;fetch('/api/myshop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,ask:t.trim()})}).then(function(r){return r.json();}).then(function(x){var m=document.getElementById('msmsg');if(x.ok){m.innerHTML='<div class="msok">✅ Сурооңуз админге жөнөтүлдү. Жакында жооп беребиз.</div>';window.scrollTo(0,0);}else alert('Ката чыкты.');}).catch(function(){alert('Байланыш катасы.');});}
+function ask(){var t=prompt('Эмнени өзгөртүү керек?\nМис: «Түрүн Уста бригада кылыңыз», «Алмаз тарифине өтөм», «Шилтемени /d/armana-mebel кылыңыз»');if(!t||!t.trim())return;fetch('/api/myshop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,ask:t.trim()})}).then(function(r){return r.json();}).then(function(x){var m=document.getElementById('msmsg');if(x.ok){m.innerHTML='<div class="msok">✅ Сурооңуз админге жөнөтүлдү. Жакында жооп беребиз.</div>';window.scrollTo(0,0);}else alert('Ката чыкты.');}).catch(function(){alert('Байланыш катасы.');});}
 function save(){var b=document.getElementById('mssv');b.disabled=true;b.textContent='…';var F={};
  box.querySelectorAll('[data-k]').forEach(function(e){F[e.getAttribute('data-k')]=e.value;});
  var dl=Object.keys(DEL).filter(function(k){return DEL[k];});
@@ -8833,7 +8833,7 @@ def _sh_tile(s, ru):
             '<span class="sm">%s</span><span class="bd">%s%s</span></a>'
             % (" tl" if tl else "", urllib.parse.quote(str(s.get("slug") or "")), _sh_logo(s), esc(str(s.get("name") or "")),
                s["_kd"][1], esc(_sh_kind(s, ru)), _sh_meta(s, ru),
-               ('<em class="tp">ТАП+ · ТУЛПАР</em>' if tl else '<em class="tp">ТАП+</em>'),
+               ('<em class="tp">ТАП+ · АЛМАЗ</em>' if tl else '<em class="tp">ТАП+</em>'),
                ('<em class="ok">✅</em>' if _tp.ishenim(s["tg_id"]) else "")))
 
 
@@ -8845,7 +8845,7 @@ def _sh_row(s, ru, btn=True):
             '<span class="sm">%s</span>%s</span>%s</a>'
             % (" tl" if tl else "", urllib.parse.quote(str(s.get("slug") or "")), _sh_logo(s), esc(str(s.get("name") or "")),
                (' <em class="ok">✅</em>' if _tp.ishenim(s["tg_id"]) else ""),
-               s["_kd"][1], esc(_sh_kind(s, ru)), ("ТАП+ · ТУЛПАР" if tl else "ТАП+"), _sh_meta(s, ru),
+               s["_kd"][1], esc(_sh_kind(s, ru)), ("ТАП+ · АЛМАЗ" if tl else "ТАП+"), _sh_meta(s, ru),
                ('<span class="ab">%s</span>' % esc(ab[:90] + ("…" if len(ab) > 90 else ""))) if ab else "",
                '<span class="go">›</span>' if btn else ""))
 
@@ -9407,6 +9407,19 @@ def me_page(lang="ky"):
                           '</script></body>', 1)
     except Exception as e:
         print("mebiz:", e, flush=True)
+    return h
+
+
+# ── TIERNAME: орусча беттерде тарифтердин орусча аттары ──
+_TN_RU = (("🥈 Күмүш", "🥈 Серебро"), ("🥇 Алтын", "🥇 Золото"))
+_tp_page_tn_base = _tp_page
+
+
+def _tp_page(lang):
+    h = _tp_page_tn_base(lang)
+    if lang == "ru":
+        for a, b in _TN_RU:
+            h = h.replace(a, b)
     return h
 
 if __name__ == "__main__":

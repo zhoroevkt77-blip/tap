@@ -2,7 +2,7 @@
 """
 ТАП+ — сатуучулар үчүн акылуу аккаунт жана «✅ Ишеним» белгиси.
 
-  • ТАП+ тарифтери: 🐴 Кулун, 🐎 Тай, 🏇 Тулпар (мөөнөтү менен)
+  • ТАП+ тарифтери: 🥈 Күмүш, 🥇 Алтын, 💎 Алмаз (мөөнөтү менен)
   • «✅ Ишеним» — акысыз: номери жана дареги текшерилген сатуучу (админ берет)
   • Дүкөндүн барагы: /d/<slug>
   • Админ: /admin/plus — сатуучуну кошуу, тариф, мөөнөт, Ишеним
@@ -24,9 +24,9 @@ E = html.escape
 
 TIERS = [
     # ачкыч, аты, баасы (сом/ай), издөөдөгү орду (кичине — алдыда)
-    ("kulun", "🐴 Кулун", int(os.environ.get("PLUS_PRICE_KULUN", "490") or 490), 2),
-    ("tai", "🐎 Тай", int(os.environ.get("PLUS_PRICE_TAI", "990") or 990), 1),
-    ("tulpar", "🏇 Тулпар", int(os.environ.get("PLUS_PRICE_TULPAR", "1990") or 1990), 0),
+    ("kulun", "🥈 Күмүш", int(os.environ.get("PLUS_PRICE_KULUN", "490") or 490), 2),
+    ("tai", "🥇 Алтын", int(os.environ.get("PLUS_PRICE_TAI", "990") or 990), 1),
+    ("tulpar", "💎 Алмаз", int(os.environ.get("PLUS_PRICE_TULPAR", "1990") or 1990), 0),
 ]
 TIER = {t[0]: t for t in TIERS}
 PAY_PHONE = os.environ.get("PLUS_PAY_PHONE", "").strip()
