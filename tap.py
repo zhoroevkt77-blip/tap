@@ -597,7 +597,7 @@ def _wview(step, d, lang):
     opts = []
     for o in v.get("options") or []:
         lab = o["label"] if v.get("localized") else L(o["label"], lang)
-        if o["value"] in _WEB_HOME or str(lab).lstrip().startswith("🏠"):
+        if o["value"] in _WEB_HOME or str(lab).lstrip().startswith(("🏠 Башкы меню", "🏠 Главное меню")):   # HOMEFIX
             continue
         opts.append({"label": lab, "value": o["value"]})
     if step == "oblast_select" and getattr(_RS, "cob", None):   # REGSEL: аймак алдын ала
