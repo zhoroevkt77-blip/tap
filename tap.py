@@ -9385,6 +9385,30 @@ def detail(r, lang="ky"):
         print("calc2 detail:", e, flush=True)
     return h
 
+
+# ── MEBIZ: «ТАП+ · ✅ Ишеним» картасы Кабинеттин «Бизнес» бөлүмүндө ──
+_me_page_mb_base = me_page
+
+
+def me_page(lang="ky"):
+    h = _me_page_mb_base(lang)
+    try:
+        i = h.find('<a class="tpme" href="/plus">')
+        mk = '<div class="megt">%s</div>' % ("Бизнес")
+        if i >= 0 and mk in h:
+            j = h.find("</a>", i) + 4
+            card = h[i:j].replace('<a class="tpme"', '<a class="tpme" id="tpmec" style="margin:0 0 10px"', 1)
+            h = h[:i] + h[j:]
+            k = h.find(mk) + len(mk)
+            h = h[:k] + card + h[k:]
+            h = h.replace("</body>", '<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}if(!t)return;'
+                          'fetch("/api/myshop?peek=1&t="+encodeURIComponent(t)).then(function(r){return r.json();})'
+                          '.then(function(j){if(j.ok){var e=document.getElementById("tpmec");if(e)e.style.display="none";}}).catch(function(){});})();'
+                          '</script></body>', 1)
+    except Exception as e:
+        print("mebiz:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
