@@ -7572,7 +7572,7 @@ def _tp2_store(slug, lang):
     pf = _tp.imgs(tg, "pf")
     if pf:
         out += ('<div class="tpsec">📸 %s</div><div class="tpbox tppf">%s</div>'
-                % ("Наши работы" if ru else "Бүткөн иштер",
+                % (esc(_tp.pf_label(kd[0], ru)),
                    "".join('<a href="/pi/%d.jpg" target="_blank"><img src="/pi/%d.jpg" loading="lazy" alt="">%s</a>'
                            % (i["id"], i["id"], ('<span>%s</span>' % esc(i["cap"])) if i.get("cap") else "") for i in pf[:24])))
     pz = _tp.pairs(ex.get("prices"))
@@ -7661,9 +7661,9 @@ def page(body, *a, **k):
 
 
 _TP_FEAT["kulun"] = _TP_FEAT["kulun"] + ("🧱 Барактын түрү: дүкөн, уста бригада, агенттик, автосалон…",
-                                         "🖼 Логотип, баннер, портфолио, баалар", "▦ QR-код — визиткага, эшикке")
+                                         "🖼 Логотип, баннер, сүрөттөр, баалар", "▦ QR-код — визиткага, эшикке")
 _TP_FEAT_RU["kulun"] = _TP_FEAT_RU["kulun"] + ("🧱 Тип страницы: магазин, бригада, агентство, автосалон…",
-                                               "🖼 Логотип, баннер, портфолио, цены", "▦ QR-код — на визитку, на дверь")
+                                               "🖼 Логотип, баннер, фото, цены", "▦ QR-код — на визитку, на дверь")
 _TP_FEAT["tai"] = _TP_FEAT["tai"] + ("🏷 Акция белгиси жарыяларда",)
 _TP_FEAT_RU["tai"] = _TP_FEAT_RU["tai"] + ("🏷 Значок акции на объявлениях",)
 
@@ -8684,11 +8684,11 @@ function draw(){var f=D.f;
   +fld('about','Жөнүндө',1500,3)+fld('address','Дареги',200)+fld('hours','Иш убактысы',120)
   +fld('facts','Кыска фактылар (ар бири өз сабында)',600,3)+fld('services',esc(D.k3)+' (үтүр менен)',800)+'</div>';
  h+='<div class="msf">'+fld('conds','Шарттар («Аталыш: маани», ар бири өз сабында)',2000,4)+fld('team',esc(D.k4)+' («Аты — адистиги»)',1500,3)
-  +fld('prices','Баалар («Аталыш — баа»)',3000,4)+fld('promo','🏷 Акция (кыска)',40)
+  +fld('prices','Баалар («'+esc(D.pw||'Аталыш')+' — баа»)',3000,4)+fld('promo','🏷 Акция (кыска)',40)
   +'<label>Акция бүтөт</label><input type="date" data-k="promo_until" value="'+esc(f.promo_until||'')+'"></div>';
  h+='<div class="msf"><label>Логотип (чарчы)</label><div class="msone"><div class="pv" id="lgpv" style="'+(D.logo?'background-image:url(/pi/'+D.logo+'.jpg)':'')+'"></div><label class="btn">📷 Алмаштыруу<input type="file" accept="image/*" id="lgin"></label></div>'
   +'<label>Баннер (кенен сүрөт)</label><div class="msone"><div class="pv wide" id="bnpv" style="'+(D.banner?'background-image:url(/pi/'+D.banner+'.jpg)':'')+'"></div><label class="btn">📷 Алмаштыруу<input type="file" accept="image/*" id="bnin"></label></div>'
-  +'<label>📸 Портфолио — бүткөн иштер</label><div class="msph" id="msph"></div></div>';
+  +'<label>📸 '+esc(D.pfl||'Сүрөттөр')+'</label><div class="msph" id="msph"></div></div>';
  h+='<div class="mssave"><button type="button" id="mssv">💾 Сактоо</button></div>';
  box.innerHTML=h;pf();
  document.getElementById('lgin').onchange=function(){var f0=this.files[0];if(f0)img(f0,300,300,1,function(d){LOGO=d;document.getElementById('lgpv').style.backgroundImage='url('+d+')';});};
@@ -9421,6 +9421,24 @@ def _tp_page(lang):
         for a, b in _TN_RU:
             h = h.replace(a, b)
     return h
+
+
+# ── KINDLBL: «Менин дүкөнүм» — сүрөттөр жана баалар түрүнө жараша ──
+_ms_api_get_kl = _ms_api_get
+
+
+def _ms_api_get(qs, lang):
+    j = _ms_api_get_kl(qs, lang)
+    try:
+        if j.get("ok") and j.get("kid"):
+            j["pfl"] = _tp.pf_label(j["kid"])
+            j["pw"] = (getattr(_tp, "_ADMEX_LB", {}).get(j["kid"]) or ("", "", "Аталыш"))[2]
+    except Exception:
+        pass
+    return j
+
+
+_EXT_GET["/api/myshop"] = _ms_api_get
 
 if __name__ == "__main__":
     core.init_db()

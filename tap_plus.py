@@ -794,3 +794,38 @@ def inbox_page(h, uid, q, p, msg, page, k):
         out = "<p style='color:#5A6982'>Азырынча кабар жок.</p>"
     core.query("UPDATE admin_inbox SET seen=1 WHERE seen=0")
     h._send(page("Кабарлар", _IB_CSS + "<div class='ibf'>" + f + "</div>" + out, "ib", msg))
+
+
+# ── KINDLBL: сүрөттөр бөлүмүнүн аты барактын түрүнө жараша ──
+PF_LBL = {
+    "store": ("Товарлардын сүрөттөрү", "Фото товаров"),
+    "brigade": ("Бүткөн иштер", "Наши работы"),
+    "realtor": ("Объектилерибиз", "Наши объекты"),
+    "auto": ("Унаалар жана салон", "Автомобили и салон"),
+    "builder": ("Курулган объектилер", "Построенные объекты"),
+    "transport": ("Унааларыбыз", "Наш автопарк"),
+    "salon": ("Иштерибиз", "Наши работы"),
+    "edu": ("Сабактардан сүрөттөр", "Фото с занятий"),
+    "farm": ("Фермадан сүрөттөр", "Фото с фермы"),
+    "factory": ("Продукциябыз", "Наша продукция"),
+}
+
+
+def pf_label(k, ru=False):
+    v = PF_LBL.get(k) or PF_LBL["store"]
+    return v[1] if ru else v[0]
+
+
+_KL_JS = """<script>(function(){var M=__M__;var s=document.querySelector('select[name=kind]'),l=document.getElementById('pflb');
+if(!s||!l)return;function ap(){l.textContent='📸 '+(M[s.value]||M.store)[0]+' (бир нечесин тандаса болот)';}
+s.addEventListener('change',ap);ap();})();</script>"""
+
+_admin_kl_base = admin
+
+
+def admin(h, uid, q, p, msg, page, k):
+    def page4(title, body, tab="", m=""):
+        body = body.replace("<label>Портфолио — бүткөн иштер (бир нечесин тандаса болот)</label>",
+                            "<label id='pflb'>📸 Сүрөттөр (бир нечесин тандаса болот)</label>")
+        return page(title, body + _KL_JS.replace("__M__", _json.dumps(PF_LBL, ensure_ascii=False)), tab, m)
+    return _admin_kl_base(h, uid, q, p, msg, page4, k)
