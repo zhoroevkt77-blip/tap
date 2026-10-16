@@ -8220,6 +8220,215 @@ core.find = _core_find_st
 
 
 
+
+# ── PLUS4: 🔔 дүкөнгө жазылуу, 📝 өтүнүч / жазылуу / өлчөөгө чакыруу, 💬 даяр жооптор ──
+_RQ4 = {"ready": False, "rate": {}}
+
+
+def _rq4_init():
+    if _RQ4["ready"]:
+        return
+    if getattr(core, "IS_PG", False):
+        core.query("CREATE TABLE IF NOT EXISTS seller_reqs (id SERIAL PRIMARY KEY, seller TEXT, name TEXT, "
+                   "phone TEXT, wish TEXT, note TEXT, at TEXT)")
+    else:
+        core.query("CREATE TABLE IF NOT EXISTS seller_reqs (id INTEGER PRIMARY KEY AUTOINCREMENT, seller TEXT, "
+                   "name TEXT, phone TEXT, wish TEXT, note TEXT, at TEXT)")
+    _RQ4["ready"] = True
+
+
+def _rq4_api(b):
+    s = _tp.by_slug(str(b.get("slug") or ""))
+    if not s or not _tp.tier(s.get("tg_id")):
+        return {"ok": False, "err": "seller"}
+    ph = "".join(c for c in str(b.get("phone") or "") if c.isdigit())[-9:]
+    if len(ph) != 9:
+        return {"ok": False, "err": "phone"}
+    now = _t.time()
+    box = [x for x in _RQ4["rate"].get(ph, []) if now - x < 3600]
+    if len(box) >= 3:
+        return {"ok": False, "err": "rate"}
+    _RQ4["rate"][ph] = box + [now]
+    if len(_RQ4["rate"]) > 5000:
+        _RQ4["rate"].clear()
+    name = " ".join(str(b.get("name") or "").split())[:40]
+    wish = " ".join(str(b.get("wish") or "").split())[:60]
+    note = " ".join(str(b.get("note") or "").split())[:500]
+    try:
+        import rules
+        for tx in (name, note):
+            lv, _h = rules.check_text(tx)
+            if lv in ("hard", "swear"):
+                return {"ok": False, "err": "words"}
+    except Exception:
+        pass
+    _rq4_init()
+    core.query("INSERT INTO seller_reqs (seller, name, phone, wish, note, at) VALUES (?,?,?,?,?,?)",
+               (str(s["tg_id"]), name, "+996" + ph, wish, note, core.now_str()))
+    kd = _tp.KIND[_tp.kind(s)]
+    e = html.escape
+    txt = ("%s <b>Жаңы өтүнүч — ТАП+</b>\n\n👤 %s\n📞 +996%s\n📅 %s\n💬 %s\n\n<i>Кардарга тезирээк чалыңыз — "
+           "тез жооп берген сатуучунун рейтинги жогору болот.</i>"
+           % (kd[1], e(name or "—"), ph, e(wish or "—"), e(note or "—")))
+    try:
+        _tg_send_simple(str(s["tg_id"]), txt)
+    except Exception as ex:
+        print("rq4 notify:", ex, flush=True)
+    return {"ok": True}
+
+
+_EXT_POST["/api/req"] = _rq4_api
+
+_P4_CSS = """<style>
+.tpsub{display:block;width:100%;margin-top:8px;border:1.5px solid #2E9E6E;background:#fff;color:#1F7A55;border-radius:12px;padding:10px;font:inherit;font-weight:800;font-size:14px;cursor:pointer}
+.tpsub.on{background:#E5F6EE;border-color:#E5F6EE}
+.tpreq{display:block;width:100%;margin-top:8px;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:900;font-size:15px;color:#fff;cursor:pointer;
+ background:linear-gradient(135deg,#E2B33C,#C9921A);box-shadow:0 4px 12px rgba(201,146,26,.3)}
+.rqm{display:none;position:fixed;inset:0;z-index:9999;background:rgba(11,27,48,.5);align-items:flex-end;justify-content:center}
+.rqm.on{display:flex}.rqm>div{background:#fff;width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+.rqm input,.rqm textarea{width:100%;box-sizing:border-box;border:1.5px solid #D5DDE9;border-radius:12px;padding:11px;font:inherit;font-size:15px;margin-top:8px}
+.rqm .wh{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.rqm .wh button{border:1.5px solid #D5DDE9;background:#fff;border-radius:999px;padding:7px 12px;font:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.rqm .wh button.on{background:#163C8C;border-color:#163C8C;color:#fff}
+.rqm .go{width:100%;margin-top:12px;border:0;border-radius:12px;padding:13px;font:inherit;font-weight:800;font-size:15px;background:linear-gradient(180deg,#2458C6,#163C8C);color:#fff}
+.rqm .msg{text-align:center;font-size:15px;line-height:1.5;margin:14px 0}
+</style>"""
+
+_P4_JS = r"""<script>
+(function(){var L=document.documentElement.getAttribute('data-lang')||'ky';function T(k,r){return L==='ru'?r:k;}
+var C=window.TPC||{};var K='tap_ss';
+function rd(){try{return JSON.parse(localStorage.getItem(K)||'[]')}catch(e){return[]}}
+function wr(a){try{localStorage.setItem(K,JSON.stringify(a.slice(0,10)))}catch(e){}}
+var sb=document.getElementById('tpsub');
+function paint(){if(!sb)return;var on=rd().some(function(x){return x.u==='seller='+C.slug;});sb.className='tpsub'+(on?' on':'');
+ sb.textContent=on?('✓ '+T('Жазылдыңыз · 🔔 жаңы жарыя чыкса билдиребиз','Вы подписаны · 🔔 сообщим о новых')):('🔔 '+T('Дүкөнгө жазылуу — жаңы товарлар тууралуу кабар алуу','Подписаться — узнавать о новинках'));}
+if(sb){paint();sb.onclick=function(){var a=rd(),i=-1;a.forEach(function(x,k){if(x.u==='seller='+C.slug)i=k;});
+ if(i>=0)a.splice(i,1);else{a.unshift({u:'seller='+C.slug,l:C.mx||0,t:'🏪 '+C.name});try{if(window.Notification&&Notification.permission==='default')Notification.requestPermission();}catch(e){}}
+ wr(a);paint();};}
+var W=0;
+window.tpReq=function(){var m=document.getElementById('rqm');var b=m.firstElementChild;m.classList.add('on');
+ var wh=[T('Бүгүн','Сегодня'),T('Эртең','Завтра'),T('Ушул жумада','На этой неделе'),T('Убакыт маанилүү эмес','Не важно')];
+ b.innerHTML='<b style="font-size:18px">'+C.btn+'</b><div style="color:#5A6B82;font-size:13px;margin-top:4px">'+T('Өтүнүчүңүз сатуучуга дароо жетет, ал сизге өзү чалат.','Заявка сразу уйдёт продавцу, он сам вам позвонит.')+'</div>'
+  +'<input id="rqn" maxlength="40" placeholder="'+T('Атыңыз','Ваше имя')+'"><input id="rqp" inputmode="tel" maxlength="16" placeholder="'+T('Телефон: 0700 123 456','Телефон: 0700 123 456')+'">'
+  +'<div class="wh">'+wh.map(function(x,i){return '<button type="button" data-w="'+i+'">'+x+'</button>';}).join('')+'</div>'
+  +'<textarea id="rqt" rows="3" maxlength="500" placeholder="'+(C.hint||T('Эмне керек? Мис: 2 бөлмөлүү батир, ремонт','Что нужно?'))+'"></textarea><button class="go" id="rqg">'+T('Жөнөтүү','Отправить')+'</button>';
+ W=-1;b.querySelectorAll('.wh button').forEach(function(x){x.onclick=function(){W=+x.getAttribute('data-w');b.querySelectorAll('.wh button').forEach(function(y){y.classList.toggle('on',y===x);});};});
+ b.querySelector('#rqg').onclick=function(){var ph=b.querySelector('#rqp').value.replace(/\D/g,'');if(ph.length<9){alert(T('Телефон номериңизди жазыңыз.','Укажите телефон.'));return;}
+  var bt=this;bt.disabled=true;
+  fetch('/api/req',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug:C.slug,name:b.querySelector('#rqn').value,phone:ph,wish:W>=0?wh[W]:'',note:b.querySelector('#rqt').value})})
+  .then(function(r){return r.json();}).then(function(x){if(x.ok){b.innerHTML='<div class="msg">✅ '+T('Өтүнүч жөнөтүлдү! Сатуучу жакында чалат.','Заявка отправлена! Продавец скоро позвонит.')+'</div>';setTimeout(function(){m.classList.remove('on');},2200);}
+   else{bt.disabled=false;alert(x.err==='rate'?T('Өтө көп өтүнүч. Бир сааттан кийин аракет кылыңыз.','Слишком много заявок. Попробуйте через час.'):x.err==='words'?T('Тыюу салынган сөз бар.','Есть запрещённое слово.'):T('Ката чыкты.','Ошибка.'));}})
+  .catch(function(){bt.disabled=false;alert(T('Байланыш катасы.','Ошибка связи.'));});};};
+})();
+</script>"""
+
+_TP_REQ_HINT = {"brigade": "Мис: 2 бөлмөлүү батир, ремонт ачкычы менен", "salon": "Мис: чач кырктыруу, ишемби",
+                "realtor": "Мис: 2 бөлмөлүү батир, 40 000 сомго чейин", "auto": "Мис: Toyota Camry, кредитке",
+                "edu": "Мис: англис тили, кечки топ"}
+
+try:
+    _tp_store_p4_base = _tp_store
+
+    def _tp_store(slug, lang):
+        h = _tp_store_p4_base(slug, lang)
+        if not h:
+            return h
+        try:
+            ru = (lang == "ru")
+            s = _tp.by_slug(slug)
+            kd = _tp.KIND[_tp.kind(s)] if hasattr(_tp, "KIND") else ("store", "🏪", "", "", "", "📝 Буйрутма берүү")
+            btn = kd[5] if not ru else {"📐 Өлчөөгө чакыруу": "📐 Вызвать на замер", "📅 Жазылуу": "📅 Записаться",
+                                         "🏠 Көрүүгө жазылуу": "🏠 Записаться на просмотр",
+                                         "🚗 Көрүүгө жазылуу": "🚗 Записаться на осмотр",
+                                         "📅 Курска жазылуу": "📅 Записаться на курс"}.get(kd[5], "📝 Оставить заявку")
+            mx = core.query("SELECT MAX(id) AS m FROM listings WHERE tg_id=?", (str(s["tg_id"]),), fetch="one") or {}
+            cfg = {"slug": s["slug"], "name": s.get("name") or "", "mx": int(mx.get("m") or 0), "btn": btn,
+                   "hint": "" if ru else _TP_REQ_HINT.get(kd[0], "")}
+            add = ('<button class="tpreq" type="button" onclick="tpReq()">%s</button>'
+                   '<button class="tpsub" id="tpsub" type="button"></button>' % esc(btn))
+            h = h.replace("<!--TP:BTN-->", add + "<!--TP:BTN-->", 1)
+            h = h.replace("</body>", '<div class="rqm" id="rqm" onclick="if(event.target===this)this.classList.remove(\'on\')"><div></div></div>'
+                          + _P4_CSS + "<script>window.TPC=" + json.dumps(cfg, ensure_ascii=False).replace("</", "<\\/")
+                          + ";</script>" + _P4_JS + "</body>", 1)
+        except Exception as ex:
+            print("p4 store:", ex, flush=True)
+        return h
+except NameError:
+    pass
+
+# Сакталган издөөлөрдө «seller=…» — дүкөнгө жазылуу
+_ss_check_p4_base = _ss_check
+
+
+def _ss_check(raw, lang="ky"):
+    try:
+        items = _ssj.loads(raw or "[]") or []
+    except Exception:
+        items = []
+    mine = [it for it in items[:10] if str((it or {}).get("u") or "").startswith("seller=")]
+    if not mine:
+        return _ss_check_p4_base(raw, lang)
+    rest = [it for it in items[:10] if it not in mine]
+    base = _ss_check_p4_base(_ssj.dumps(rest), lang) if rest else {"ok": True, "items": []}
+    out = {it["u"]: it for it in base.get("items", [])}
+    for it in mine:
+        u = str(it.get("u"))
+        last = int(it.get("l") or 0)
+        s = _tp.by_slug(u[7:])
+        if not s:
+            out[u] = {"u": u, "n": 0, "m": last, "label": ""}
+            continue
+        r = core.query("SELECT MAX(id) AS m, SUM(CASE WHEN id>? THEN 1 ELSE 0 END) AS n FROM listings "
+                       "WHERE tg_id=? AND is_active=1", (last, str(s["tg_id"])), fetch="one") or {}
+        out[u] = {"u": u, "n": int(r.get("n") or 0) if last else 0, "m": int(r.get("m") or 0) or last,
+                  "label": "🏪 " + str(s.get("name") or "")}
+    return {"ok": True, "items": [out[str(it.get("u"))] for it in items[:10] if str(it.get("u")) in out]}
+
+
+_ai_route_p4_base = _ai_route
+
+
+def _ai_route(qs, q, at, cid, sid):
+    sl = (qs.get("seller", [""])[0] or "").strip()
+    if sl:
+        return "/d/" + urllib.parse.quote(sl)
+    return _ai_route_p4_base(qs, q, at, cid, sid)
+
+
+# 💬 Чатта даяр жооптор (жарыянын ээсине)
+_QR_FN = r"""
+var QRD=L_QR();function L_QR(){var ru=(document.documentElement.getAttribute('data-lang')==='ru');
+ var d=ru?['Да, в наличии ✅','Есть доставка 🚚','Цена окончательная','Когда сможете посмотреть?','Позвоните мне, пожалуйста 📞','Спасибо! 🙏']
+        :['Ооба, бар ✅','Жеткирүү бар 🚚','Баасы акыркы','Качан келип көрөсүз?','Мага чалып коюңузчу 📞','Рахмат! 🙏'];
+ try{var my=JSON.parse(localStorage.getItem('tap_qr')||'[]');if(my.length)d=my.concat(d);}catch(e){}return d;}
+function qrh(){return '<div class="qrr">'+QRD.slice(0,12).map(function(x,i){return '<button type="button" data-q="'+i+'">'+esc(x)+'</button>';}).join('')+'<button type="button" data-q="+" class="qra">＋</button></div>';}
+function qrb(){var t=document.getElementById('cht');document.querySelectorAll('.qrr button').forEach(function(b){b.onclick=function(){var q=b.getAttribute('data-q');
+ if(q==='+'){var v=(t.value||'').trim();if(!v){alert(T('Адегенде текстти жазыңыз, анан «＋» басыңыз — ал даяр жоопко кошулат.','Сначала напишите текст и нажмите «＋» — он сохранится как шаблон.'));return;}
+  try{var my=JSON.parse(localStorage.getItem('tap_qr')||'[]');my.unshift(v.slice(0,120));localStorage.setItem('tap_qr',JSON.stringify(my.slice(0,6)));}catch(e){}
+  QRD=L_QR();var r=document.querySelector('.qrr');if(r){r.outerHTML=qrh();qrb();}return;}
+ t.value=QRD[+q];t.focus();};});}
+"""
+_CH_JS = _CH_JS.replace("var box=document.getElementById('chbox');", "var box=document.getElementById('chbox');" + _QR_FN, 1) \
+    .replace("+'<div class=\"chf\"><div class=\"in\">", "+'<div class=\"chf\">'+(j.me==='o'?qrh():'')+'<div class=\"in\">", 1) \
+    .replace("document.getElementById('chs').onclick=send;", "document.getElementById('chs').onclick=send;if(j.me==='o')qrb();", 1)
+_CH_CSS = _CH_CSS.replace("</style>", ".qrr{max-width:560px;margin:0 auto 6px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}"
+                          ".qrr::-webkit-scrollbar{display:none}.chf .qrr button{flex:none;width:auto;height:auto;border:1.5px solid #B7C5DA;background:#F3F6FB;"
+                          "border-radius:999px;padding:6px 11px;font:inherit;font-size:13px;font-weight:700;color:#163C8C;cursor:pointer;white-space:nowrap}"
+                          ".chf .qrr .qra{background:#fff;color:#2E9E6E;border-color:#2E9E6E}</style>", 1)
+try:
+    _TP_FEAT["kulun"] = _TP_FEAT["kulun"] + ("📊 Статистика: көрүүлөр, чалуулар, билдирүүлөр", "📐 Өтүнүч баскычы — кардар Telegram'ыңызга жазат",
+                                             "🔝 Айына 1 жолу жарыяны көтөрүү")
+    _TP_FEAT_RU["kulun"] = _TP_FEAT_RU["kulun"] + ("📊 Статистика: просмотры, звонки, сообщения", "📐 Кнопка заявки — клиент пишет вам в Telegram",
+                                                   "🔝 1 поднятие объявления в месяц")
+    _TP_FEAT["tai"] = _TP_FEAT["tai"] + ("🔝 Айына 3 жолу көтөрүү",)
+    _TP_FEAT_RU["tai"] = _TP_FEAT_RU["tai"] + ("🔝 3 поднятия в месяц",)
+    _TP_FEAT["tulpar"] = _TP_FEAT["tulpar"] + ("🔝 Айына 5 жолу көтөрүү",)
+    _TP_FEAT_RU["tulpar"] = _TP_FEAT_RU["tulpar"] + ("🔝 5 поднятий в месяц",)
+except NameError:
+    pass
+# ── PLUS4_END
+
+
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
