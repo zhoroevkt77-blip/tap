@@ -4474,6 +4474,16 @@ class H(BaseHTTPRequestHandler):
             admin.report(self)
             return
         
+        if u.path == "/api/myshop":   # MYSHOP_POST
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(n).decode("utf-8")) if 0 < n < 16000000 else {}
+                _json_out(self, _ms_api_post(body))
+            except Exception as e:
+                print("myshop:", e, flush=True)
+                _json_out(self, {"ok": False, "err": "server"})
+            return
+
         if u.path in _EXT_POST:   # EXTAPI_POST
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -4691,6 +4701,10 @@ class H(BaseHTTPRequestHandler):
 
         if u.path == "/post":   # WEB_POST
             self._send(post_page(lang))
+            return
+
+        if u.path == "/my/shop":   # MYSHOP_ROUTE
+            self._send(myshop_page(lang))
             return
 
         if u.path == "/my/stats":   # PLUSSTATS_ROUTE
@@ -8484,6 +8498,238 @@ def me_page(lang="ky"):
         pass
     return h
 # ── CALCMOVE_END
+
+
+
+# ── MYSHOP: «🏪 Менин дүкөнүм» — ТАП+ сатуучусу барагын өзү толтурат ──
+_MS_TEXT = (("about", 1500), ("address", 200), ("hours", 120), ("promo", 40))
+_MS_EXTRA = (("facts", 600), ("services", 800), ("conds", 2000), ("team", 1500), ("prices", 3000))
+_MS_NAMES = {"about": "Жөнүндө", "address": "Дареги", "hours": "Иш убактысы", "promo": "Акция",
+             "promo_until": "Акциянын мөөнөтү", "facts": "Фактылар", "services": "Эмне кылат/сатат",
+             "conds": "Шарттар", "team": "Команда", "prices": "Баалар", "logo": "Логотип", "banner": "Баннер"}
+
+
+def _ms_seller(tok):
+    st = _wverified(tok)
+    if not st:
+        return None, {"ok": False, "err": "verify"}
+    s = _tp.get(st["tg_id"])
+    if not s or not _tp.tier(st["tg_id"]):
+        return None, {"ok": False, "err": "noplus"}
+    return s, None
+
+
+def _ms_api_get(qs, lang):
+    s, err = _ms_seller(qs.get("t", [""])[0])
+    if err:
+        return err
+    if qs.get("peek", [""])[0] == "1":
+        return {"ok": True}
+    ex = _tp.extra(s)
+    kd = _tp.KIND[_tp.kind(s)]
+    tr = _tp.TIER[_tp.tier(s["tg_id"])]
+    left = None
+    try:
+        _st_init()
+        mon = _st_day()[:7]
+        r = core.query("SELECT COUNT(*) AS n FROM ad_bumps WHERE tg_id=? AND at>=?", (str(s["tg_id"]), mon + "-01"),
+                       fetch="one")
+        left = max(0, BUMP_QUOTA.get(tr[0], 0) - int((r or {}).get("n") or 0))
+    except Exception:
+        pass
+    d = {k: str(s.get(k) or "") for k, _n in _MS_TEXT}
+    d["promo_until"] = str(s.get("promo_until") or "")
+    d.update({k: str(ex.get(k) or "") for k, _n in _MS_EXTRA})
+    return {"ok": True, "name": s.get("name") or "", "slug": s.get("slug") or "", "kind": kd[1] + " " + kd[2],
+            "k3": kd[3], "k4": kd[4], "kid": kd[0], "tier": tr[1], "until": s.get("until") or "",
+            "ish": bool(int(s.get("ishenim") or 0)), "bumps": left, "logo": s.get("logo") or "",
+            "banner": s.get("banner") or "", "pf": _tp.imgs(s["tg_id"], "pf"), "f": d,
+            "ex": (_tp.ADM_EX.get(kd[0]) if hasattr(_tp, "ADM_EX") else None) or {}}
+
+
+def _ms_api_post(b):
+    s, err = _ms_seller(b.get("token"))
+    if err:
+        return err
+    tg = str(s["tg_id"])
+    f = b.get("f") or {}
+    if not isinstance(f, dict):
+        return {"ok": False, "err": "bad"}
+    vals = {}
+    for k, n in _MS_TEXT + _MS_EXTRA:
+        v = str(f.get(k) or "").replace("\r", "").strip()[:n]
+        vals[k] = v
+    pu = str(f.get("promo_until") or "")[:10]
+    vals["promo_until"] = pu if _wre.match(r"^\d{4}-\d{2}-\d{2}$", pu) else ""
+    try:
+        import rules
+        for k, v in vals.items():
+            lv, _h = rules.check_text(v)
+            if lv in ("hard", "swear"):
+                return {"ok": False, "err": "words", "field": _MS_NAMES.get(k, k)}
+    except Exception:
+        pass
+    ex_old = _tp.extra(s)
+    changed = [k for k, _n in _MS_TEXT if vals[k] != str(s.get(k) or "")]
+    if vals["promo_until"] != str(s.get("promo_until") or ""):
+        changed.append("promo_until")
+    changed += [k for k, _n in _MS_EXTRA if vals[k] != str(ex_old.get(k) or "")]
+    ex = dict(ex_old)
+    ex.update({k: vals[k] for k, _n in _MS_EXTRA})
+    core.query("UPDATE sellers SET about=?, address=?, hours=?, promo=?, promo_until=?, extra=? WHERE tg_id=?",
+               (vals["about"], vals["address"], vals["hours"], vals["promo"], vals["promo_until"],
+                json.dumps(ex, ensure_ascii=False), tg))
+    for fld in ("logo", "banner"):
+        du = str(b.get(fld) or "")
+        if du:
+            iid = _tp.img_put(tg, fld, du)
+            if iid:
+                core.query("UPDATE sellers SET %s=? WHERE tg_id=?" % fld, (str(iid), tg))
+                changed.append(fld)
+    have = len(_tp.imgs(tg, "pf"))
+    dels = [int(x) for x in (b.get("pf_del") or []) if str(x).isdigit()][:30]
+    for i in dels:
+        core.query("DELETE FROM seller_imgs WHERE id=? AND tg_id=? AND kind='pf'", (i, tg))
+    added = 0
+    for it in (b.get("pf_add") or [])[:12]:
+        if have - len(dels) + added >= 24:
+            break
+        if isinstance(it, dict) and _tp.img_put(tg, "pf", it.get("d"), str(it.get("c") or "")[:80]):
+            added += 1
+    if added or dels:
+        changed.append("pf")
+    _tp._load(force=True)
+    try:
+        core.cache_clear()
+    except Exception:
+        pass
+    if changed:
+        try:
+            names = [_MS_NAMES.get(c, "Портфолио (+%d, −%d)" % (added, len(dels)) if c == "pf" else c) for c in changed]
+            kd = _tp.KIND[_tp.kind(s)]
+            site = (os.environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
+            txt = ("✏️ <b>ТАП+ барак өзгөрдү</b>\n%s %s\nӨзгөргөндөр: <b>%s</b>\n🌐 %s/d/%s"
+                   % (kd[1], html.escape(str(s.get("name") or "")), html.escape(", ".join(names)), site, s.get("slug")))
+            kb = {"inline_keyboard": [[{"text": "👁 Көрүү", "url": "%s/d/%s" % (site, s.get("slug"))},
+                                       {"text": "✏️ Админде оңдоо", "url": "%s/admin/plus?edit=%s" % (site, tg)}]]}
+            for a in [x.strip() for x in (os.environ.get("ADMIN_IDS") or "").replace(" ", "").split(",") if x.strip()]:
+                _tg_send_simple(a, txt, kb)
+        except Exception as ex2:
+            print("myshop notify:", ex2, flush=True)
+    return {"ok": True, "n": len(changed)}
+
+
+_EXT_GET["/api/myshop"] = _ms_api_get
+
+_MS_CSS = """<style>
+.msw{max-width:560px;margin:0 auto;padding:12px 16px 140px}
+.mst{background:linear-gradient(135deg,#163C8C,#2556C7);color:#fff;border-radius:18px;padding:14px;margin-bottom:12px}
+.mst .r{display:flex;gap:12px;align-items:center}.mst .av{width:52px;height:52px;border-radius:14px;background:#fff center/cover;flex:none;display:grid;place-items:center;font-size:24px}
+.mst b{font-size:17px}.mst small{display:block;opacity:.9;font-size:12.5px;margin-top:3px}
+.mst .bd{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.mst .bd span{background:rgba(255,255,255,.16);border-radius:9px;padding:5px 9px;font-size:12px;font-weight:800}
+.mst a{display:block;margin-top:10px;text-align:center;background:#fff;color:#163C8C;border-radius:12px;padding:10px;font-weight:800;text-decoration:none}
+.msf{background:#fff;border-radius:18px;padding:12px 14px;margin-bottom:12px;box-shadow:0 1px 6px rgba(11,27,48,.07)}
+.msf label{display:block;font-size:12.5px;font-weight:800;color:#5A6B82;margin:12px 0 5px}.msf label:first-child{margin-top:2px}
+.msf input,.msf textarea{width:100%;box-sizing:border-box;border:1.5px solid #D5DDE9;border-radius:12px;padding:10px 11px;font:inherit;font-size:15px;color:#0B1B30;background:#fff}
+.msf input:focus,.msf textarea:focus{outline:0;border-color:#2556C7}
+.msf .lock{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#F3F6FB;border-radius:12px;padding:10px 11px;font-size:13.5px;color:#5A6B82}
+.msf .lock a{color:#163C8C;font-weight:800;text-decoration:none;white-space:nowrap}
+.msph{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.msph div{aspect-ratio:1/1;border-radius:10px;background:#E9EFF9 center/cover;position:relative}
+.msph div i{position:absolute;right:4px;top:4px;width:24px;height:24px;border-radius:50%;background:rgba(11,27,48,.75);color:#fff;font-style:normal;font-size:12px;display:grid;place-items:center;cursor:pointer}
+.msph div.del{opacity:.3}.msph label.add{margin:0;border:2px dashed #2458C6;background:#EEF4FF;display:grid;place-items:center;color:#2458C6;font-size:30px;border-radius:10px;aspect-ratio:1/1;cursor:pointer}
+.msph input[type=file],.msone input[type=file]{display:none}
+.msone{display:flex;gap:10px;align-items:center}.msone .pv{width:72px;height:72px;border-radius:12px;background:#E9EFF9 center/cover;flex:none}
+.msone .pv.wide{width:160px;height:54px}.msone label.btn{margin:0;border:1.5px solid #B7C5DA!important;border-radius:10px;padding:8px 12px;font-size:13.5px;font-weight:800;color:#163C8C!important;background:#fff!important;box-shadow:none!important;cursor:pointer}
+.mssave{position:fixed;left:0;right:0;bottom:78px;z-index:40;padding:10px 16px;background:linear-gradient(180deg,rgba(243,246,251,0),#F3F6FB 35%)}
+.mssave button{display:block;width:100%;max-width:528px;margin:0 auto;border:0;border-radius:14px;padding:14px;font:inherit;font-weight:900;font-size:16px;color:#fff;background:linear-gradient(180deg,#2458C6,#163C8C);box-shadow:0 6px 16px rgba(22,60,140,.3)}
+.msok{background:#E3F6EA;border:1.5px solid #9BD3B0;color:#155C33;border-radius:14px;padding:12px;font-weight:800;margin-bottom:12px}
+.msno{background:#fff;border-radius:18px;padding:16px;line-height:1.5}.msno a{display:block;margin-top:12px;text-align:center;background:#163C8C;color:#fff;border-radius:12px;padding:12px;font-weight:800;text-decoration:none}
+</style>"""
+
+_MS_JS = r"""
+(function(){var box=document.getElementById('msbox');var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+if(!tok){box.innerHTML='<div class="msno">Дүкөнүңүздү башкаруу үчүн номериңизди ырастаңыз.<a href="/verify">🔐 Номерди ырастоо</a></div>';return;}
+var D=null,LOGO='',BAN='',ADD=[],DEL={};
+function img(f,w,h,crop,cb){var rd=new FileReader();rd.onload=function(){var im=new Image();im.onload=function(){var c=document.createElement('canvas');
+ var sw=im.width,sh=im.height,sx=0,sy=0;if(crop){var r=w/h;if(sw/sh>r){sx=(sw-sh*r)/2;sw=sh*r;}else{sy=(sh-sw/r)/2;sh=sw/r;}c.width=w;c.height=h;}
+ else{var k=Math.min(1,w/sw,h/sh);c.width=Math.round(sw*k);c.height=Math.round(sh*k);}
+ c.getContext('2d').drawImage(im,sx,sy,sw,sh,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',0.82));};im.src=rd.result;};rd.readAsDataURL(f);}
+function fld(k,lab,ml,rows){var ex=(D.ex||{})[k]||'';var v=esc(D.f[k]||'');var ph=ex?('Мис: '+esc(ex)):'';
+ return '<label>'+lab+'</label>'+(rows?'<textarea data-k="'+k+'" rows="'+rows+'" maxlength="'+ml+'" placeholder="'+ph+'">'+v+'</textarea>'
+  :'<input data-k="'+k+'" maxlength="'+ml+'" placeholder="'+ph+'" value="'+v+'">');}
+function pf(){var h='';(D.pf||[]).forEach(function(p){h+='<div class="'+(DEL[p.id]?'del':'')+'" style="background-image:url(/pi/'+p.id+'.jpg)"><i data-d="'+p.id+'">'+(DEL[p.id]?'↩':'✕')+'</i></div>';});
+ ADD.forEach(function(a,i){h+='<div style="background-image:url('+a.d+')"><i data-a="'+i+'">✕</i></div>';});
+ h+='<label class="add">＋<input type="file" accept="image/*" multiple id="pfin"></label>';
+ var g=document.getElementById('msph');g.innerHTML=h;
+ g.querySelectorAll('[data-d]').forEach(function(x){x.onclick=function(){var id=x.getAttribute('data-d');DEL[id]=!DEL[id];pf();};});
+ g.querySelectorAll('[data-a]').forEach(function(x){x.onclick=function(){ADD.splice(+x.getAttribute('data-a'),1);pf();};});
+ document.getElementById('pfin').onchange=function(){Array.prototype.slice.call(this.files,0,8).forEach(function(f){img(f,1000,1000,0,function(d){ADD.push({d:d,c:''});pf();});});};}
+function draw(){var f=D.f;
+ var h='<div class="mst"><div class="r"><div class="av" style="'+(D.logo?'background-image:url(/pi/'+D.logo+'.jpg)':'')+'">'+(D.logo?'':'🏪')+'</div><div><b>'+esc(D.name)+'</b><small>'+esc(D.kind)+' · /d/'+esc(D.slug)+'</small></div></div>'
+  +'<div class="bd"><span>'+esc(D.tier)+' · '+esc(D.until)+' чейин</span>'+(D.ish?'<span>✅ Ишеним</span>':'')+(D.bumps!=null?'<span>🔝 '+D.bumps+' көтөрүү калды</span>':'')+'</div>'
+  +'<a href="/d/'+encodeURIComponent(D.slug)+'">👁 Барагымды көрүү ›</a></div><div id="msmsg"></div>';
+ h+='<div class="msf"><label>Тариф, түрү, барактын дареги</label><div class="lock"><span>🔒 Админ гана өзгөртөт</span><a href="/msg">Жазуу ›</a></div>'
+  +fld('about','Жөнүндө',1500,3)+fld('address','Дареги',200)+fld('hours','Иш убактысы',120)
+  +fld('facts','Кыска фактылар (ар бири өз сабында)',600,3)+fld('services',esc(D.k3)+' (үтүр менен)',800)+'</div>';
+ h+='<div class="msf">'+fld('conds','Шарттар («Аталыш: маани», ар бири өз сабында)',2000,4)+fld('team',esc(D.k4)+' («Аты — адистиги»)',1500,3)
+  +fld('prices','Баалар («Аталыш — баа»)',3000,4)+fld('promo','🏷 Акция (кыска)',40)
+  +'<label>Акция бүтөт</label><input type="date" data-k="promo_until" value="'+esc(f.promo_until||'')+'"></div>';
+ h+='<div class="msf"><label>Логотип (чарчы)</label><div class="msone"><div class="pv" id="lgpv" style="'+(D.logo?'background-image:url(/pi/'+D.logo+'.jpg)':'')+'"></div><label class="btn">📷 Алмаштыруу<input type="file" accept="image/*" id="lgin"></label></div>'
+  +'<label>Баннер (кенен сүрөт)</label><div class="msone"><div class="pv wide" id="bnpv" style="'+(D.banner?'background-image:url(/pi/'+D.banner+'.jpg)':'')+'"></div><label class="btn">📷 Алмаштыруу<input type="file" accept="image/*" id="bnin"></label></div>'
+  +'<label>📸 Портфолио — бүткөн иштер</label><div class="msph" id="msph"></div></div>';
+ h+='<div class="mssave"><button type="button" id="mssv">💾 Сактоо</button></div>';
+ box.innerHTML=h;pf();
+ document.getElementById('lgin').onchange=function(){var f0=this.files[0];if(f0)img(f0,300,300,1,function(d){LOGO=d;document.getElementById('lgpv').style.backgroundImage='url('+d+')';});};
+ document.getElementById('bnin').onchange=function(){var f0=this.files[0];if(f0)img(f0,1200,400,1,function(d){BAN=d;document.getElementById('bnpv').style.backgroundImage='url('+d+')';});};
+ document.getElementById('mssv').onclick=save;}
+function save(){var b=document.getElementById('mssv');b.disabled=true;b.textContent='…';var F={};
+ box.querySelectorAll('[data-k]').forEach(function(e){F[e.getAttribute('data-k')]=e.value;});
+ var dl=Object.keys(DEL).filter(function(k){return DEL[k];});
+ fetch('/api/myshop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,f:F,logo:LOGO,banner:BAN,pf_add:ADD,pf_del:dl})})
+ .then(function(r){return r.json();}).then(function(x){b.disabled=false;b.textContent='💾 Сактоо';
+  if(x.ok){load('<div class="msok">✅ Сакталды! Барагыңыз жаңыланды.</div>');}
+  else alert(x.err==='words'?('Тыюу салынган сөз бар ('+(x.field||'')+') — сакталган жок.'):x.err==='verify'?'Номериңизди кайра ырастаңыз.':'Ката чыкты.');})
+ .catch(function(){b.disabled=false;b.textContent='💾 Сактоо';alert('Байланыш катасы.');});}
+function load(msg){fetch('/api/myshop?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){
+ if(!j.ok){box.innerHTML=j.err==='noplus'?'<div class="msno">🏪 «Менин дүкөнүм» — ТАП+ сатуучулары үчүн. Дүкөнүңүздүн барагын ачып, өзүңүз толтуруңуз.<a href="/plus">⭐ ТАП+ жөнүндө</a></div>'
+   :'<div class="msno">Номериңизди ырастаңыз.<a href="/verify">🔐 Номерди ырастоо</a></div>';return;}
+ D=j;LOGO='';BAN='';ADD=[];DEL={};draw();if(msg){document.getElementById('msmsg').innerHTML=msg;window.scrollTo(0,0);}}).catch(function(){box.innerHTML='<p>Байланыш катасы.</p>';});}
+load('');})();
+"""
+
+
+def myshop_page(lang="ky"):
+    body = ('<main class="msw"><h1 style="font-size:24px;margin:0 0 10px">🏪 Менин дүкөнүм</h1><div id="msbox">…</div></main>'
+            + _MS_CSS + '<script>' + _MS_JS + '</script>')
+    return page(header("", None, None, lang) + body, title="Менин дүкөнүм", lang=lang)
+
+
+_me_page_ms_base = me_page
+
+
+def me_page(lang="ky"):
+    h = _me_page_ms_base(lang)
+    try:
+        ru = (lang == "ru")
+        rows = ('<a class="mrow2" href="/my/shop" id="msrow" style="display:none;border:2px solid #E2B33C;background:#FFFBEF">'
+                '<span style="font-size:20px;width:24px;text-align:center;flex:none">🏪</span><span>%s '
+                '<span class="tpb">ТАП+</span></span><span class="mear">›</span></a>'
+                '<a class="mrow2" href="/my/stats"><span style="font-size:20px;width:24px;text-align:center;flex:none">📊</span>'
+                '<span>%s</span><span class="mear">›</span></a>'
+                % ("Мой магазин" if ru else "Менин дүкөнүм", "Статистика"))
+        mk = '<div class="megt">Бизнес</div><div class="mesec">'
+        if mk in h:
+            h = h.replace(mk, mk + rows, 1)
+            h = h.replace("</body>", '<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}if(!t)return;'
+                          'fetch("/api/myshop?peek=1&t="+encodeURIComponent(t)).then(function(r){return r.json();})'
+                          '.then(function(j){if(j.ok){var e=document.getElementById("msrow");if(e)e.style.display="";}}).catch(function(){});})();'
+                          '</script></body>', 1)
+    except Exception:
+        pass
+    return h
+# ── MYSHOP_END
+
 
 
 if __name__ == "__main__":
