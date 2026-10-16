@@ -4705,6 +4705,10 @@ class H(BaseHTTPRequestHandler):
             self._send(*_plus_route(u.path, lang))
             return
 
+        if u.path == "/calc":   # CALCMOVE_ROUTE
+            self._send(calc_page(lang))
+            return
+
         if u.path == "/admin" or u.path.startswith("/admin/"):  #ADM1
             import admin
             admin.handle(self, u)
@@ -8427,6 +8431,59 @@ except NameError:
     pass
 # ── PLUS4_END
 
+
+
+
+# ── CALCMOVE: кредит жана растаможка калькуляторлору жарыядан Кабинетке (/calc) көчтү ──
+_cx_block_cm_base = _cx_block
+
+
+def _cx_block(r, lang):
+    if (r or {}).get("ad_type") == "vehicle":
+        return "", ""
+    return _cx_block_cm_base(r, lang)
+
+
+def calc_page(lang="ky"):
+    ru = (lang == "ru")
+    out = ""
+    try:
+        veh = {"ad_type": "vehicle", "price": "1 300 000 сом",
+               "description": "Жылы: 2018\nКыймылдаткыч: 2.0 л, Автомат\nОтуну: Бензин"}
+        prop = {"ad_type": "property", "price": "5 000 000 сом", "description": ""}
+        out = _cx_block_cm_base(veh, lang)[0] + _cx_block_cm_base(prop, lang)[0]
+    except Exception as e:
+        print("calc_page:", e, flush=True)
+    out = out.replace('<details class="cx">', '<details class="cx" open>')
+    ttl = "Калькуляторы" if ru else "Калькуляторлор"
+    lead = ("Автокредит, растаможка и ипотека — введите свои цифры." if ru
+            else "Автокредит, растаможка жана ипотека — өз сандарыңызды жазыңыз.")
+    body = ('<main class="wrap" style="max-width:560px;margin:0 auto;padding:14px 16px 120px">'
+            '<h1 style="font-size:24px;margin:0 0 4px">🧮 %s</h1><p style="color:#5A6B82;margin:0 0 12px">%s</p>%s</main>'
+            % (ttl, esc(lead), out))
+    return page(header("", None, None, lang) + body + _CX_CSS + _CX_JS, title=ttl, lang=lang)
+
+
+_me_page_cm_base = me_page
+
+
+def me_page(lang="ky"):
+    h = _me_page_cm_base(lang)
+    try:
+        ru = (lang == "ru")
+        g = "Помощь и настройки" if ru else "Жардам жана жөндөө"
+        mk = '<div class="megt">%s</div>' % esc(g)
+        row = ('<div class="megt">%s</div><div class="mesec"><a class="mrow2" href="/calc">'
+               '<span style="font-size:20px;width:24px;text-align:center;flex:none">🧮</span>'
+               '<span>%s</span><span class="mear">›</span></a></div>'
+               % ("Инструменты" if ru else "Куралдар",
+                  esc("Калькуляторы: кредит, растаможка, ипотека" if ru else "Калькуляторлор: кредит, растаможка, ипотека")))
+        if mk in h:
+            h = h.replace(mk, row + mk, 1)
+    except Exception:
+        pass
+    return h
+# ── CALCMOVE_END
 
 
 if __name__ == "__main__":
