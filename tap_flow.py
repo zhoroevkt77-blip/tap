@@ -2994,3 +2994,14 @@ def _mq_keys(step, d):
 # ── MOREQ2_END
 
 
+
+
+# ── LSFIX: мал базары белгилүү бир жерде болот — «Бүт Кыргызстан» жок ──
+_render_lsfix_base = render
+
+
+def render(step, data=None):
+    v = _render_lsfix_base(step, data)
+    if step == "livestock_oblast_select":
+        v["options"] = [o for o in (v.get("options") or []) if o.get("value") != "__all_kg__"]
+    return v
