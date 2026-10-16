@@ -4680,6 +4680,10 @@ class H(BaseHTTPRequestHandler):
             self._send(post_page(lang))
             return
 
+        if u.path.startswith("/pi/"):   # TAPPLUS2_ROUTE
+            _tp_img(self, u.path)
+            return
+
         if u.path == "/plus" or u.path.startswith("/d/"):   # TAPPLUS_ROUTE
             self._send(*_plus_route(u.path, lang))
             return
@@ -7423,6 +7427,221 @@ def me_page(lang="ky"):
         pass
     return h
 # ── TAPPLUS_END
+
+
+
+
+# ── TAPPLUS2: барактын түрлөрү, логотип/баннер/портфолио, акция, QR-код ──
+_TP2_CSS = """<style>
+.tpban.img{background-size:cover;background-position:center}
+.tphd .av.img{background-size:cover;background-position:center;color:transparent}
+.tpkind{display:inline-block;background:#FFF1DC;color:#9A5300;font-size:11px;font-weight:900;border-radius:7px;padding:3px 7px;letter-spacing:.03em;margin-right:6px}
+.tphd .sub{font-size:13px;color:#5A6B82;margin-top:2px}
+.tphd .bt.b3x{grid-template-columns:1fr 1fr 1fr}.tphd .b3{background:#EEF4FF;color:#163C8C!important}
+.tppromo{display:flex;gap:8px;align-items:center;background:linear-gradient(135deg,#FFE7E7,#FFF4E5);border:1.5px solid #F5B7A8;color:#9A2B12;border-radius:14px;padding:10px 12px;font-weight:800;font-size:14px;margin:0 0 12px}
+.tpsec{font-size:13px;font-weight:800;color:#5A6B82;text-transform:uppercase;letter-spacing:.06em;margin:16px 4px 8px}
+.tpbox{background:#fff;border-radius:18px;padding:12px 14px;margin-bottom:12px;box-shadow:0 1px 6px rgba(11,27,48,.07)}
+.tpchips{display:flex;flex-wrap:wrap;gap:6px}.tpchips span{background:#EEF4FF;color:#163C8C;border-radius:999px;padding:6px 11px;font-size:13px;font-weight:700}
+.tprow{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #EEF2F7;font-size:14px;line-height:1.35}.tprow:last-child{border:0}
+.tprow b{color:#163C8C;text-align:right}
+.tpteam{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none}.tpteam div{flex:none;width:78px;text-align:center;font-size:12.5px;font-weight:700;line-height:1.25}
+.tpteam i{display:grid;place-items:center;width:56px;height:56px;margin:0 auto 5px;border-radius:50%;background:#EEF4FF;font-style:normal;font-size:22px;font-weight:900;color:#163C8C}
+.tpteam small{display:block;color:#5A6B82;font-weight:600}
+.tppf{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tppf a{position:relative;display:block;border-radius:14px;overflow:hidden;aspect-ratio:1/1;background:#E9EFF9}
+.tppf img{width:100%;height:100%;object-fit:cover;display:block}.tppf span{position:absolute;left:6px;bottom:6px;right:6px;background:rgba(11,27,48,.72);color:#fff;font-size:11.5px;font-weight:800;border-radius:7px;padding:3px 7px}
+.tpqr{display:none;position:fixed;inset:0;z-index:9999;background:rgba(11,27,48,.55);align-items:center;justify-content:center}
+.tpqr.on{display:flex}.tpqr>div{background:#fff;border-radius:20px;padding:18px;text-align:center;width:290px}
+.tpqr #tpqrc{display:flex;justify-content:center;margin:10px 0}.tpqr a,.tpqr button{display:block;width:100%;margin-top:8px;border:0;border-radius:12px;padding:11px;font-weight:800;font-size:14px;background:#EEF4FF;color:#163C8C;text-decoration:none;font-family:inherit}
+.bdg .bpr{background:linear-gradient(135deg,#E5484D,#F08A24)}
+</style>"""
+
+_TP_KIND_RU = {"Эмне сатабыз": "Что продаём", "Эмне кылабыз": "Что делаем", "Багыттар": "Направления",
+               "Кызматтар": "Услуги", "Долбоорлор": "Проекты", "Багыттар жана кызматтар": "Маршруты и услуги",
+               "Курстар": "Курсы", "Продукция": "Продукция", "Кызматкерлер": "Сотрудники", "Бригада": "Бригада",
+               "Агенттер": "Агенты", "Менеджерлер": "Менеджеры", "Команда": "Команда", "Айдоочулар": "Водители",
+               "Адистер": "Специалисты", "Мугалимдер": "Преподаватели"}
+
+
+def _tp2_store(slug, lang):
+    s = _tp.by_slug(slug)
+    if not s or not _tp.tier(s.get("tg_id")):
+        return None
+    ru = (lang == "ru")
+    L2 = (lambda x: _TP_KIND_RU.get(x, x)) if ru else (lambda x: x)
+    tg = str(s["tg_id"])
+    kd = _tp.KIND[_tp.kind(s)]
+    ex = _tp.extra(s)
+    rows = [dict(x) for x in (core.query("SELECT * FROM listings WHERE is_active=1 AND tg_id=? ORDER BY id DESC LIMIT 60",
+                                         (tg,), fetch="all") or [])]
+    first = core.query("SELECT MIN(created_at) AS d FROM listings WHERE tg_id=?", (tg,), fetch="one") or {}
+    yr = str(first.get("d") or "")[:4]
+    views = sum(int(x.get("views") or 0) for x in rows)
+    ph = "".join(c for c in str((rows[0].get("contact") if rows else "") or s.get("phone") or "") if c.isdigit())
+    if ph.startswith("0"):
+        ph = "996" + ph[1:]
+    elif len(ph) == 9:
+        ph = "996" + ph
+    nm = str(s.get("name") or "")
+    st = ['📋 %d %s' % (len(rows), "объявл." if ru else "жарыя")] + _tp.lines(ex.get("facts"))[:6]
+    if views:
+        st.append("👁 " + _tp_money(views))
+    if yr:
+        st.append(("📅 на ТАП! с %s г." if ru else "📅 ТАП!та %s-жылдан") % yr)
+    qr = '<a class="b3" href="#" onclick="tpQr();return false">▦ QR</a>'
+    btn = ""
+    if ph:
+        btn = ('<div class="bt b3x"><a class="b1" href="tel:+%s">📞 %s</a><a class="b2" href="https://wa.me/%s" '
+               'target="_blank" rel="noopener">WhatsApp</a>%s</div><!--TP:BTN-->'
+               % (ph, "Позвонить" if ru else "Чалуу", ph, qr))
+    ban = ('<div class="tpban img" style="background-image:url(/pi/%s.jpg)"></div>' % esc(str(s["banner"]))
+           if s.get("banner") else '<div class="tpban"></div>')
+    av = ('<div class="av img" style="background-image:url(/pi/%s.jpg)">.</div>' % esc(str(s["logo"]))
+          if s.get("logo") else '<div class="av">%s</div>' % esc(nm[:1].upper() or kd[1]))
+    sub = '<div class="sub"><span class="tpkind">%s %s</span>%s</div>' % (
+        kd[1], esc((_tp.KIND_RU.get(kd[0], kd[2]) if ru else kd[2]).upper()),
+        esc(str(s.get("address") or "").split(",")[0]))
+    pr = _tp.promo(s)
+    out = ('<main class="wrap">%s<div class="tphd">%s<h1>%s %s</h1>%s<div class="st">%s</div>%s</div>'
+           % (ban, av, esc(nm), _tp_badges(tg, lang), sub, "".join("<span>%s</span>" % esc(x) for x in st), btn))
+    if pr:
+        out += '<div class="tppromo">🏷 %s</div>' % esc(pr)
+    out += "<!--TP:AFTERHEAD-->"
+    inf = ""
+    for ic, v in (("📍", s.get("address")), ("🕘", s.get("hours")), ("ℹ️", s.get("about"))):
+        if v and str(v).strip():
+            inf += "<div><b>%s</b><span>%s</span></div>" % (ic, esc(str(v)).replace("\n", "<br>"))
+    if inf:
+        out += '<div class="tpinf">%s</div>' % inf
+    sv = [x.strip() for x in str(ex.get("services") or "").replace("\n", ",").split(",") if x.strip()]
+    if sv:
+        out += ('<div class="tpsec">%s</div><div class="tpbox tpchips">%s</div>'
+                % (esc(L2(kd[3])), "".join("<span>%s</span>" % esc(x) for x in sv[:30])))
+    cd = _tp.pairs(ex.get("conds"))
+    if cd:
+        out += ('<div class="tpsec">%s</div><div class="tpbox">%s</div>'
+                % ("Условия" if ru else "Шарттар",
+                   "".join('<div class="tprow"><span>%s</span><b>%s</b></div>' % (esc(a), esc(b)) for a, b in cd[:20])))
+    tm = _tp.pairs(ex.get("team"))
+    if tm:
+        out += ('<div class="tpsec">%s</div><div class="tpbox tpteam">%s</div>'
+                % (esc(L2(kd[4])), "".join('<div><i>%s</i>%s<small>%s</small></div>'
+                                          % (esc(a[:1].upper()), esc(a), esc(b)) for a, b in tm[:20])))
+    pf = _tp.imgs(tg, "pf")
+    if pf:
+        out += ('<div class="tpsec">📸 %s</div><div class="tpbox tppf">%s</div>'
+                % ("Наши работы" if ru else "Бүткөн иштер",
+                   "".join('<a href="/pi/%d.jpg" target="_blank"><img src="/pi/%d.jpg" loading="lazy" alt="">%s</a>'
+                           % (i["id"], i["id"], ('<span>%s</span>' % esc(i["cap"])) if i.get("cap") else "") for i in pf[:24])))
+    pz = _tp.pairs(ex.get("prices"))
+    if pz:
+        out += ('<div class="tpsec">💰 %s</div><div class="tpbox">%s</div>'
+                % ("Цены (ориентировочно)" if ru else "Баалар (болжолдуу)",
+                   "".join('<div class="tprow"><span>%s</span><b>%s</b></div>' % (esc(a), esc(b)) for a, b in pz[:30])))
+    out += "<!--TP:BEFORELIST-->"
+    out += ('<h2 style="font-size:18px;margin:16px 4px 10px">%s</h2><div class="g">%s</div>'
+            % ("Объявления" if ru else "Жарыялары",
+               "".join(card(x, lang) for x in rows) or ("<p>%s</p>" % ("Пока нет объявлений." if ru else "Азырынча жарыя жок."))))
+    url = "https://%s/d/%s" % (os.environ.get("SITE_HOST", "tapmeni.up.railway.app"), s.get("slug"))
+    out += ('<div class="tpqr" id="tpqr" onclick="if(event.target===this)this.classList.remove(\'on\')"><div>'
+            '<b>%s</b><div id="tpqrc"></div><small style="color:#5A6B82;word-break:break-all">%s</small>'
+            '<a id="tpqrd" download="tap-qr.png" href="#">⬇️ %s</a><button onclick="document.getElementById(\'tpqr\').classList.remove(\'on\')">%s</button></div></div>'
+            '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>'
+            '<script>function tpQr(){var m=document.getElementById("tpqr");m.classList.add("on");var c=document.getElementById("tpqrc");'
+            'if(!c.firstChild&&window.QRCode){new QRCode(c,{text:%s,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});'
+            'setTimeout(function(){var i=c.querySelector("canvas");if(i)document.getElementById("tpqrd").href=i.toDataURL("image/png");},300);}'
+            'else if(!c.firstChild){var u="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data="+encodeURIComponent(%s);'
+            'c.innerHTML=\'<img width="220" height="220" alt="QR" src="\'+u+\'">\';document.getElementById("tpqrd").href=u;}}</script>'
+            % (esc(nm), esc(url), "Сохранить картинку" if ru else "Сүрөт катары сактоо", "Закрыть" if ru else "Жабуу",
+               json.dumps(url), json.dumps(url)))
+    qrm = out[out.rfind('<div class="tpqr"'):]
+    out = out[:out.rfind('<div class="tpqr"')]
+    out += "</main>" + qrm + _TP2_CSS
+    return page(header("", None, None, lang) + out, nm + " — ТАП+", "home", lang)
+
+
+_tp_store = _tp2_store
+
+
+def _tp_img(h, path):
+    m = _wre.match(r"^/pi/(\d+)\.jpg$", path)
+    data = _tp.img_get(m.group(1)) if m else None
+    if not data:
+        h.send_response(404)
+        h.send_header("Content-Length", "0")
+        h.end_headers()
+        return
+    h.send_response(200)
+    h.send_header("Content-Type", "image/jpeg")
+    h.send_header("Content-Length", str(len(data)))
+    h.send_header("Cache-Control", "public, max-age=86400")
+    h.end_headers()
+    h.wfile.write(data)
+
+
+_card_tp2_base = card
+
+
+def card(r, lang="ky"):
+    h = _card_tp2_base(r, lang)
+    try:
+        h = h.replace('<span class="bpl">ТАП+</span><span class="btl">ТУЛПАР</span>',
+                      '<span class="btl">ТАП+ · ТУЛПАР</span>', 1)
+        s = _tp.get(r.get("tg_id"))
+        pr = _tp.promo(s) if s and _tp.tier(r.get("tg_id")) else ""
+        if pr:
+            b = '<span class="bpr">🏷 %s</span>' % esc(pr[:16])
+            if '<div class="bdg">' in h:
+                i = h.find('<div class="bdg">')
+                j = h.find("</div>", i)
+                h = h[:j] + b + h[j:]
+            else:
+                i = h.find('<div class="ph">')
+                if i >= 0:
+                    j = i + len('<div class="ph">')
+                    h = h[:j] + '<div class="bdg">' + b + '</div>' + h[j:]
+    except Exception:
+        pass
+    return h
+
+
+_page_tp2_base = page
+
+
+def page(body, *a, **k):
+    h = _page_tp2_base(body, *a, **k)
+    try:
+        if ".bdg .bpr" not in h:
+            h = h.replace("</head>", "<style>.bdg .bpr{background:linear-gradient(135deg,#E5484D,#F08A24)}</style></head>", 1)
+    except Exception:
+        pass
+    return h
+
+
+_TP_FEAT["kulun"] = _TP_FEAT["kulun"] + ("🧱 Барактын түрү: дүкөн, уста бригада, агенттик, автосалон…",
+                                         "🖼 Логотип, баннер, портфолио, баалар", "▦ QR-код — визиткага, эшикке")
+_TP_FEAT_RU["kulun"] = _TP_FEAT_RU["kulun"] + ("🧱 Тип страницы: магазин, бригада, агентство, автосалон…",
+                                               "🖼 Логотип, баннер, портфолио, цены", "▦ QR-код — на визитку, на дверь")
+_TP_FEAT["tai"] = _TP_FEAT["tai"] + ("🏷 Акция белгиси жарыяларда",)
+_TP_FEAT_RU["tai"] = _TP_FEAT_RU["tai"] + ("🏷 Значок акции на объявлениях",)
+
+_tp_page_tp2_base = _tp_page
+
+
+def _tp_page(lang):
+    h = _tp_page_tp2_base(lang)
+    try:
+        ru = (lang == "ru")
+        t = ('<div class="tpish" style="background:#FFF6DC;color:#5B4300"><b>🎁 %s</b><br>%s</div>'
+             % ("Первые 7 дней — бесплатно" if ru else "Алгачкы 7 күн — акысыз",
+                esc("Попробуйте ТАП+ неделю без оплаты: напишите нам — подключим тариф «Тай» на 7 дней." if ru else
+                    "ТАП+'ты бир жума акысыз сынап көрүңүз: бизге жазыңыз — «Тай» тарифин 7 күнгө жандырабыз.")))
+        i = h.find('<div class="tpish">')
+        if i >= 0:
+            h = h[:i] + t + h[i:]
+    except Exception:
+        pass
+    return h
+# ── TAPPLUS2_END
 
 
 
