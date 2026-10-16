@@ -6407,7 +6407,7 @@ def _fx_state():
     if not getattr(_AIX, "on", False):
         return {}
     st = {}
-    for k, a in (("px", "pmax"), ("pn", "pmin"), ("ph", "ph"), ("ow", "ow")):
+    for k, a in (("px", "pmax"), ("pn", "pmin"), ("ph", "ph"), ("ow", "ow"), ("sw", "sw")):   # MOREQ2_SW
         v = getattr(_AIX, a, None)
         if v:
             st[k] = v
@@ -6436,6 +6436,9 @@ def _core_filters_fx(*a, **k):
     if st.get("ow"):
         sql += " AND (description LIKE ? OR description LIKE ?)"
         p = list(p) + [_FX_OWNER_LIKE, "%Ким берет: Ээси%"]
+    if st.get("sw"):
+        sql += " AND (description LIKE ? OR description LIKE ?)"
+        p = list(p) + ["%Алмашуу: Ооба%", "%Алмашуу: Кошумча%"]
     return sql, p
 
 
@@ -6476,13 +6479,13 @@ _FX_HREF = _fxre.compile(r'((?:href|value)=")(/\?[^"]*)(")')
 
 def _fx_keep(h, st):
     """Бет ичиндеги «/?…» шилтемелерге учурдагы чыпкаларды кошот."""
-    add = "".join("&amp;%s=%s" % (k, _fxup.quote(str(st[k]))) for k in ("px", "pn", "ph", "ow") if st.get(k))
+    add = "".join("&amp;%s=%s" % (k, _fxup.quote(str(st[k]))) for k in ("px", "pn", "ph", "ow", "sw") if st.get(k))
     if not add:
         return h
 
     def rep(m):
         u = m.group(2)
-        if any(("%s=" % k) in u for k in ("px", "pn", "ph", "ow")):
+        if any(("%s=" % k) in u for k in ("px", "pn", "ph", "ow", "sw")):
             return m.group(0)
         return m.group(1) + u + add + m.group(3)
     return _FX_HREF.sub(rep, h)
@@ -6515,6 +6518,8 @@ def _fx_chips(st, cur_url, lang):
         out.append((("ph",), "📷 " + ("С фото" if ru else "Сүрөтү барлар")))
     if st.get("ow"):
         out.append((("ow",), "🙋 " + ("От хозяина" if ru else "Ээсинен")))
+    if st.get("sw"):
+        out.append((("sw",), "🔄 " + ("Обмен" if ru else "Алмашуу")))
     res = []
     for keys, lb in out:
         u = _fxup.urlsplit(cur_url)
@@ -6558,6 +6563,7 @@ def _ai_route(qs, q, at, cid, sid):
     try:
         _AIX.ph = 1 if qs.get("ph", [""])[0] == "1" else None
         _AIX.ow = 1 if qs.get("ow", [""])[0] == "1" else None
+        _AIX.sw = 1 if qs.get("sw", [""])[0] == "1" else None
         _AIX.url = "/?" + _fxup.urlencode([(k, v) for k, vs in qs.items() for v in vs])
     except Exception:
         _AIX.ph = _AIX.ow = None
@@ -6653,10 +6659,10 @@ def _fxui(cur, st, at, lang, skip_price):
     T = (lambda k, r: r if ru else k)
     u = _fxup.urlsplit(cur or "/")
     qs = [(k, v) for k, v in _fxup.parse_qsl(u.query) if v]
-    base = [(k, v) for k, v in qs if k not in ("px", "pn", "ph", "ow", "sort", "ai", "aiq")]
+    base = [(k, v) for k, v in qs if k not in ("px", "pn", "ph", "ow", "sw", "sort", "ai", "aiq")]
     srt = next((v for k, v in qs if k == "sort"), "new")
     nact = (1 if (st.get("px") or st.get("pn")) else 0) + (1 if st.get("ph") else 0) \
-        + (1 if st.get("ow") else 0) + (1 if srt and srt != "new" else 0)
+        + (1 if st.get("ow") else 0) + (1 if st.get("sw") else 0) + (1 if srt and srt != "new" else 0)
     # Активдүү чыпкалар тилкеси
     row = ('<div class="fxr"><button type="button" class="fxbtn" onclick="fxo(1)">⚙ %s%s</button>'
            % (T("Чыпкалар", "Фильтры"), ("<b>%d</b>" % nact) if nact else ""))
@@ -6691,6 +6697,10 @@ def _fxui(cur, st, at, lang, skip_price):
         own = ('<label class="fxc"><input type="checkbox" name="ow" value="1"%s><span>🙋 %s<small>%s</small></span></label>'
                % (" checked" if st.get("ow") else "", T("Ээсинен гана", "Только от хозяина"),
                   T("Ортомчусуз, ээси өзү жарыялагандар", "Без посредников")))
+    if at in ("vehicle", "property", "trade") or not at:
+        own += ('<label class="fxc"><input type="checkbox" name="sw" value="1"%s><span>🔄 %s<small>%s</small></span></label>'
+                % (" checked" if st.get("sw") else "", T("Алмашуу каралат", "Возможен обмен"),
+                   T("Обменге даяр жарыялар", "Продавец готов к обмену")))
     clear = ("/?" + _fxup.urlencode(base)) if base else "/"
     panel = ('<div class="fxs" id="fxs"><div class="fxbg" onclick="fxo(0)"></div>'
              '<form class="fxp" id="fxf" method="get" action="/"><div class="fxgr"></div>'
@@ -6929,6 +6939,11 @@ if _web_my_list_bd:
     globals()[_web_my_list_bd] = _web_my_bd
 
 
+def _bd_swap(r):
+    _d = str(r.get("description") or "")
+    return "Алмашуу: Ооба" in _d or "Алмашуу: Кошумча" in _d
+
+
 def _bd_owner(r):
     _d = str(r.get("description") or "")
     return "Ким сатат: Ээси" in _d or "Ким берет: Ээси" in _d
@@ -6950,12 +6965,12 @@ def _bd_drop(r):
 _BD_CSS = """<style>
 .c .ph .bdg{position:absolute;left:7px;top:7px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;z-index:4;pointer-events:none}
 .bdg span{display:inline-block;font-size:11px;font-weight:800;line-height:1;padding:5px 7px;border-radius:8px;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2)}
-.bdg .bo{background:#0E8A5F}.bdg .bp{background:#E5484D}
+.bdg .bo{background:#0E8A5F}.bdg .bw{background:#D97706}.bdg .bp{background:#E5484D}
 .c .ph .bsold{position:absolute;inset:0;background:rgba(11,27,48,.55);display:grid;place-items:center;z-index:4;pointer-events:none}
 .c .ph .bsold b{background:#fff;color:#0E8A5F;font-weight:900;font-size:13px;padding:7px 12px;border-radius:10px;letter-spacing:.04em;transform:rotate(-6deg)}
 .dbd{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
 .dbd span{font-size:12.5px;font-weight:800;padding:6px 10px;border-radius:999px}
-.dbd .bo{background:#E3F6EE;color:#0E7A54}.dbd .bp{background:#FDECEC;color:#C02D33}
+.dbd .bo{background:#E3F6EE;color:#0E7A54}.dbd .bw{background:#FFF1DC;color:#9A5300}.dbd .bp{background:#FDECEC;color:#C02D33}
 .dsold{background:#0E8A5F;color:#fff;border-radius:16px;padding:14px 16px;margin:12px 0;font-weight:800;font-size:15px;line-height:1.4}
 .dsold small{display:block;font-weight:600;opacity:.9;font-size:13px}
 .sim{margin:22px 0 10px}.sim h3{font-size:18px;margin:0 0 12px}
@@ -6983,6 +6998,8 @@ def card(r, lang="ky"):
                 bs += '<span class="bp">↓ %d%%</span>' % dr[0]
             if _bd_owner(r):
                 bs += '<span class="bo">🙋 %s</span>' % ("Хозяин" if ru else "Ээсинен")
+            if _bd_swap(r):
+                bs += '<span class="bw">🔄 %s</span>' % ("Обмен" if ru else "Алмашуу")
             if bs:
                 add += '<div class="bdg">' + bs + '</div>'
         if add:
@@ -7055,6 +7072,8 @@ def detail(r, lang="ky"):
                     dr[0], "дешевле" if ru else "арзандады", "было" if ru else "мурун", _bd_money(dr[1]))
             if _bd_owner(r):
                 bs += '<span class="bo">🙋 %s</span>' % ("От хозяина" if ru else "Ээсинен — ортомчусуз")
+            if _bd_swap(r):
+                bs += '<span class="bw">🔄 %s</span>' % ("Возможен обмен" if ru else "Алмашуу каралат")
             if bs:
                 m = _cre2.search(r'<div class="dp">.*?</div>', h, _cre2.S)
                 if m:

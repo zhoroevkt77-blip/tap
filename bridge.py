@@ -667,3 +667,17 @@ _RQ_LABELS += [
 
 # FIX3_LABEL
 _RQ_LABELS.append(("rentSeller", "Ким берет"))
+
+
+# MOREQ2_LABELS
+_RQ_LABELS += [
+    ("animalSex", "Жынысы"), ("animalCount", "Саны"), ("animalVacc", "Эмдөө"),
+    ("animalForm", "Сатылышы"), ("animalDeliv", "Жеткирүү"),
+    ("vehicleSwap", "Алмашуу"), ("propSwap", "Алмашуу"), ("tradeSwap", "Алмашуу"),
+    ("propMortgage", "Ипотека"), ("landPurpose", "Максаты"),
+    ("rentPets", "Жаныбар менен"), ("rentMoveIn", "Кирүү убактысы"),
+    ("rentDriverReq", "Айдоочуга талап"), ("rentKmLimit", "Күнүнө км"),
+    ("taxiColor", "Унаанын түсү"), ("svcMaterial", "Материал"),
+    ("delZone", "Иштөө аймагы"), ("delMin", "Эң аз заказ"), ("wsStock", "Бар-жогу"),
+    ("jobPayType", "Айлык түрү"), ("seekStart", "Баштай алат"),
+]

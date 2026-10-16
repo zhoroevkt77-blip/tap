@@ -2825,3 +2825,172 @@ try:
     _rq_insert(CHAIN_RENTAL, "rentDelivery", ["rentSeller"])
 except Exception as _e:
     print("FIX3_RENTSELLER:", _e)
+
+
+# ── MOREQ2: дагы кошумча суроолор (мал, алмашуу, ипотека, жер, ижара, такси, кызмат…) ──
+try:
+    _SWAP = _rq(("❌ Жок, сатам гана / Нет, только продажа", "Жок"),
+                ("🔄 Ооба, алмашам / Да, обмен", "Ооба"),
+                ("🔄 Кошумча акча менен алмашам / Обмен с доплатой", "Кошумча акча менен"))
+    _SWAP_Q = ("🔄 Алмашуу (обмен) каралабы? / Рассматриваете обмен?", "", _SWAP, False, False, "")
+    RICHQ.update({
+        "vehicleSwap": _SWAP_Q,
+        "propSwap": _SWAP_Q,
+        "propMortgage": ("🏦 Ипотекага ылайыктуубу? / Подходит под ипотеку?", "",
+                         _rq(("🏦 Ипотека болот / Ипотека возможна", "Ипотека болот"),
+                             ("📅 Бөлүп төлөө болот / Рассрочка", "Бөлүп төлөө болот"),
+                             ("🏦📅 Экөө тең / И то, и другое", "Ипотека жана бөлүп төлөө"),
+                             ("💵 Накталай гана / Только наличные", "Накталай гана")), False, False, ""),
+        "landSotka": ("📐 Аянты канча сотых? / Площадь (соток)?", "Мис: 8 / Например: 8",
+                      _rq(("4", "4"), ("6", "6"), ("8", "8"), ("10", "10"), ("15", "15"),
+                          ("1 гектар+ / 1 га+", "1 гектар+")), False, True, " сотых"),
+        "landPurpose": ("🎯 Жердин максаты? / Назначение земли?", "",
+                        _rq(("🏠 Үй курууга (ИЖС) / Под ИЖС", "Үй курууга"),
+                            ("🌾 Айыл чарбага / Сельхоз", "Айыл чарбага"),
+                            ("🏪 Коммерциялык / Коммерческая", "Коммерциялык"),
+                            ("🌳 Дача / Дача", "Дача")), False, False, ""),
+        "rentPets": ("🐾 Жаныбар менен болобу? / Можно с животными?", "",
+                     _rq(("✅ Болот / Можно", "Болот"), ("❌ Болбойт / Нельзя", "Болбойт"),
+                         ("🤝 Сүйлөшөбүз / Обсуждается", "Сүйлөшөбүз")), False, False, ""),
+        "rentMoveIn": ("📅 Качан кирсе болот? / Когда можно заселиться?", "",
+                       _rq(("⚡ Азыр эле / Сразу", "Азыр эле"),
+                           ("📅 1 жумадан кийин / Через неделю", "1 жумадан кийин"),
+                           ("🗓 1 айдан кийин / Через месяц", "1 айдан кийин")), False, False, ""),
+        "rentDriverReq": ("🪪 Айдоочуга талап? / Требования к водителю?", "Же өзүңүз жазыңыз / Или впишите",
+                          _rq(("21+ жаш, 2+ жыл стаж / 21+ лет, стаж 2+", "21+ жаш, 2+ жыл стаж"),
+                              ("23+ жаш, 3+ жыл стаж / 23+ лет, стаж 3+", "23+ жаш, 3+ жыл стаж"),
+                              ("25+ жаш, 5+ жыл стаж / 25+ лет, стаж 5+", "25+ жаш, 5+ жыл стаж"),
+                              ("Талап жок / Без требований", "Талап жок")), False, False, ""),
+        "rentKmLimit": ("🛣 Бир күндө канча км жүрсө болот? / Лимит км в сутки?", "Же өзүңүз жазыңыз / Или впишите",
+                        _rq(("200 км", "200 км"), ("300 км", "300 км"),
+                            ("♾ Чексиз / Без лимита", "Чексиз")), False, False, ""),
+    })
+    _rq_insert(CHAIN_VEHICLES, "vehicleCredit", ["vehicleSwap"])
+    for _rk, _ch in REALESTATE_CHAINS.items():
+        _rq_insert(_ch, "propSeller", ["propSwap", "propMortgage"] if _rk in ("residential", "commercial") else ["propSwap"])
+    _lc = REALESTATE_CHAINS.get("land")
+    if _lc is not None and not any(it[0] == "landSotka" for it in _lc):
+        for _k in ("landPurpose", "landSotka"):
+            _q = RICHQ[_k]
+            _lc.insert(0, (_k, _q[0], _q[1], _q[2]))
+    _RENT_Q["rent_residential"] = tuple(_RENT_Q.get("rent_residential", ())) + ("rentPets", "rentMoveIn")
+    _RENT_Q["rent_car"] = tuple(_RENT_Q.get("rent_car", ())) + ("rentDriverReq", "rentKmLimit")
+    _RENT_ALL = tuple(_RENT_ALL) + ("rentPets", "rentMoveIn", "rentDriverReq", "rentKmLimit")
+    _rq_insert(CHAIN_RENTAL, "rentSeller" if any(it[0] == "rentSeller" for it in CHAIN_RENTAL) else "rentDelivery",
+               ["rentPets", "rentMoveIn", "rentDriverReq", "rentKmLimit"])
+    for _i, _it in enumerate(CHAIN_ANIMALS):   # мал: саны өзүнчө суралат
+        if _it[0] == "animalAgeCount":
+            CHAIN_ANIMALS[_i] = (_it[0], "🔢 Жашы канча? / Возраст?", "Мис: 2 жаш / Например: 2 года") + tuple(_it[3:])
+except Exception as _e:
+    print("MOREQ2 chains:", _e)
+
+_rq_prefill_mq2_base = _rq_prefill
+
+
+def _rq_prefill(step, d):
+    ch = _rq_prefill_mq2_base(step, d)
+    try:
+        cat = str(d.get("category") or "")
+        if step == "post_name" and d.get("adType") == "rental" and cat == "rent_car":
+            if str(d.get("rentDriver") or "").startswith("Айдоочусу менен"):
+                for _k in ("rentDriverReq", "rentKmLimit"):
+                    if d.get(_k) is None:
+                        d[_k] = ""
+        if step == "trade_title" and (cat == "re_land" or d.get("realestateType") == "land"):
+            if d.get("landArea") is None and d.get("landSotka") is not None and d.get("landPurpose") is not None:
+                d["landArea"] = d.get("landSotka") or ""
+    except Exception:
+        pass
+    return ch
+
+
+MOREQ.update({
+    "animalSex": ("⚥ Жынысы? / Пол?", "",
+                  _rq(("♂ Эркек / Самец", "Эркек"), ("♀ Ургаачы / Самка", "Ургаачы"),
+                      ("🔀 Аралаш / Смешанно", "Аралаш")), False, False, ""),
+    "animalCount": ("🔢 Саны канча баш? / Сколько голов?", "Мис: 5 / Например: 5",
+                    _rq(("1", "1"), ("5", "5"), ("10", "10"), ("20+", "20+")), False, True, " баш"),
+    "animalVacc": ("💉 Эмделгенби, ветпаспорту барбы? (бир нечесин тандаса болот) / Прививки, ветпаспорт?", "",
+                   _rq(("💉 Эмделген / Привит", "Эмделген"), ("📗 Ветпаспорту бар / Есть ветпаспорт", "Ветпаспорту бар"),
+                       ("❌ Жок / Нет", "Жок")), True, False, ""),
+    "animalForm": ("🔪 Тирүүлөйбү же союлганбы? / Живым весом или туша?", "",
+                   _rq(("🐑 Тирүүлөй / Живым весом", "Тирүүлөй"), ("🥩 Союлган (эт) / Туша (мясо)", "Союлган"),
+                       ("🔁 Экөө тең / Оба варианта", "Экөө тең")), False, False, ""),
+    "animalDeliv": ("🚚 Жеткирип бересизби? / Есть доставка?", "",
+                    _rq(("🚚 Жеткирем / Доставлю", "Жеткирем"), ("🏠 Өзү алып кетет / Самовывоз", "Өзү алып кетет"),
+                        ("🤝 Келишим боюнча / По договорённости", "Келишим боюнча")), False, False, ""),
+    "tradeSwap": ("🔄 Алмашуу (обмен) каралабы? / Рассматриваете обмен?", "",
+                  _rq(("❌ Жок, сатам гана / Нет, только продажа", "Жок"),
+                      ("🔄 Ооба, алмашам / Да, обмен", "Ооба"),
+                      ("🔄 Кошумча акча менен алмашам / Обмен с доплатой", "Кошумча акча менен")), False, False, ""),
+    "taxiColor": ("🎨 Унааңыздын түсү? / Цвет машины?", "Же өзүңүз жазыңыз / Или впишите",
+                  _rq(("⚪ Ак / Белый", "Ак"), ("⚫ Кара / Чёрный", "Кара"), ("🔘 Күмүш / Серебристый", "Күмүш"),
+                      ("🔵 Көк / Синий", "Көк"), ("🔴 Кызыл / Красный", "Кызыл"), ("🟡 Сары / Жёлтый", "Сары")),
+                  False, False, ""),
+    "svcMaterial": ("🧱 Материалы мененби? / С материалом?", "",
+                    _rq(("🧱 Материалы менен / С материалом", "Материалы менен"),
+                        ("🛠 Иш акысы гана (материалсыз) / Только работа", "Иш акысы гана"),
+                        ("🔁 Экөө тең болот / Оба варианта", "Экөө тең болот")), False, False, ""),
+    "delZone": ("🗺 Кайсы аймакта иштейсиз? / Зона доставки?", "",
+                _rq(("🏙 Шаар ичинде / По городу", "Шаар ичинде"), ("🏘 Шаар + айланасы / Город и пригород", "Шаар жана айланасы"),
+                    ("🗺 Облус боюнча / По области", "Облус боюнча"), ("🇰🇬 Бүт Кыргызстан / Весь Кыргызстан", "Бүт Кыргызстан")),
+                False, False, ""),
+    "delMin": ("🧺 Эң аз заказ канча? / Минимальный заказ?", "Же өзүңүз жазыңыз / Или впишите",
+               _rq(("Чек жок / Без минимума", "Чек жок"), ("500 сом", "500 сом"), ("1000 сом", "1000 сом")),
+               False, False, ""),
+    "wsStock": ("📦 Товар кампада барбы? / Товар в наличии?", "",
+                _rq(("✅ Кампада бар / В наличии", "Кампада бар"),
+                    ("🚚 Буйрутма менен (1–7 күн) / Под заказ 1–7 дней", "Буйрутма менен (1–7 күн)"),
+                    ("🕐 Буйрутма менен (7+ күн) / Под заказ 7+ дней", "Буйрутма менен (7+ күн)")), False, False, ""),
+    "jobPayType": ("💰 Айлыктын түрү? / Тип оплаты?", "",
+                   _rq(("💵 Туруктуу айлык / Оклад", "Туруктуу айлык"), ("📈 Пайыз менен / Процент", "Пайыз менен"),
+                       ("💵+📈 Туруктуу + бонус / Оклад + бонус", "Туруктуу + бонус"),
+                       ("⏱ Саатына / сменасына / Почасово / посменно", "Саатына / сменасына")), False, False, ""),
+    "seekStart": ("🚀 Качан баштай аласыз? / Когда готовы начать?", "",
+                  _rq(("⚡ Дароо / Сразу", "Дароо"), ("📅 1 жумада / Через неделю", "1 жумада"),
+                      ("🗓 2 жумада / Через 2 недели", "2 жумада"), ("📆 1 айда / Через месяц", "1 айда")),
+                  False, False, ""),
+})
+try:
+    if not any(o.get("value") == "Үйдөн алып кетем" for o in MOREQ["taxiCond"][2]):
+        MOREQ["taxiCond"][2].insert(0, {"label": "🏠 Үйдөн алып кетем / Заберу из дома", "value": "Үйдөн алып кетем"})
+except Exception:
+    pass
+
+_mq_keys_mq2_base = _mq_keys
+
+
+def _mq_keys(step, d):
+    ks = list(_mq_keys_mq2_base(step, d))
+    try:
+        at = d.get("adType")
+        cat = str(d.get("category") or "")
+        if step == "trade_title":
+            if cat == "animals" and at in ("trade", "markets"):
+                sub = str(d.get("subcategory") or "")
+                if sub.startswith("Чөп"):
+                    return ["animalDeliv"]
+                if sub.startswith("Ит"):
+                    return ["animalSex", "animalCount", "animalVacc", "animalDeliv"]
+                return ["animalSex", "animalCount", "animalVacc", "animalForm", "animalDeliv"]
+            if at == "trade" and "tradePay" in ks and "tradeSwap" not in ks:
+                ks.insert(ks.index("tradePay"), "tradeSwap")
+        elif step == "post_name":
+            if at == "service" and cat in ("construction", "home"):
+                ks.append("svcMaterial")
+            elif at == "delivery":
+                ks += ["delZone", "delMin"]
+            elif at == "wholesale":
+                ks.append("wsStock")
+            elif at == "job" and "jobPayFreq" in ks:
+                ks.insert(ks.index("jobPayFreq"), "jobPayType")
+            elif at == "jobseek":
+                ks.append("seekStart")
+        elif step == "taxi_comment" and ks:
+            ks = ["taxiColor"] + ks
+    except Exception:
+        pass
+    return ks
+# ── MOREQ2_END
+
+
