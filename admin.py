@@ -541,7 +541,16 @@ def _page(title, body, tab="", msg=""):
                             ("/admin/bc", "bc", "Билдирүү"),
                             ("/admin/banners", "bn", "Баннерлер"),   # BANADM
                             ("/admin/plus", "pl", "ТАП+"),   # TAPPLUS
+                            ("/admin/inbox", "ib", "🔔 Кабарлар"),   # INBOX
                             ("/admin/log", "log", "Журнал")):
+        if key == "ib":   # INBOX
+            try:
+                import tap_plus as _tpi
+                _nib = _tpi.inbox_unread()
+                if _nib:
+                    name += " <b style='background:#E5484D;color:#fff;border-radius:99px;padding:0 7px;font-size:12px'>%d</b>" % _nib
+            except Exception:
+                pass
         tabs += "<a href='%s'%s>%s</a>" % (href, " class='on'" if tab == key else "", name)
     flash = "<p class='ok'>" + E(msg) + "</p>" if msg else ""
     return ("<!doctype html><html lang='ky'><head><meta charset='utf-8'>"
@@ -985,6 +994,9 @@ def _route(h, u):
     elif p.startswith("/admin/banners"):   # BANADM
         import banners
         banners.admin(h, uid, q, p, msg, _page, _csrf(uid))
+    elif p == "/admin/inbox":   # INBOX
+        import tap_plus
+        tap_plus.inbox_page(h, uid, q, p, msg, _page, _csrf(uid))
     elif p.startswith("/admin/plus"):   # TAPPLUS
         import tap_plus
         tap_plus.admin(h, uid, q, p, msg, _page, _csrf(uid))

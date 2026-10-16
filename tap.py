@@ -4703,6 +4703,10 @@ class H(BaseHTTPRequestHandler):
             self._send(post_page(lang))
             return
 
+        if u.path == "/my/reqs":   # MYREQS_ROUTE
+            self._send(myreqs_page(lang))
+            return
+
         if u.path == "/my/shop":   # MYSHOP_ROUTE
             self._send(myshop_page(lang))
             return
@@ -8292,10 +8296,7 @@ def _rq4_api(b):
     txt = ("%s <b>Жаңы өтүнүч — ТАП+</b>\n\n👤 %s\n📞 +996%s\n📅 %s\n💬 %s\n\n<i>Кардарга тезирээк чалыңыз — "
            "тез жооп берген сатуучунун рейтинги жогору болот.</i>"
            % (kd[1], e(name or "—"), ph, e(wish or "—"), e(note or "—")))
-    try:
-        _tg_send_simple(str(s["tg_id"]), txt)
-    except Exception as ex:
-        print("rq4 notify:", ex, flush=True)
+    txt = txt   # NOTIFY: өтүнүч Кабинетте «📥 Өтүнүчтөр» бөлүмүндө көрүнөт
     return {"ok": True}
 
 
@@ -8616,8 +8617,7 @@ def _ms_api_post(b):
                    % (kd[1], html.escape(str(s.get("name") or "")), html.escape(", ".join(names)), site, s.get("slug")))
             kb = {"inline_keyboard": [[{"text": "👁 Көрүү", "url": "%s/d/%s" % (site, s.get("slug"))},
                                        {"text": "✏️ Админде оңдоо", "url": "%s/admin/plus?edit=%s" % (site, tg)}]]}
-            for a in [x.strip() for x in (os.environ.get("ADMIN_IDS") or "").replace(" ", "").split(",") if x.strip()]:
-                _tg_send_simple(a, txt, kb)
+            _tp.inbox_add(txt, kb, "shop")   # NOTIFY
         except Exception as ex2:
             print("myshop notify:", ex2, flush=True)
     return {"ok": True, "n": len(changed)}
@@ -8764,8 +8764,7 @@ def _ms_api_post(b):
                % (kd[1], html.escape(str(s.get("name") or "")), tr[1], html.escape(str(s.get("phone") or "")),
                   html.escape(q), site, s.get("slug")))
         kb = {"inline_keyboard": [[{"text": "✏️ Админде оңдоо", "url": "%s/admin/plus?edit=%s" % (site, s["tg_id"])}]]}
-        for a in [x.strip() for x in (os.environ.get("ADMIN_IDS") or "").replace(" ", "").split(",") if x.strip()]:
-            _tg_send_simple(a, txt, kb)
+        _tp.inbox_add(txt, kb, "ask")   # NOTIFY
     except Exception as e:
         print("myshop ask:", e, flush=True)
         return {"ok": False, "err": "server"}
@@ -8994,6 +8993,118 @@ def shops_page(qs, lang="ky"):
     h = ('%s<div class="wrap" style="padding-top:8px">%s<div class="shk">%s</div>%s%s</div>'
          % (_SH_CSS, top, ch, ('<div class="shk">%s</div>' % cc) if cc else "", body))
     return page(h, title=("Магазины ТАП+" if ru else "ТАП+ дүкөндөр") + " — ТАП!", lang=lang)
+
+
+# ── MYREQS: ТАП+ өтүнүчтөрү Telegram'дын ордуна Кабинетте («📥 Өтүнүчтөр») ──
+_MR = {"ready": False}
+
+
+def _mr_init():
+    _rq4_init()
+    if _MR["ready"]:
+        return
+    try:
+        if getattr(core, "IS_PG", False):
+            core.query("ALTER TABLE seller_reqs ADD COLUMN IF NOT EXISTS seen INTEGER DEFAULT 0")
+        else:
+            core.query("ALTER TABLE seller_reqs ADD COLUMN seen INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    _MR["ready"] = True
+
+
+def _mr_api(qs, lang):
+    s, err = _ms_seller(qs.get("t", [""])[0])
+    if err:
+        return err
+    _mr_init()
+    tg = str(s["tg_id"])
+    r = core.query("SELECT COUNT(*) AS n FROM seller_reqs WHERE seller=? AND (seen IS NULL OR seen=0)", (tg,), fetch="one") or {}
+    new = int(r.get("n") or 0)
+    if qs.get("n", [""])[0] == "1":
+        return {"ok": True, "new": new}
+    rows = [dict(x) for x in (core.query("SELECT id, name, phone, wish, note, at, seen FROM seller_reqs WHERE seller=? "
+                                         "ORDER BY id DESC LIMIT 100", (tg,), fetch="all") or [])]
+    out = []
+    for x in rows:
+        try:
+            ago_t = core.ago(x.get("at"), lang)
+        except Exception:
+            ago_t = str(x.get("at") or "")[:16]
+        out.append({"id": x["id"], "name": x.get("name") or "", "phone": x.get("phone") or "", "wish": x.get("wish") or "",
+                    "note": x.get("note") or "", "ago": ago_t, "new": not int(x.get("seen") or 0)})
+    core.query("UPDATE seller_reqs SET seen=1 WHERE seller=? AND (seen IS NULL OR seen=0)", (tg,))
+    return {"ok": True, "items": out, "new": new}
+
+
+_EXT_GET["/api/myreqs"] = _mr_api
+
+_MR_CSS = """<style>
+.mrw{max-width:560px;margin:0 auto;padding:12px 16px 110px}
+.mrc{background:#fff;border-radius:16px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 6px rgba(11,27,48,.07);border:1.5px solid transparent}
+.mrc.nw{border-color:#2458C6}.mrc .h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mrc b{font-size:16px;color:#0B1B30}.mrc .tel{font-size:14px;color:#5A6B82;margin-top:2px}.mrc .a{font-size:12px;color:#7A889C}.mrc .nb{background:#2458C6;color:#fff;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:6px}
+.mrc .w{display:inline-block;margin-top:6px;background:#EEF4FF;color:#163C8C;border-radius:8px;padding:4px 9px;font-size:13px;font-weight:700}
+.mrc p{margin:8px 0 0;font-size:14.5px;line-height:1.45;color:#2A3B55;white-space:pre-wrap}
+.mrc .bt{display:flex;gap:8px;margin-top:10px}.mrc .bt a{flex:1;text-align:center;border-radius:12px;padding:10px;font-weight:800;font-size:14.5px;text-decoration:none}
+.mrc .bt a.c{background:linear-gradient(180deg,#25A55F,#1B8A4D)!important;color:#fff!important;box-shadow:none!important;border:0!important}.mrc .bt a.s{border:1.5px solid #B7C5DA!important;color:#163C8C!important;background:#fff!important;box-shadow:none!important}
+.mrtip{background:#FFF6DC;color:#5B4300;border-radius:14px;padding:11px 13px;font-size:13.5px;line-height:1.45;margin-bottom:12px}
+.mrno{background:#fff;border-radius:16px;padding:18px;text-align:center;color:#5A6B82;line-height:1.5}
+</style>"""
+
+_MR_JS = r"""
+(function(){var box=document.getElementById('mrbox');var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+if(!tok){box.innerHTML='<div class="mrno">Номериңизди ырастаңыз.<br><a href="/verify">🔐 Ырастоо</a></div>';return;}
+fetch('/api/myreqs?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){
+ if(!j.ok){box.innerHTML='<div class="mrno">'+(j.err==='noplus'?'📥 Өтүнүчтөр — ТАП+ сатуучулары үчүн.<br><a href="/plus">⭐ ТАП+ жөнүндө</a>':'Номериңизди ырастаңыз.<br><a href="/verify">🔐 Ырастоо</a>')+'</div>';return;}
+ var h='<div class="mrtip">⚡ Кардарга тезирээк чалыңыз — тез жооп берген сатуучунун рейтинги жогору болот.</div>';
+ if(!j.items.length){box.innerHTML=h+'<div class="mrno">Азырынча өтүнүч жок.<br>Кардарлар дүкөн барагыңыздагы баскыч аркылуу өтүнүч калтырганда, ушул жерде көрүнөт.</div>';return;}
+ j.items.forEach(function(x){var ph=String(x.phone||'').replace(/[^0-9+]/g,'');var wa=ph.replace(/[^0-9]/g,'');
+  h+='<div class="mrc'+(x.new?' nw':'')+'"><div class="h"><b>👤 '+esc(x.name||'—')+(x.new?'<span class="nb">ЖАҢЫ</span>':'')+'</b><span class="a">'+esc(x.ago)+'</span></div>'
+   +'<div class="tel">'+esc(x.phone)+'</div>'+(x.wish?'<span class="w">📅 '+esc(x.wish)+'</span>':'')+(x.note?'<p>'+esc(x.note)+'</p>':'')
+   +'<div class="bt"><a class="c" href="tel:'+esc(ph)+'">📞 Чалуу</a><a class="s" href="https://wa.me/'+esc(wa)+'" target="_blank" rel="noopener">💬 WhatsApp</a></div></div>';});
+ box.innerHTML=h;}).catch(function(){box.innerHTML='<div class="mrno">Байланыш катасы.</div>';});})();
+"""
+
+
+def myreqs_page(lang="ky"):
+    body = ('<main class="mrw"><h1 style="font-size:24px;margin:0 0 10px">📥 Өтүнүчтөр</h1><div id="mrbox">…</div></main>'
+            + _MR_CSS + '<script>' + _MR_JS + '</script>')
+    return page(header("", None, None, lang) + body, title="Өтүнүчтөр", lang=lang)
+
+
+_me_page_mr_base = me_page
+
+
+def me_page(lang="ky"):
+    h = _me_page_mr_base(lang)
+    try:
+        row = ('<a class="mrow2" href="/my/reqs" id="mrrow" style="display:none">'
+               '<span style="font-size:20px;width:24px;text-align:center;flex:none">📥</span><span>%s '
+               '<b id="mrn" style="display:none;background:#E5484D;color:#fff;border-radius:99px;padding:1px 8px;font-size:12px;margin-left:4px"></b>'
+               '</span><span class="mear">›</span></a>' % ("Заявки" if lang == "ru" else "Өтүнүчтөр"))
+        mk = '<span class="mear">›</span></a><a class="mrow2" href="/my/stats">'
+        if mk in h:
+            h = h.replace(mk, '<span class="mear">›</span></a>' + row + '<a class="mrow2" href="/my/stats">', 1)
+            h = h.replace("</body>", '<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}if(!t)return;'
+                          'fetch("/api/myreqs?n=1&t="+encodeURIComponent(t)).then(function(r){return r.json();})'
+                          '.then(function(j){if(!j.ok)return;var e=document.getElementById("mrrow");if(e)e.style.display="";'
+                          'if(j.new){var b=document.getElementById("mrn");b.textContent=j.new;b.style.display="";}}).catch(function(){});})();'
+                          '</script></body>', 1)
+    except Exception:
+        pass
+    return h
+
+
+def _mr_feat(tup, old, new):
+    return tuple(new if x == old else x for x in tup)
+
+
+_TP_FEAT["kulun"] = _mr_feat(_TP_FEAT["kulun"], "📐 Өтүнүч баскычы — кардар Telegram'ыңызга жазат",
+                             "📐 Өтүнүч баскычы — кардардын өтүнүчү Кабинетиңизге келет")
+_TP_FEAT_RU["kulun"] = _mr_feat(_TP_FEAT_RU["kulun"], "📐 Кнопка заявки — клиент пишет вам в Telegram",
+                                "📐 Кнопка заявки — заявки клиентов приходят в ваш кабинет")
 
 if __name__ == "__main__":
     core.init_db()

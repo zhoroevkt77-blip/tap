@@ -703,3 +703,94 @@ def admin(h, uid, q, p, msg, page, k):
         return page(title, body + js, tab, m)
     return _admin_ex_base(h, uid, q, p, msg, page3, k)
 # ══ ADMEX_END
+
+
+# ── INBOX: админ панелдеги «🔔 Кабарлар» (Telegram'дын ордуна) ──
+_IB = {"ready": False}
+
+
+def _ib_init():
+    if _IB["ready"]:
+        return
+    if getattr(core, "IS_PG", False):
+        core.query("CREATE TABLE IF NOT EXISTS admin_inbox (id SERIAL PRIMARY KEY, kind TEXT, body TEXT, "
+                   "links TEXT, at TEXT, seen INTEGER DEFAULT 0)")
+    else:
+        core.query("CREATE TABLE IF NOT EXISTS admin_inbox (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT, "
+                   "body TEXT, links TEXT, at TEXT, seen INTEGER DEFAULT 0)")
+    _IB["ready"] = True
+
+
+def inbox_add(body_html, kb=None, kind=""):
+    """body_html — даяр HTML (маанилери escape кылынган), \\n — жаңы сап."""
+    try:
+        _ib_init()
+        site = (os.environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
+        links = []
+        for row in (kb or {}).get("inline_keyboard", []):
+            for b in row:
+                u = str(b.get("url") or "")
+                if u:
+                    if u.startswith(site):
+                        u = u[len(site):] or "/"
+                    links.append([str(b.get("text") or "›"), u])
+        core.query("INSERT INTO admin_inbox (kind, body, links, at, seen) VALUES (?,?,?,?,0)",
+                   (kind, str(body_html or "")[:4000], _json.dumps(links, ensure_ascii=False), core.now_str()))
+    except Exception as e:
+        print("inbox_add:", e, flush=True)
+
+
+def inbox_unread():
+    try:
+        _ib_init()
+        r = core.query("SELECT COUNT(*) AS n FROM admin_inbox WHERE seen=0", fetch="one") or {}
+        return int(r.get("n") or 0)
+    except Exception:
+        return 0
+
+
+_IB_CSS = ("<style>.ibx{background:#fff;border:1.5px solid #DCE4F0;border-radius:14px;padding:12px 13px;margin:0 0 10px;"
+           "font-size:14.5px;line-height:1.45;color:#152741}.ibx.nw{border-color:#2458C6;box-shadow:0 0 0 2px #E6EEFA}"
+           ".ibx .tm{font-size:12px;color:#7A889C;margin-bottom:6px;display:flex;justify-content:space-between}"
+           ".ibx .tm b{background:#2458C6;color:#fff;border-radius:6px;padding:1px 7px;font-size:11px}"
+           ".ibx .lk{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.ibx .lk a{border:1.5px solid #9AA8BF;border-radius:10px;"
+           "padding:7px 11px;font-size:13px;font-weight:600;color:#17365C;text-decoration:none}"
+           ".ibf{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}.ibf a{border:1.5px solid #C9D3E1;border-radius:99px;padding:6px 12px;"
+           "font-size:13px;color:#17365C;text-decoration:none}.ibf a.on{background:#17365C;color:#fff;border-color:#17365C}</style>")
+_IB_KINDS = [("", "Баары"), ("shop", "✏️ Барак өзгөрдү"), ("ask", "✉️ Суроолор")]
+
+
+def inbox_page(h, uid, q, p, msg, page, k):
+    _ib_init()
+    kind = ""
+    try:
+        from urllib.parse import parse_qs as _pq
+        kind = (_pq(q).get("k", [""])[0] if isinstance(q, str) else (q.get("k", [""])[0] if q else "")) or ""
+    except Exception:
+        kind = ""
+    if kind:
+        rows = core.query("SELECT * FROM admin_inbox WHERE kind=? ORDER BY id DESC LIMIT 100", (kind,), fetch="all") or []
+    else:
+        rows = core.query("SELECT * FROM admin_inbox ORDER BY id DESC LIMIT 100", fetch="all") or []
+    f = "".join("<a href='/admin/inbox%s'%s>%s</a>" % (("?k=" + kk) if kk else "", " class='on'" if kk == kind else "", nm)
+                for kk, nm in _IB_KINDS)
+    out = ""
+    for r in rows:
+        r = dict(r)
+        try:
+            t = (_dt.datetime.strptime(str(r.get("at"))[:19], "%Y-%m-%d %H:%M:%S")
+                 + _dt.timedelta(hours=6)).strftime("%d.%m %H:%M")
+        except Exception:
+            t = str(r.get("at") or "")[:16]
+        try:
+            lk = _json.loads(r.get("links") or "[]")
+        except Exception:
+            lk = []
+        out += ("<div class='ibx%s'><div class='tm'><span>%s</span>%s</div>%s%s</div>"
+                % ("" if int(r.get("seen") or 0) else " nw", E(t), "" if int(r.get("seen") or 0) else "<b>ЖАҢЫ</b>",
+                   str(r.get("body") or "").replace("\n", "<br>"),
+                   ("<div class='lk'>%s</div>" % "".join("<a href='%s'>%s</a>" % (E(u), E(tx)) for tx, u in lk)) if lk else ""))
+    if not out:
+        out = "<p style='color:#5A6982'>Азырынча кабар жок.</p>"
+    core.query("UPDATE admin_inbox SET seen=1 WHERE seen=0")
+    h._send(page("Кабарлар", _IB_CSS + "<div class='ibf'>" + f + "</div>" + out, "ib", msg))
