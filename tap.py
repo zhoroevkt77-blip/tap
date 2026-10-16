@@ -4715,6 +4715,10 @@ class H(BaseHTTPRequestHandler):
             _tp_img(self, u.path)
             return
 
+        if u.path in ("/d", "/d/"):   # SHOPS_ROUTE
+            self._send(shops_page(qs, lang))
+            return
+
         if u.path == "/plus" or u.path.startswith("/d/"):   # TAPPLUS_ROUTE
             self._send(*_plus_route(u.path, lang))
             return
@@ -8766,6 +8770,230 @@ def _ms_api_post(b):
         print("myshop ask:", e, flush=True)
         return {"ok": False, "err": "server"}
     return {"ok": True}
+
+
+# ── SHOPS: ТАП+ дүкөндөр — Башкы беттеги тилке, издөөдөгү карточка, /d каталогу ──
+_SH = {"t": 0.0, "rows": []}
+
+
+def _sh_all():
+    """Жарактуу ТАП+ дүкөндөр (жок дегенде 1 активдүү жарыясы бар) — 60 сек кэш."""
+    if _SH["t"] > _t.time():
+        return _SH["rows"]
+    out = []
+    try:
+        _tp._load()
+        sel = [dict(v) for v in list(_tp._C.get("tg", {}).values()) if _tp.tier(v.get("tg_id"))]
+        for s in sel:
+            tg = str(s["tg_id"])
+            r = core.query("SELECT COUNT(*) AS n FROM listings WHERE is_active=1 AND tg_id=?", (tg,), fetch="one") or {}
+            n = int(r.get("n") or 0)
+            if not n:
+                continue
+            rg = core.query("SELECT region, COUNT(*) AS c FROM listings WHERE is_active=1 AND tg_id=? "
+                            "GROUP BY region ORDER BY c DESC LIMIT 1", (tg,), fetch="one") or {}
+            try:
+                ra, rn = _rv_stats(tg)
+            except Exception:
+                ra, rn = 0, 0
+            s.update(_n=n, _city=str(rg.get("region") or "").strip(), _ra=ra, _rn=rn,
+                     _kd=_tp.KIND[_tp.kind(s)], _tr=_tp.TIER[_tp.tier(tg)])
+            out.append(s)
+        out.sort(key=lambda s: (_tp.rank(s["tg_id"]), 0 if _tp.ishenim(s["tg_id"]) else 1, -s["_ra"], -s["_n"]))
+    except Exception as e:
+        print("shops:", e, flush=True)
+    _SH.update(t=_t.time() + 60, rows=out)
+    return out
+
+
+def _sh_kind(s, ru):
+    kd = s["_kd"]
+    return (_tp.KIND_RU.get(kd[0], kd[2]) if ru else kd[2])
+
+
+def _sh_logo(s, cls="lg"):
+    if s.get("logo"):
+        return '<i class="%s" style="background-image:url(/pi/%s.jpg)"></i>' % (cls, esc(str(s["logo"])))
+    return '<i class="%s">%s</i>' % (cls, s["_kd"][1])
+
+
+def _sh_meta(s, ru):
+    m = []
+    if s["_rn"]:
+        m.append('⭐ %s' % s["_ra"])
+    if s["_city"]:
+        m.append(esc(s["_city"]))
+    m.append(("%d объявл." if ru else "%d жарыя") % s["_n"])
+    return " · ".join(m)
+
+
+def _sh_tile(s, ru):
+    """Башкы бет үчүн тик карточка."""
+    tl = s["_tr"][0] == "tulpar"
+    return ('<a class="shc%s" href="/d/%s">%s<b>%s</b><small>%s %s</small>'
+            '<span class="sm">%s</span><span class="bd">%s%s</span></a>'
+            % (" tl" if tl else "", urllib.parse.quote(str(s.get("slug") or "")), _sh_logo(s), esc(str(s.get("name") or "")),
+               s["_kd"][1], esc(_sh_kind(s, ru)), _sh_meta(s, ru),
+               ('<em class="tp">ТАП+ · ТУЛПАР</em>' if tl else '<em class="tp">ТАП+</em>'),
+               ('<em class="ok">✅</em>' if _tp.ishenim(s["tg_id"]) else "")))
+
+
+def _sh_row(s, ru, btn=True):
+    """Каталог жана издөө үчүн туурасынан карточка."""
+    tl = s["_tr"][0] == "tulpar"
+    ab = str(s.get("about") or "").strip().replace("\n", " ")
+    return ('<a class="shr%s" href="/d/%s">%s<span class="tx"><b>%s%s</b><small>%s %s · %s</small>'
+            '<span class="sm">%s</span>%s</span>%s</a>'
+            % (" tl" if tl else "", urllib.parse.quote(str(s.get("slug") or "")), _sh_logo(s), esc(str(s.get("name") or "")),
+               (' <em class="ok">✅</em>' if _tp.ishenim(s["tg_id"]) else ""),
+               s["_kd"][1], esc(_sh_kind(s, ru)), ("ТАП+ · ТУЛПАР" if tl else "ТАП+"), _sh_meta(s, ru),
+               ('<span class="ab">%s</span>' % esc(ab[:90] + ("…" if len(ab) > 90 else ""))) if ab else "",
+               '<span class="go">›</span>' if btn else ""))
+
+
+_SH_CSS = """<style>
+.shsec .shead h2{display:flex;align-items:center;gap:6px}
+.shrow{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.shrow::-webkit-scrollbar{display:none}
+.shc{flex:none;width:148px;scroll-snap-align:start;background:#fff;border:1.5px solid #DCE4F0;border-radius:18px;padding:12px 10px;text-decoration:none;color:#0B1B30;display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px}
+.shc.tl{border-color:#E2B33C;background:linear-gradient(180deg,#FFF9E8,#fff 55%)}
+.shc .lg,.shr .lg{width:62px;height:62px;border-radius:16px;background:#EEF4FF center/cover;display:grid;place-items:center;font-size:30px;font-style:normal;flex:none}
+.shc b{font-size:14.5px;line-height:1.25;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.shc small{font-size:12px;color:#5A6B82}.shc .sm{font-size:11.5px;color:#7A889C}
+.shc .bd{display:flex;gap:4px;margin-top:4px}
+.shc em,.shr em{font-style:normal;font-size:10.5px;font-weight:900;border-radius:7px;padding:3px 6px}
+.shc em.tp{background:linear-gradient(135deg,#E9B949,#C98F16);color:#fff}.shc em.ok{background:#E3F6EA}
+.shall{flex:none;width:110px;border:2px dashed #B9C8E0;border-radius:18px;display:grid;place-items:center;text-align:center;color:#163C8C;font-weight:800;font-size:13.5px;text-decoration:none;padding:10px}
+.shr{display:flex;gap:12px;align-items:center;background:#fff;border:1.5px solid #DCE4F0;border-radius:18px;padding:11px 12px;text-decoration:none;color:#0B1B30;margin-bottom:10px}
+.shr.tl{border-color:#E2B33C;background:linear-gradient(90deg,#FFF9E8,#fff 60%)}
+.shr .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.shr b{font-size:15.5px}.shr small{font-size:12.5px;color:#5A6B82;font-weight:700}.shr .sm{font-size:12px;color:#7A889C}
+.shr .ab{font-size:12.5px;color:#3A4A60;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shr em.ok{padding:0;font-size:13px}.shr .go{font-size:24px;color:#9AA9BE;flex:none}
+.shq{margin:6px 0 4px}.shq .lb{font-size:12.5px;font-weight:800;color:#5A6B82;margin:0 2px 6px}
+.shk{display:flex;gap:7px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}.shk::-webkit-scrollbar{display:none}
+.shk a{flex:none;border:1.5px solid #D5DEEA;background:#fff;border-radius:99px;padding:7px 12px;font-size:13.5px;font-weight:700;color:#17304F;text-decoration:none;white-space:nowrap}
+.shk a.on{background:#163C8C;border-color:#163C8C;color:#fff}
+.shtop{background:linear-gradient(135deg,#163C8C,#2556C7);color:#fff;border-radius:18px;padding:14px 16px;margin:4px 0 12px}
+.shtop h1{font-size:20px;margin:0 0 4px;color:#fff}.shtop p{margin:0;font-size:13.5px;opacity:.92;line-height:1.4}
+.shtop a{display:inline-block;margin-top:10px;background:#fff;color:#163C8C;border-radius:10px;padding:7px 12px;font-weight:800;font-size:13px;text-decoration:none}
+</style>"""
+
+
+def _sh_strip(lang):
+    ru = (lang == "ru")
+    rows = _sh_all()
+    if not rows:
+        return ""
+    t = "".join(_sh_tile(s, ru) for s in rows[:10])
+    t += '<a class="shall" href="/d">%s<br>›</a>' % ("Все магазины" if ru else "Бардык дүкөндөр")
+    return ('%s<section class="shelf hsec shsec"><div class="shead"><h2>🏪 %s</h2><a href="/d" class="more">%s ›</a></div>'
+            '<div class="shrow">%s</div></section>'
+            % (_SH_CSS, "Магазины ТАП+" if ru else "ТАП+ дүкөндөр", "Все" if ru else "Баарын көрүү", t))
+
+
+def _sh_norm(x):
+    return str(x or "").lower().replace("ё", "е")
+
+
+def _sh_match(q):
+    """Издөө сөзүнө туура келген дүкөндөр (эң көп 2)."""
+    toks = [w for w in _wre.split(r"[^\w]+", _sh_norm(q)) if len(w) >= 4]
+    if not toks:
+        return []
+    out = []
+    for s in _sh_all():
+        ex = _tp.extra(s)
+        hay = _sh_norm(" ".join([str(s.get("name") or ""), s["_kd"][2], _tp.KIND_RU.get(s["_kd"][0], ""),
+                                 str(s.get("about") or ""), str(ex.get("services") or ""), str(s.get("slug") or "")]))
+        sc = sum(1 for w in toks if w[:5] in hay)
+        if sc:
+            out.append((sc, s))
+    out.sort(key=lambda x: -x[0])
+    return [s for _sc, s in out[:2]]
+
+
+def _sh_search_box(q, lang):
+    ru = (lang == "ru")
+    m = _sh_match(q)
+    if not m:
+        return ""
+    return ('%s<div class="shq"><div class="lb">🏪 %s</div>%s</div>'
+            % (_SH_CSS, "Подходящие магазины ТАП+" if ru else "Туура келген ТАП+ дүкөндөр", "".join(_sh_row(s, ru) for s in m)))
+
+
+_home_sh_base = home
+
+
+def home(q, *a, **k):
+    aiq = getattr(_AIX, "aiq", None)
+    h = _home_sh_base(q, *a, **k)
+    try:
+        lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
+        at = k.get("at") if "at" in k else (a[0] if len(a) > 0 else None)
+        cid = k.get("cid") if "cid" in k else (a[1] if len(a) > 1 else None)
+        sid = k.get("sid") if "sid" in k else (a[2] if len(a) > 2 else None)
+        sq = (q or aiq or "").strip()
+        if sq:
+            box = _sh_search_box(sq, lang)
+            i = h.find('<main class="wrap">')
+            if box and i >= 0:
+                i += len('<main class="wrap">')
+                h = h[:i] + box + h[i:]
+        elif not (at or cid or sid):
+            st = _sh_strip(lang)
+            i = h.find('<div class="hban')
+            if i < 0:
+                i = h.find('<section class="shelf hsec"', h.find('<section class="shelf hsec"') + 10)
+            if st and i >= 0:
+                h = h[:i] + st + h[i:]
+    except Exception as e:
+        print("shops home:", e, flush=True)
+    return h
+
+
+def shops_page(qs, lang="ky"):
+    ru = (lang == "ru")
+    kd = (qs.get("k", [""])[0] or "").strip()
+    city = (qs.get("c", [""])[0] or "").strip()
+    rows = _sh_all()
+    kinds = []
+    for s in rows:
+        if s["_kd"][0] not in kinds:
+            kinds.append(s["_kd"][0])
+    cities = []
+    for s in rows:
+        if s["_city"] and s["_city"] not in cities:
+            cities.append(s["_city"])
+
+    def url(k2, c2):
+        p = []
+        if k2:
+            p.append("k=" + urllib.parse.quote(k2))
+        if c2:
+            p.append("c=" + urllib.parse.quote(c2))
+        return "/d" + ("?" + "&".join(p) if p else "")
+
+    ch = '<a class="%s" href="%s">%s</a>' % ("on" if not kd else "", url("", city), "Все" if ru else "Баары")
+    for k2 in kinds:
+        K = _tp.KIND[k2]
+        ch += '<a class="%s" href="%s">%s %s</a>' % ("on" if kd == k2 else "", url(k2, city), K[1],
+                                                     esc(_tp.KIND_RU.get(k2, K[2]) if ru else K[2]))
+    cc = ""
+    if len(cities) > 1:
+        cc = '<a class="%s" href="%s">📍 %s</a>' % ("on" if not city else "", url(kd, ""), "Все города" if ru else "Бардык шаар")
+        for c2 in cities:
+            cc += '<a class="%s" href="%s">%s</a>' % ("on" if city == c2 else "", url(kd, c2), esc(c2))
+    lst = [s for s in rows if (not kd or s["_kd"][0] == kd) and (not city or s["_city"] == city)]
+    body = "".join(_sh_row(s, ru) for s in lst) or ('<p style="color:#5A6B82;text-align:center;padding:30px 0">%s</p>'
+                                                    % ("Пока нет магазинов" if ru else "Азырынча дүкөн жок"))
+    top = ('<div class="shtop"><h1>🏪 %s</h1><p>%s</p><a href="/plus">⭐ %s</a></div>'
+           % ("Магазины ТАП+" if ru else "ТАП+ дүкөндөр",
+              ("Проверенные продавцы, мастера и компании — %d" if ru else "Текшерилген сатуучулар, усталар жана компаниялар — %d") % len(rows),
+              "Открыть свой магазин" if ru else "Өз дүкөнүңүздү ачуу"))
+    h = ('%s<div class="wrap" style="padding-top:8px">%s<div class="shk">%s</div>%s%s</div>'
+         % (_SH_CSS, top, ch, ('<div class="shk">%s</div>' % cc) if cc else "", body))
+    return page(h, title=("Магазины ТАП+" if ru else "ТАП+ дүкөндөр") + " — ТАП!", lang=lang)
 
 if __name__ == "__main__":
     core.init_db()
