@@ -540,6 +540,7 @@ def _page(title, body, tab="", msg=""):
                             ("/admin/users", "us", "Колдонуучулар"),
                             ("/admin/bc", "bc", "Билдирүү"),
                             ("/admin/banners", "bn", "Баннерлер"),   # BANADM
+                            ("/admin/plus", "pl", "ТАП+"),   # TAPPLUS
                             ("/admin/log", "log", "Журнал")):
         tabs += "<a href='%s'%s>%s</a>" % (href, " class='on'" if tab == key else "", name)
     flash = "<p class='ok'>" + E(msg) + "</p>" if msg else ""
@@ -984,6 +985,9 @@ def _route(h, u):
     elif p.startswith("/admin/banners"):   # BANADM
         import banners
         banners.admin(h, uid, q, p, msg, _page, _csrf(uid))
+    elif p.startswith("/admin/plus"):   # TAPPLUS
+        import tap_plus
+        tap_plus.admin(h, uid, q, p, msg, _page, _csrf(uid))
     elif p == "/admin/log":
         h._send(_page("Журнал", _log_page(q), "log", msg))
     elif p == "/admin/users":

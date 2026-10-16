@@ -4680,6 +4680,10 @@ class H(BaseHTTPRequestHandler):
             self._send(post_page(lang))
             return
 
+        if u.path == "/plus" or u.path.startswith("/d/"):   # TAPPLUS_ROUTE
+            self._send(*_plus_route(u.path, lang))
+            return
+
         if u.path == "/admin" or u.path.startswith("/admin/"):  #ADM1
             import admin
             admin.handle(self, u)
@@ -7149,6 +7153,276 @@ def header(q="", at=None, reg=None, lang="ky"):
         pass
     return h
 # ── SMARTHINT_END
+
+
+
+
+# ── TAPPLUS: ТАП+ (Кулун · Тай · Тулпар), «✅ Ишеним», дүкөндүн барагы /d/… ──
+import tap_plus as _tp
+
+_TP_CSS = """<style>
+.tpb{display:inline-block;background:linear-gradient(135deg,#E2B33C,#C9921A);color:#fff;font-weight:900;font-size:11px;letter-spacing:.04em;border-radius:7px;padding:3px 7px;vertical-align:middle;white-space:nowrap}
+.tpt{display:inline-block;background:linear-gradient(135deg,#7A1F1F,#C0392B);color:#fff;font-weight:900;font-size:10.5px;letter-spacing:.06em;border-radius:7px;padding:3px 7px;vertical-align:middle;white-space:nowrap}
+.tpi{display:inline-block;background:#E3F6EE;color:#0E7A54;font-weight:800;font-size:11.5px;border-radius:7px;padding:3px 7px;vertical-align:middle;white-space:nowrap}
+.c.cplus .ph{outline:2.5px solid #E2B33C;outline-offset:-2.5px}
+.bdg .bpl{background:linear-gradient(135deg,#E2B33C,#C9921A)}.bdg .btl{background:linear-gradient(135deg,#7A1F1F,#C0392B)}
+.tpsel{background:#fff;border-radius:18px;padding:14px;margin:12px 0;box-shadow:0 1px 6px rgba(11,27,48,.07)}
+.tpsel .r{display:flex;gap:12px;align-items:center}.tpsel .av{flex:none;width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#2556C7,#163C8C);color:#fff;display:grid;place-items:center;font-size:24px;font-weight:900}
+.tpsel b{font-size:16px}.tpsel small{display:block;color:#5A6B82;font-size:12.5px;margin-top:3px}
+.tpsel a.go{display:block;margin-top:12px;text-align:center;background:#EEF4FF;color:#163C8C;font-weight:800;border-radius:12px;padding:11px;text-decoration:none}
+.tpban{height:110px;border-radius:0 0 22px 22px;background:linear-gradient(120deg,#163C8C,#2556C7 55%,#E2B33C)}
+.tphd{background:#fff;margin:-36px 0 12px;border-radius:18px;padding:14px;position:relative;box-shadow:0 4px 16px rgba(11,27,48,.10)}
+.tphd .av{width:64px;height:64px;border-radius:16px;margin-top:-46px;border:3px solid #fff;background:linear-gradient(135deg,#2556C7,#163C8C);color:#fff;display:grid;place-items:center;font-size:30px;font-weight:900;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.tphd h1{font-size:21px;margin:8px 0 4px;line-height:1.25}.tphd .st{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tphd .st span{background:#F3F6FB;border-radius:10px;padding:6px 9px;font-size:12px;font-weight:700;color:#33435a}
+.tphd .bt{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.tphd .bt a{text-align:center;border-radius:12px;padding:11px 4px;font-weight:800;font-size:14px;text-decoration:none}
+.tphd .b1{background:linear-gradient(180deg,#2458C6,#163C8C);color:#fff!important}.tphd .b2{background:#25D366;color:#fff!important}
+.tpinf{background:#fff;border-radius:18px;padding:6px 14px;margin-bottom:14px;box-shadow:0 1px 6px rgba(11,27,48,.07)}
+.tpinf div{display:flex;gap:9px;padding:9px 0;font-size:14px;line-height:1.4;border-bottom:1px solid #EEF2F7}.tpinf div:last-child{border:0}
+.tpinf b{flex:none;width:22px}
+.tpme{display:flex;gap:12px;align-items:center;background:linear-gradient(135deg,#FFF6DC,#FFFBEF);border:1.5px solid #E2B33C;border-radius:16px;padding:12px 14px;margin:14px 0 6px;text-decoration:none;color:#0B1B30}
+.tpme i{font-style:normal;font-size:26px}.tpme b{display:block;font-size:15px}.tpme small{color:#6B5300;font-size:12.5px}
+.tphero{background:linear-gradient(135deg,#163C8C,#2556C7);color:#fff;border-radius:20px;padding:20px 16px;margin:12px 0}
+.tphero h1{margin:6px 0;font-size:28px}.tphero p{margin:0;opacity:.92;line-height:1.45;font-size:14px}
+.tppl{background:#fff;border:2px solid #E3E9F2;border-radius:18px;padding:16px;margin:12px 0;position:relative}
+.tppl.best{border-color:#E2B33C;box-shadow:0 6px 20px rgba(226,179,60,.22)}.tppl .tg{position:absolute;right:14px;top:-11px;background:#E2B33C;color:#fff;font-size:11px;font-weight:900;padding:4px 9px;border-radius:8px}
+.tppl h3{margin:0;font-size:19px}.tppl .pr{font-size:26px;font-weight:900;color:#163C8C;margin:4px 0 8px}.tppl .pr small{font-size:13px;color:#5A6B82}
+.tppl ul{margin:0;padding:0;list-style:none}.tppl li{font-size:14px;margin:6px 0;line-height:1.35}
+.tpish{background:#E3F6EE;border-radius:16px;padding:14px;margin:12px 0;color:#0B3B2A;line-height:1.45;font-size:14px}
+.tpstep{background:#fff;border-radius:16px;padding:6px 14px;margin:12px 0;box-shadow:0 1px 6px rgba(11,27,48,.07)}
+.tpstep div{padding:9px 0;border-bottom:1px solid #EEF2F7;font-size:14px;line-height:1.4}.tpstep div:last-child{border:0}
+</style>"""
+
+
+def _tp_badges(tg_id, lang, small=False):
+    t = _tp.tier(tg_id)
+    out = ""
+    if t:
+        out += '<span class="tpb">ТАП+</span> '
+        if t == "tulpar":
+            out += '<span class="tpt">ТУЛПАР</span> '
+    if _tp.ishenim(tg_id):
+        out += '<span class="tpi">✅ %s</span>' % ("Доверие" if lang == "ru" else "Ишеним")
+    return out
+
+
+_card_tp_base = card
+
+
+def card(r, lang="ky"):
+    h = _card_tp_base(r, lang)
+    try:
+        t = _tp.tier(r.get("tg_id"))
+        if t:
+            b = '<span class="bpl">ТАП+</span>' + ('<span class="btl">ТУЛПАР</span>' if t == "tulpar" else "")
+            if '<div class="bdg">' in h:
+                h = h.replace('<div class="bdg">', '<div class="bdg">' + b, 1)
+            else:
+                i = h.find('<div class="ph">')
+                if i >= 0:
+                    j = i + len('<div class="ph">')
+                    h = h[:j] + '<div class="bdg">' + b + '</div>' + h[j:]
+            h = h.replace('<a class="c', '<a class="c cplus', 1)
+    except Exception:
+        pass
+    return h
+
+
+def _tp_count(tg_id):
+    try:
+        r = core.query("SELECT COUNT(*) AS n FROM listings WHERE is_active=1 AND tg_id=?", (str(tg_id),), fetch="one")
+        return int((r or {}).get("n") or 0)
+    except Exception:
+        return 0
+
+
+_detail_tp_base = detail
+
+
+def detail(r, lang="ky"):
+    h = _detail_tp_base(r, lang)
+    try:
+        tg = r.get("tg_id")
+        s = _tp.get(tg)
+        t = _tp.tier(tg)
+        ish = _tp.ishenim(tg)
+        if s and (t or ish):
+            ru = (lang == "ru")
+            nm = str(s.get("name") or "")
+            sub = []
+            if ish:
+                sub.append("✅ " + ("номер и адрес проверены" if ru else "номери жана дареги текшерилген"))
+            n = _tp_count(tg)
+            if n:
+                sub.append(("%d объявл." if ru else "%d жарыя") % n)
+            blk = ('<div class="tpsel"><div class="r"><div class="av">%s</div><div><b>%s</b> %s<small>%s</small></div></div>%s</div>'
+                   % (esc(nm[:1].upper() or "🏪"), esc(nm), _tp_badges(tg, lang), esc(" · ".join(sub)),
+                      ('<a class="go" href="/d/%s">🏪 %s ›</a>' % (esc(str(s.get("slug") or "")),
+                                                                "Перейти в магазин" if ru else "Дүкөнгө өтүү"))
+                      if t and s.get("slug") else ""))
+            i = h.find('<div class="dx-st">')
+            if i < 0:
+                i = h.find('<div class="share">')
+            if i < 0:
+                i = h.rfind("</main>")
+            if i >= 0:
+                h = h[:i] + blk + h[i:]
+    except Exception:
+        pass
+    return h
+
+
+_page_tp_base = page
+
+
+def page(body, *a, **k):
+    h = _page_tp_base(body, *a, **k)
+    try:
+        if _TP_CSS not in h:
+            h = h.replace("</head>", _TP_CSS + "</head>", 1)
+    except Exception:
+        pass
+    return h
+
+
+_core_find_tp_base = core.find
+
+
+def _core_find_tp(*a, **k):
+    rows = _core_find_tp_base(*a, **k)
+    try:
+        srt = k.get("sort") if "sort" in k else (a[14] if len(a) > 14 else "new")
+        if srt in (None, "", "new") and rows:
+            _tp._load()
+            if _tp._C["tg"]:
+                rows = sorted(rows, key=lambda x: _tp.rank(x.get("tg_id")))
+    except Exception:
+        pass
+    return rows
+
+
+core.find = _core_find_tp
+
+
+def _tp_money(n):
+    return "{:,}".format(int(n)).replace(",", " ")
+
+
+def _tp_store(slug, lang):
+    s = _tp.by_slug(slug)
+    if not s or not _tp.tier(s.get("tg_id")):
+        return None
+    ru = (lang == "ru")
+    tg = str(s["tg_id"])
+    rows = core.query("SELECT * FROM listings WHERE is_active=1 AND tg_id=? ORDER BY id DESC LIMIT 60",
+                      (tg,), fetch="all") or []
+    rows = [dict(x) for x in rows]
+    first = core.query("SELECT MIN(created_at) AS d FROM listings WHERE tg_id=?", (tg,), fetch="one") or {}
+    yr = str(first.get("d") or "")[:4]
+    views = sum(int(x.get("views") or 0) for x in rows)
+    ph = "".join(c for c in str((rows[0].get("contact") if rows else "") or s.get("phone") or "") if c.isdigit())
+    if ph.startswith("0"):
+        ph = "996" + ph[1:]
+    elif len(ph) == 9:
+        ph = "996" + ph
+    nm = str(s.get("name") or "")
+    st = ['📋 %d %s' % (len(rows), "объявл." if ru else "жарыя")]
+    if views:
+        st.append("👁 " + _tp_money(views))
+    if yr:
+        st.append(("📅 на ТАП! с %s г." if ru else "📅 ТАП!та %s-жылдан") % yr)
+    btn = ""
+    if ph:
+        btn = ('<div class="bt"><a class="b1" href="tel:+%s">📞 %s</a><a class="b2" href="https://wa.me/%s" '
+               'target="_blank" rel="noopener">WhatsApp</a></div>' % (ph, "Позвонить" if ru else "Чалуу", ph))
+    inf = ""
+    for ic, v in (("📍", s.get("address")), ("🕘", s.get("hours")), ("ℹ️", s.get("about"))):
+        if v and str(v).strip():
+            inf += "<div><b>%s</b><span>%s</span></div>" % (ic, esc(str(v)).replace("\n", "<br>"))
+    body = ('<main class="wrap"><div class="tpban"></div><div class="tphd"><div class="av">%s</div>'
+            '<h1>%s %s</h1><div class="st">%s</div>%s</div>%s'
+            '<h2 style="font-size:18px;margin:16px 4px 10px">%s</h2><div class="g">%s</div></main>'
+            % (esc(nm[:1].upper() or "🏪"), esc(nm), _tp_badges(tg, lang),
+               "".join("<span>%s</span>" % esc(x) for x in st), btn,
+               ('<div class="tpinf">%s</div>' % inf) if inf else "",
+               "Объявления" if ru else "Жарыялары",
+               "".join(card(x, lang) for x in rows) or ("<p>%s</p>" % ("Пока нет объявлений." if ru else "Азырынча жарыя жок."))))
+    return page(header("", None, None, lang) + body, nm + " — ТАП+", "home", lang)
+
+
+_TP_FEAT = {
+    "kulun": ("ТАП+ белгиси жана алтын алкак", "🏪 Дүкөнүңүздүн барагы: tapmeni…/d/сиздин-атыңыз",
+              "Жарыяларыңызда «🏪 Дүкөнгө өтүү» баскычы"),
+    "tai": ("Кулундагы бардыгы", "⬆️ Тизмеде Кулундан жогору турат"),
+    "tulpar": ("Тайдагы бардыгы", "🏇 «ТУЛПАР» белгиси", "⬆️ Тизмеде эң жогоруда"),
+}
+_TP_FEAT_RU = {
+    "kulun": ("Значок ТАП+ и золотая рамка", "🏪 Страница магазина: tapmeni…/d/ваше-имя",
+              "Кнопка «🏪 Перейти в магазин» в объявлениях"),
+    "tai": ("Всё из Кулун", "⬆️ В списке выше Кулун"),
+    "tulpar": ("Всё из Тай", "🏇 Значок «ТУЛПАР»", "⬆️ В списке выше всех"),
+}
+
+
+def _tp_page(lang):
+    ru = (lang == "ru")
+    pl = ""
+    for key, nm, pr, _r in _tp.TIERS:
+        feats = (_TP_FEAT_RU if ru else _TP_FEAT)[key]
+        best = key == "tai"
+        pl += ('<div class="tppl%s">%s<h3>%s</h3><div class="pr">%s сом<small> / %s</small></div><ul>%s</ul></div>'
+               % (" best" if best else "", ('<span class="tg">%s</span>' % ("ВЫГОДНЕЕ ВСЕГО" if ru else "ЭҢ ПАЙДАЛУУ")) if best else "",
+                  esc(nm), _tp_money(pr), "мес." if ru else "ай", "".join("<li>%s</li>" % esc(f) for f in feats)))
+    pay = esc(_tp.PAY_PHONE) if _tp.PAY_PHONE else ("номер администратора" if ru else "админдин номери")
+    steps = ((("1. Разместите хотя бы одно объявление на ТАП!.",
+               "2. Переведите оплату через MBank на номер: <b>%s</b>." % pay,
+               "3. Напишите нам: название магазина, адрес, часы работы и чек. Подключим в течение дня."))
+             if ru else
+             (("1. ТАП!та жок дегенде бир жарыя бериңиз.",
+               "2. Төлөмдү MBank аркылуу ушул номерге которуңуз: <b>%s</b>." % pay,
+               "3. Бизге жазыңыз: дүкөнүңүздүн аты, дареги, иш убактысы жана чек. Бир күндүн ичинде жандырабыз.")))
+    body = ('<main class="wrap"><div class="tphero"><span class="tpb">ТАП+</span><h1>ТАП+</h1><p>%s</p></div>'
+            '<div class="tpish"><b>✅ %s</b><br>%s</div>%s'
+            '<h3 class="qh">%s</h3><div class="tpstep">%s</div>%s</main>'
+            % (esc("Для магазинов, риелторов, автосалонов и мастеров: больше покупателей и доверия."
+                   if ru else "Дүкөндөр, риелторлор, автосалондор жана усталар үчүн: көбүрөөк кардар, көбүрөөк ишеним."),
+               "Значок «Доверие» — бесплатно" if ru else "«Ишеним» белгиси — акысыз",
+               esc("Мы проверяем номер и адрес продавца — и на его объявлениях появляется зелёный значок «✅ Доверие». Напишите нам, чтобы пройти проверку."
+                   if ru else "Сатуучунун номерин жана дарегин текшеребиз — анын жарыяларында жашыл «✅ Ишеним» белгиси чыгат. Текшерүүдөн өтүү үчүн бизге жазыңыз."),
+               pl, "Как подключить" if ru else "Кантип туташуу керек",
+               "".join("<div>%s</div>" % x for x in steps), _admin_buttons(lang)))
+    return page(header("", None, None, lang) + body + _HELP_CSS, "ТАП+", "me", lang)
+
+
+def _plus_route(path, lang):
+    if path == "/plus":
+        return _tp_page(lang), 200
+    slug = urllib.parse.unquote(path[3:]).strip("/")
+    h = _tp_store(slug, lang) if slug else None
+    if h:
+        return h, 200
+    return empty_page("Бул дүкөн табылган жок" if lang != "ru" else "Магазин не найден",
+                      "Шилтеме туура эмес же барак убактылуу жабык." if lang != "ru" else "Ссылка неверна или страница временно закрыта.",
+                      lang), 404
+
+
+_me_page_tp_base = me_page
+
+
+def me_page(lang="ky"):
+    h = _me_page_tp_base(lang)
+    try:
+        ru = (lang == "ru")
+        a = ('<a class="tpme" href="/plus"><i>⭐</i><span><b>ТАП+ · ✅ %s</b><small>%s</small></span></a>'
+             % ("Доверие" if ru else "Ишеним",
+                "Откройте свой магазин на ТАП! — больше покупателей" if ru else "ТАП!та дүкөнүңүздү ачыңыз — көбүрөөк кардар"))
+        i = h.find('<p class="meabout">')
+        if i >= 0:
+            h = h[:i] + a + h[i:]
+    except Exception:
+        pass
+    return h
+# ── TAPPLUS_END
 
 
 
