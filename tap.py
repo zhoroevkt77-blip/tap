@@ -4693,6 +4693,10 @@ class H(BaseHTTPRequestHandler):
             self._send(post_page(lang))
             return
 
+        if u.path == "/my/stats":   # PLUSSTATS_ROUTE
+            self._send(stats_page(lang))
+            return
+
         if u.path.startswith("/pi/"):   # TAPPLUS2_ROUTE
             _tp_img(self, u.path)
             return
@@ -7951,6 +7955,268 @@ try:
 except NameError:
     pass
 # ── REVIEWS_END
+
+
+
+
+# ── PLUSSTATS: 📊 статистика, 🔝 жогору көтөрүү, 🔄 баарын узартуу ──
+from datetime import datetime as _sdt, timedelta as _std
+
+_ST = {"ready": False}
+BUMP_QUOTA = {"kulun": 1, "tai": 3, "tulpar": 5}   # айына акысыз көтөрүү
+BUMP_HOURS = 24                                      # көтөрүлгөн жарыя канча саат башында турат
+
+
+def _st_init():
+    if _ST["ready"]:
+        return
+    core.query("CREATE TABLE IF NOT EXISTS ad_events (lid INTEGER, kind TEXT, day TEXT, n INTEGER)")
+    core.query("CREATE TABLE IF NOT EXISTS ad_bumps (tg_id TEXT, lid INTEGER, at TEXT)")
+    try:
+        if getattr(core, "IS_PG", False):
+            core.query("ALTER TABLE listings ADD COLUMN IF NOT EXISTS bumped_at TEXT")
+        else:
+            core.query("ALTER TABLE listings ADD COLUMN bumped_at TEXT")
+    except Exception:
+        pass
+    _ST["ready"] = True
+
+
+def _st_day(d=0):
+    return (_sdt.utcnow() + _std(hours=6) - _std(days=d)).strftime("%Y-%m-%d")
+
+
+def _st_hit(lid, kind):
+    try:
+        _st_init()
+        day = _st_day()
+        r = core.query("SELECT n FROM ad_events WHERE lid=? AND kind=? AND day=?", (int(lid), kind, day), fetch="one")
+        if r:
+            core.query("UPDATE ad_events SET n=n+1 WHERE lid=? AND kind=? AND day=?", (int(lid), kind, day))
+        else:
+            core.query("INSERT INTO ad_events (lid, kind, day, n) VALUES (?,?,?,1)", (int(lid), kind, day))
+    except Exception as e:
+        print("st_hit:", e, flush=True)
+
+
+def _st_api_ev(b):
+    try:
+        lid = int(b.get("lid"))
+    except Exception:
+        return {"ok": False}
+    k = str(b.get("k") or "")
+    if k not in ("call", "wa", "chat", "fav", "num"):
+        return {"ok": False}
+    _st_hit(lid, k)
+    return {"ok": True}
+
+
+_EXT_POST["/api/ev"] = _st_api_ev
+
+_ST_JS = r"""<script>(function(){var m=location.pathname.match(/^\/e\/(\d+)/);if(!m)return;var lid=+m[1];
+function s(k){try{var key='tap_ev_'+lid+'_'+k+'_'+new Date().toISOString().slice(0,10);if(localStorage.getItem(key))return;localStorage.setItem(key,'1');}catch(e){}
+var d=JSON.stringify({lid:lid,k:k});if(navigator.sendBeacon){navigator.sendBeacon('/api/ev',d);}else{fetch('/api/ev',{method:'POST',body:d,keepalive:true});}}
+document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a,button');if(!a)return;var h=a.getAttribute('href')||'';
+if(h.indexOf('tel:')===0||a.classList.contains('dx-call'))s('call');else if(h.indexOf('wa.me')>=0||h.indexOf('whatsapp')>=0)s('wa');
+else if(h.indexOf('/chat?')===0)s('chat');else if(a.classList.contains('fav'))s('fav');else if(a.closest('.ctc'))s('num');},true);})();</script>"""
+
+_detail_st_base = detail
+
+
+def detail(r, lang="ky"):
+    h = _detail_st_base(r, lang)
+    try:
+        _st_hit(r.get("id"), "view")
+        h = h.replace("</body>", _ST_JS + "</body>", 1)
+    except Exception:
+        pass
+    return h
+
+
+def _st_api_stats(qs, lang):
+    st = _wverified(qs.get("t", [""])[0])
+    if not st:
+        return {"ok": False, "err": "verify"}
+    _st_init()
+    tg = str(st["tg_id"])
+    rows = [dict(x) for x in (core.query("SELECT id, title, views FROM listings WHERE tg_id=? AND is_active=1",
+                                         (tg,), fetch="all") or [])]
+    ids = [int(x["id"]) for x in rows]
+    days = [_st_day(i) for i in range(6, -1, -1)]
+    tot = {"view": 0, "call": 0, "wa": 0, "chat": 0, "fav": 0, "num": 0}
+    prev = dict(tot)
+    per_day = {d: 0 for d in days}
+    per_ad = {}
+    if ids:
+        ph = ",".join("?" * len(ids))
+        ev = core.query("SELECT lid, kind, day, n FROM ad_events WHERE lid IN (%s) AND day>=?" % ph,
+                        tuple(ids) + (_st_day(13),), fetch="all") or []
+        for e in ev:
+            k, d, n = e["kind"], e["day"], int(e["n"] or 0)
+            if k not in tot:
+                continue
+            if d >= days[0]:
+                tot[k] += n
+                if k == "view":
+                    per_day[d] = per_day.get(d, 0) + n
+                    per_ad[int(e["lid"])] = per_ad.get(int(e["lid"]), 0) + n
+            else:
+                prev[k] += n
+    tier = _tp.tier(tg)
+    top = sorted(rows, key=lambda x: -per_ad.get(int(x["id"]), 0))[:5]
+    used = 0
+    try:
+        mon = _st_day()[:7]
+        r = core.query("SELECT COUNT(*) AS n FROM ad_bumps WHERE tg_id=? AND at>=?", (tg, mon + "-01"), fetch="one")
+        used = int((r or {}).get("n") or 0)
+    except Exception:
+        pass
+    s = _tp.get(tg) or {}
+    return {"ok": True, "plus": bool(tier), "tier": tier, "until": s.get("until") if tier else None,
+            "tot": tot, "prev": prev, "days": [[d[5:], per_day[d]] for d in days],
+            "top": [{"id": x["id"], "t": str(x.get("title") or "")[:60], "v": per_ad.get(int(x["id"]), 0)} for x in top],
+            "ads": len(rows), "bumps": max(0, BUMP_QUOTA.get(tier or "", 0) - used)}
+
+
+_EXT_GET["/api/mystats"] = _st_api_stats
+
+_STATS_PAGE_JS = r"""
+(function(){var L=document.documentElement.getAttribute('data-lang')||'ky';function T(k,r){return L==='ru'?r:k;}
+var box=document.getElementById('sbox');var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+if(!tok){box.innerHTML='<p>'+T('Статистиканы көрүү үчүн номериңизди ырастаңыз.','Чтобы увидеть статистику, подтвердите номер.')+'</p><a class="sbtn" href="/verify">🔐 '+T('Номерди ырастоо','Подтвердить номер')+'</a>';return;}
+fetch('/api/mystats?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){
+ if(!j.ok){box.innerHTML='<p>'+T('Ката чыкты.','Ошибка.')+'</p>';return;}
+ function ch(a,b){if(!b)return '';var p=Math.round((a-b)*100/b);return '<em class="'+(p>=0?'up':'dn')+'">'+(p>=0?'▲ ':'▼ ')+Math.abs(p)+'%</em>';}
+ var K=[['view','👁',T('Көрүүлөр','Просмотры')],['call','📞',T('Чалуулар','Звонки')],['chat','💬',T('Билдирүүлөр','Сообщения')],['wa','🟢','WhatsApp'],['num','☎️',T('Номерди ачкандар','Открыли номер')],['fav','❤️',T('Тандалганга','В избранное')]];
+ var h='<div class="sh">'+T('Акыркы 7 күн','Последние 7 дней')+'</div><div class="sk">';
+ K.forEach(function(k){if(!j.plus&&k[0]!=='view')return;h+='<div><small>'+k[1]+' '+k[2]+'</small><b>'+(j.tot[k[0]]||0)+'</b>'+ch(j.tot[k[0]]||0,j.prev[k[0]]||0)+'</div>';});
+ h+='</div>';
+ if(!j.plus){h+='<a class="sup" href="/plus">⭐ '+T('Чалуулар, билдирүүлөр жана эң көп каралган жарыялар — ТАП+ менен ачылат','Звонки, сообщения и топ объявлений — откроются с ТАП+')+' ›</a>';box.innerHTML=h;return;}
+ var mx=1;j.days.forEach(function(d){if(d[1]>mx)mx=d[1];});
+ h+='<div class="sh">'+T('Күн боюнча көрүүлөр','Просмотры по дням')+'</div><div class="sbox"><div class="bars">'+j.days.map(function(d){return '<div><i style="height:'+Math.max(4,Math.round(d[1]*100/mx))+'%"></i><b>'+d[1]+'</b><small>'+d[0].slice(3)+'</small></div>';}).join('')+'</div></div>';
+ if(j.top.length){h+='<div class="sh">'+T('Эң көп каралгандар','Самые просматриваемые')+'</div><div class="sbox">'+j.top.map(function(t){return '<a class="srow" href="/e/'+t.id+'"><span>'+esc(t.t)+'</span><b>'+t.v+'</b></a>';}).join('')+'</div>';}
+ h+='<div class="sbox snote">🔝 '+T('Бул айда калган акысыз көтөрүү: ','Бесплатных поднятий в этом месяце: ')+'<b>'+j.bumps+'</b>'+(j.until?'<br>⏳ ТАП+ '+T('мөөнөтү: ','до: ')+esc(j.until):'')+'</div>';
+ box.innerHTML=h;}).catch(function(){box.innerHTML='<p>'+T('Байланыш катасы.','Ошибка связи.')+'</p>';});
+})();
+"""
+_STATS_CSS = """<style>
+.swrap{max-width:560px;margin:0 auto;padding:14px 16px 120px}
+.sh{font-size:13px;font-weight:800;color:#5A6B82;text-transform:uppercase;letter-spacing:.06em;margin:16px 4px 8px}
+.sk{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sk div{background:#fff;border-radius:16px;padding:12px;box-shadow:0 1px 6px rgba(11,27,48,.07)}
+.sk small{display:block;color:#5A6B82;font-weight:700;font-size:12px}.sk b{display:block;font-size:26px;font-weight:900;color:#0B1B30}
+.sk em{font-style:normal;font-size:12px;font-weight:800}.sk em.up{color:#0E7A54}.sk em.dn{color:#C02D33}
+.sbox{background:#fff;border-radius:16px;padding:12px 14px;box-shadow:0 1px 6px rgba(11,27,48,.07)}
+.bars{display:flex;align-items:flex-end;gap:7px;height:140px}.bars div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.bars i{display:block;width:100%;background:linear-gradient(180deg,#2556C7,#163C8C);border-radius:6px 6px 2px 2px}
+.bars b{font-size:11px;color:#163C8C;margin-top:3px}.bars small{font-size:10.5px;color:#8A97AB}
+.srow{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #EEF2F7;color:#0B1B30;text-decoration:none;font-size:14px}.srow:last-child{border:0}
+.srow b{color:#163C8C}.snote{margin-top:12px;font-size:14px;line-height:1.5}
+.sup{display:block;margin-top:12px;background:linear-gradient(135deg,#FFF6DC,#FFFBEF);border:1.5px solid #E2B33C;border-radius:14px;padding:12px 14px;color:#5B4300;font-weight:800;text-decoration:none}
+.sbtn{display:block;text-align:center;padding:12px;border-radius:12px;background:#163C8C;color:#fff!important;font-weight:800;text-decoration:none}
+.mbulk{display:flex;gap:8px;margin:0 0 12px}.mbulk button,.mbulk a{flex:1;text-align:center;border:1.5px solid #B7C5DA;background:#fff;border-radius:12px;padding:10px 6px;font:inherit;font-weight:800;font-size:13.5px;color:#163C8C;text-decoration:none;cursor:pointer}
+</style>"""
+
+
+def stats_page(lang="ky"):
+    ttl = "Статистика"
+    body = ('<main class="swrap"><h1 style="font-size:24px;margin:0 0 6px">📊 %s</h1><div id="sbox">…</div></main>%s'
+            '<script>document.documentElement.setAttribute("data-lang",%s);%s</script>'
+            % (ttl, _STATS_CSS, json.dumps(lang), _STATS_PAGE_JS))
+    return page(header("", None, None, lang) + body, title=ttl, lang=lang)
+
+
+# ── 🔝 Жогору көтөрүү жана 🔄 баарын узартуу (/my) ──
+_web_my_act_st_base = _web_my_act
+
+
+def _web_my_act(b):
+    op = (b or {}).get("op")
+    if op not in ("bump", "reviveall"):
+        return _web_my_act_st_base(b)
+    st = _wverified(b.get("token"))
+    if not st:
+        return {"ok": False, "err": "verify"}
+    tg, ph = str(st["tg_id"]), "+996" + st["phone"]
+    ru = False
+    _st_init()
+    if op == "reviveall":
+        rows = core.query("SELECT id FROM listings WHERE tg_id=? AND is_active=1", (tg,), fetch="all") or []
+        n = sum(1 for r in rows if core.revive(int(r["id"]), tg, phone=ph))
+        return {"ok": True, "msg": "✅ %d жарыянын мөөнөтү узартылды" % n}
+    try:
+        lid = int(b.get("id"))
+    except Exception:
+        return {"ok": False, "err": "id"}
+    if not core.owns(lid, tg, ph):
+        return {"ok": False, "err": "owner"}
+    tier = _tp.tier(tg)
+    if not tier:
+        return {"ok": False, "msg": "🔝 Жарыяны көтөрүү ТАП+ сатуучуларына гана жеткиликтүү. Кабинет → ⭐ ТАП+"}
+    mon = _st_day()[:7]
+    r = core.query("SELECT COUNT(*) AS n FROM ad_bumps WHERE tg_id=? AND at>=?", (tg, mon + "-01"), fetch="one")
+    used = int((r or {}).get("n") or 0)
+    left = BUMP_QUOTA.get(tier, 0) - used
+    if left <= 0:
+        return {"ok": False, "msg": "Бул айдагы акысыз көтөрүүлөр бүттү. Кийинки айда кайра жаңырат."}
+    now = _sdt.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    core.query("UPDATE listings SET bumped_at=? WHERE id=?", (now, lid))
+    core.query("INSERT INTO ad_bumps (tg_id, lid, at) VALUES (?,?,?)", (tg, lid, _st_day()))
+    try:
+        core.cache_clear()
+    except Exception:
+        pass
+    return {"ok": True, "msg": "🔝 Жарыя %d саатка тизменин башына чыкты. Бул айда дагы %d жолу көтөрө аласыз."
+            % (BUMP_HOURS, left - 1)}
+
+
+_MY_JS = _MY_JS.replace(
+    "alert(T('Ката чыкты.','Ошибка.'));b.disabled=false;return;} load();",
+    "alert(x.msg||T('Ката чыкты.','Ошибка.'));b.disabled=false;return;} if(x.msg)alert(x.msg); load();", 1
+).replace(
+    "+T('3 күндө бүтөт','Истекают')+'</a></div>';",
+    "+T('3 күндө бүтөт','Истекают')+'</a></div><div class=\"mbulk\"><button data-op=\"reviveall\" data-id=\"0\">🔄 '"
+    "+T('Баарын узартуу','Продлить все')+'</button><a href=\"/my/stats\">📊 '+T('Статистика','Статистика')+'</a></div>';", 1
+).replace(
+    "+'<a class=\"medt\" href=\"/my/edit?id='+it.id+'\">'",
+    "+(it.active?'<button data-op=\"bump\" data-id=\"'+it.id+'\">🔝 '+T('Көтөрүү','Поднять')+'</button>':'')"
+    "+'<a class=\"medt\" href=\"/my/edit?id='+it.id+'\">'", 1)
+
+_my_page_st_base = my_page
+
+
+def my_page(lang="ky"):
+    h = _my_page_st_base(lang)
+    return h.replace("</head>", _STATS_CSS + "</head>", 1) if ".mbulk{" not in h else h
+
+
+_core_find_st_base = core.find
+
+
+def _core_find_st(*a, **k):
+    srt = k.get("sort") if "sort" in k else (a[14] if len(a) > 14 else "new")
+    lim = (_sdt.utcnow() - _std(hours=BUMP_HOURS)).strftime("%Y-%m-%d %H:%M:%S")
+    if srt in (None, "", "new"):
+        try:
+            _st_init()
+            core.SORTS["new"] = "(CASE WHEN bumped_at>='%s' THEN 0 ELSE 1 END), id DESC" % lim
+        except Exception:
+            pass
+    rows = _core_find_st_base(*a, **k)
+    try:
+        if srt in (None, "", "new") and rows:
+            up = [x for x in rows if str(x.get("bumped_at") or "") >= lim]
+            if up:
+                up.sort(key=lambda x: str(x.get("bumped_at")), reverse=True)
+                ids = {id(x) for x in up}
+                rows = up + [x for x in rows if id(x) not in ids]
+    except Exception:
+        pass
+    return rows
+
+
+core.find = _core_find_st
+# ── PLUSSTATS_END
 
 
 
