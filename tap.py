@@ -8644,6 +8644,7 @@ _MS_CSS = """<style>
 .mssave button{display:block;width:100%;max-width:528px;margin:0 auto;border:0;border-radius:14px;padding:14px;font:inherit;font-weight:900;font-size:16px;color:#fff;background:linear-gradient(180deg,#2458C6,#163C8C);box-shadow:0 6px 16px rgba(22,60,140,.3)}
 .msok{background:#E3F6EA;border:1.5px solid #9BD3B0;color:#155C33;border-radius:14px;padding:12px;font-weight:800;margin-bottom:12px}
 .msno{background:#fff;border-radius:18px;padding:16px;line-height:1.5}.msno a{display:block;margin-top:12px;text-align:center;background:#163C8C;color:#fff;border-radius:12px;padding:12px;font-weight:800;text-decoration:none}
+.msf .lkr{display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-bottom:1px solid #EEF2F8;font-size:14px;color:#5A6B82}.msf .lkr b{color:#0B1B30;text-align:right}.msf .lkh{background:#EEF4FF;border-radius:12px;padding:10px 11px;margin-top:10px;font-size:13px;line-height:1.45;color:#2A3B55}.msf .lkb{display:block;width:100%;margin-top:10px;border:1.5px solid #2458C6;background:#fff;color:#163C8C;border-radius:12px;padding:11px;font:inherit;font-weight:800;font-size:14.5px}.msf .lkp{display:block;text-align:center;margin-top:8px;color:#163C8C;font-weight:800;font-size:13.5px;text-decoration:none}
 </style>"""
 
 _MS_JS = r"""
@@ -8669,7 +8670,13 @@ function draw(){var f=D.f;
  var h='<div class="mst"><div class="r"><div class="av" style="'+(D.logo?'background-image:url(/pi/'+D.logo+'.jpg)':'')+'">'+(D.logo?'':'🏪')+'</div><div><b>'+esc(D.name)+'</b><small>'+esc(D.kind)+' · /d/'+esc(D.slug)+'</small></div></div>'
   +'<div class="bd"><span>'+esc(D.tier)+' · '+esc(D.until)+' чейин</span>'+(D.ish?'<span>✅ Ишеним</span>':'')+(D.bumps!=null?'<span>🔝 '+D.bumps+' көтөрүү калды</span>':'')+'</div>'
   +'<a href="/d/'+encodeURIComponent(D.slug)+'">👁 Барагымды көрүү ›</a></div><div id="msmsg"></div>';
- h+='<div class="msf"><label>Тариф, түрү, барактын дареги</label><div class="lock"><span>🔒 Админ гана өзгөртөт</span><a href="/msg">Жазуу ›</a></div>'
+ h+='<div class="msf"><label>🔒 Булар админ аркылуу өзгөрөт</label>'
+  +'<div class="lkr"><span>💎 Тариф</span><b>'+esc(D.tier)+'</b></div>'
+  +'<div class="lkr"><span>🏷 Барактын түрү</span><b>'+esc(D.kind)+'</b></div>'
+  +'<div class="lkr"><span>🔗 Шилтеме</span><b>/d/'+esc(D.slug)+'</b></div>'
+  +'<div class="lkh">💡 <b>Барактын түрү</b> — сиз эмне иш кыласыз: дүкөн, уста бригада, кафе, риелтор, авто сервис ж.б. Ага жараша барагыңыздагы бөлүмдөр жана баскычтар өзгөрөт (мис. устага «📐 Өлчөөгө чакыруу», кафеге «Меню»).</div>'
+  +'<button type="button" class="lkb" id="msask">✉️ Өзгөртүүнү админден суроо</button>'
+  +'<a class="lkp" href="/plus">💎 Тарифтерди көрүү ›</a></div><div class="msf">'
   +fld('about','Жөнүндө',1500,3)+fld('address','Дареги',200)+fld('hours','Иш убактысы',120)
   +fld('facts','Кыска фактылар (ар бири өз сабында)',600,3)+fld('services',esc(D.k3)+' (үтүр менен)',800)+'</div>';
  h+='<div class="msf">'+fld('conds','Шарттар («Аталыш: маани», ар бири өз сабында)',2000,4)+fld('team',esc(D.k4)+' («Аты — адистиги»)',1500,3)
@@ -8682,7 +8689,8 @@ function draw(){var f=D.f;
  box.innerHTML=h;pf();
  document.getElementById('lgin').onchange=function(){var f0=this.files[0];if(f0)img(f0,300,300,1,function(d){LOGO=d;document.getElementById('lgpv').style.backgroundImage='url('+d+')';});};
  document.getElementById('bnin').onchange=function(){var f0=this.files[0];if(f0)img(f0,1200,400,1,function(d){BAN=d;document.getElementById('bnpv').style.backgroundImage='url('+d+')';});};
- document.getElementById('mssv').onclick=save;}
+ document.getElementById('mssv').onclick=save;var ak=document.getElementById('msask');if(ak)ak.onclick=ask;}
+function ask(){var t=prompt('Эмнени өзгөртүү керек?\nМис: «Түрүн Уста бригада кылыңыз», «Тулпар тарифине өтөм», «Шилтемени /d/armana-mebel кылыңыз»');if(!t||!t.trim())return;fetch('/api/myshop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,ask:t.trim()})}).then(function(r){return r.json();}).then(function(x){var m=document.getElementById('msmsg');if(x.ok){m.innerHTML='<div class="msok">✅ Сурооңуз админге жөнөтүлдү. Жакында жооп беребиз.</div>';window.scrollTo(0,0);}else alert('Ката чыкты.');}).catch(function(){alert('Байланыш катасы.');});}
 function save(){var b=document.getElementById('mssv');b.disabled=true;b.textContent='…';var F={};
  box.querySelectorAll('[data-k]').forEach(function(e){F[e.getAttribute('data-k')]=e.value;});
  var dl=Object.keys(DEL).filter(function(k){return DEL[k];});
@@ -8731,6 +8739,33 @@ def me_page(lang="ky"):
 # ── MYSHOP_END
 
 
+
+
+# ── MSLOCK: «Менин дүкөнүм» → админге өзгөртүү суроосу ──
+_ms_api_post_lk = _ms_api_post
+
+
+def _ms_api_post(b):
+    q = str((b or {}).get("ask") or "").strip()[:500]
+    if not q:
+        return _ms_api_post_lk(b)
+    s, err = _ms_seller(b.get("token"))
+    if err:
+        return err
+    try:
+        kd = _tp.KIND[_tp.kind(s)]
+        tr = _tp.TIER[_tp.tier(s["tg_id"])]
+        site = (os.environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
+        txt = ("✉️ <b>ТАП+ сатуучу өзгөртүү сурайт</b>\n%s <b>%s</b> · %s\n📞 %s\n\n💬 %s\n🌐 %s/d/%s"
+               % (kd[1], html.escape(str(s.get("name") or "")), tr[1], html.escape(str(s.get("phone") or "")),
+                  html.escape(q), site, s.get("slug")))
+        kb = {"inline_keyboard": [[{"text": "✏️ Админде оңдоо", "url": "%s/admin/plus?edit=%s" % (site, s["tg_id"])}]]}
+        for a in [x.strip() for x in (os.environ.get("ADMIN_IDS") or "").replace(" ", "").split(",") if x.strip()]:
+            _tg_send_simple(a, txt, kb)
+    except Exception as e:
+        print("myshop ask:", e, flush=True)
+        return {"ok": False, "err": "server"}
+    return {"ok": True}
 
 if __name__ == "__main__":
     core.init_db()
