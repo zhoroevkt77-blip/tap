@@ -4474,6 +4474,16 @@ class H(BaseHTTPRequestHandler):
             admin.report(self)
             return
         
+        if u.path in _EXT_POST:   # EXTAPI_POST
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(n).decode("utf-8")) if 0 < n < 20000 else {}
+                _json_out(self, _EXT_POST[u.path](body))
+            except Exception as e:
+                print("extapi:", u.path, e, flush=True)
+                _json_out(self, {"ok": False, "err": "server"})
+            return
+
         if u.path == "/api/chat":   # SITECHAT
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -4642,6 +4652,9 @@ class H(BaseHTTPRequestHandler):
             return
         if u.path == "/api/chat":   # SITECHAT
             _json_out(self, _ch_get(qs.get("t", [""])[0], qs.get("lid", [""])[0], qs.get("b", [""])[0], lang))
+            return
+        if u.path in _EXT_GET:   # EXTAPI_GET
+            _json_out(self, _EXT_GET[u.path](qs, lang))
             return
         if u.path == "/api/chats":   # SITECHAT
             _json_out(self, _ch_list(qs.get("t", [""])[0]))
@@ -7642,6 +7655,302 @@ def _tp_page(lang):
         pass
     return h
 # ── TAPPLUS2_END
+
+
+
+
+# ── REVIEWS: ⭐ пикирлер, рейтинг жана жооп берүү ылдамдыгы ──
+# EXTAPI: кошумча API'лер ушул эки сөздүккө катталат (кийинки патчтар да колдонот)
+try:
+    _EXT_GET
+except NameError:
+    _EXT_GET, _EXT_POST = {}, {}
+
+_RV = {"ready": False, "rt": {}, "sp": {}}
+
+
+def _rv_init():
+    if _RV["ready"]:
+        return
+    if getattr(core, "IS_PG", False):
+        core.query("CREATE TABLE IF NOT EXISTS reviews (id SERIAL PRIMARY KEY, seller TEXT, author TEXT, "
+                   "name TEXT, lid INTEGER, stars INTEGER, body TEXT, at TEXT, hidden INTEGER DEFAULT 0)")
+    else:
+        core.query("CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, seller TEXT, "
+                   "author TEXT, name TEXT, lid INTEGER, stars INTEGER, body TEXT, at TEXT, hidden INTEGER DEFAULT 0)")
+    _RV["ready"] = True
+
+
+def _rv_stats(seller):
+    """(орточо баа, саны) — 5 мүнөт кэште."""
+    seller = str(seller or "")
+    if not seller:
+        return (0, 0)
+    hit = _RV["rt"].get(seller)
+    if hit and hit[0] > _t.time():
+        return hit[1]
+    try:
+        _rv_init()
+        r = core.query("SELECT AVG(stars) AS a, COUNT(*) AS n FROM reviews WHERE seller=? AND hidden=0",
+                       (seller,), fetch="one") or {}
+        val = (round(float(r.get("a") or 0), 1), int(r.get("n") or 0))
+    except Exception:
+        val = (0, 0)
+    _RV["rt"][seller] = (_t.time() + 300, val)
+    return val
+
+
+def _rv_list(seller, n=5):
+    try:
+        _rv_init()
+        return [dict(x) for x in (core.query("SELECT name, stars, body, at FROM reviews WHERE seller=? AND hidden=0 "
+                                             "ORDER BY id DESC LIMIT ?", (str(seller), n), fetch="all") or [])]
+    except Exception:
+        return []
+
+
+def _rv_speed(owner):
+    """Сатуучу адатта канча мүнөттө жооп берет (медиана). Аз маалымат болсо — None."""
+    owner = str(owner or "")
+    hit = _RV["sp"].get(owner)
+    if hit and hit[0] > _t.time():
+        return hit[1]
+    val = None
+    try:
+        _ch_init()
+        rows = core.query("SELECT lid, buyer, sender, at FROM chat_msgs WHERE owner=? ORDER BY lid, buyer, at "
+                          "LIMIT 3000", (owner,), fetch="all") or []
+        from datetime import datetime as _d
+        P = lambda s: _d.strptime(str(s)[:19], "%Y-%m-%d %H:%M:%S")
+        ds, wait, key = [], None, None
+        for r in rows:
+            k = (r["lid"], r["buyer"])
+            if k != key:
+                key, wait = k, None
+            if r["sender"] == "b" and wait is None:
+                wait = P(r["at"])
+            elif r["sender"] == "o" and wait is not None:
+                ds.append((P(r["at"]) - wait).total_seconds() / 60.0)
+                wait = None
+        if len(ds) >= 3:
+            ds.sort()
+            val = ds[len(ds) // 2]
+    except Exception:
+        val = None
+    _RV["sp"][owner] = (_t.time() + 600, val)
+    return val
+
+
+def _rv_speed_txt(m, ru):
+    if m is None:
+        return ""
+    if m <= 15:
+        s = "~15 мин" if ru else "~15 мүнөттө"
+    elif m <= 60:
+        s = "~1 час" if ru else "~1 саатта"
+    elif m <= 240:
+        s = "несколько часов" if ru else "бир нече саатта"
+    elif m <= 1440:
+        s = "в течение дня" if ru else "бир күндүн ичинде"
+    else:
+        return ""
+    return ("⚡ Обычно отвечает за " + s) if ru else ("⚡ Адатта " + s + " жооп берет")
+
+
+def _rv_can(st, seller):
+    """Пикир жазууга укугу барбы: сатуучуга сайттан жазган жана жооп алган болушу керек."""
+    _ch_init()
+    me = str(st["tg_id"])
+    if me == str(seller):
+        return False
+    r = core.query("SELECT COUNT(*) AS n FROM chat_msgs WHERE buyer=? AND owner=? AND sender='o'",
+                   (me, str(seller)), fetch="one") or {}
+    return int(r.get("n") or 0) > 0
+
+
+def _rv_api_can(qs, lang):
+    st = _wverified(qs.get("t", [""])[0])
+    if not st:
+        return {"ok": False, "err": "verify"}
+    try:
+        row = core.query("SELECT tg_id FROM listings WHERE id=?", (int(qs.get("lid", ["0"])[0]),), fetch="one")
+    except Exception:
+        row = None
+    if not row:
+        return {"ok": False, "err": "id"}
+    _rv_init()
+    mine = core.query("SELECT stars, body, name FROM reviews WHERE seller=? AND author=?",
+                      (str(row["tg_id"]), str(st["tg_id"])), fetch="one")
+    return {"ok": True, "can": _rv_can(st, row["tg_id"]), "self": str(st["tg_id"]) == str(row["tg_id"]),
+            "mine": dict(mine) if mine else None}
+
+
+def _rv_api_post(b):
+    st = _wverified(b.get("token"))
+    if not st:
+        return {"ok": False, "err": "verify"}
+    try:
+        lid = int(b.get("lid"))
+        stars = max(1, min(5, int(b.get("stars"))))
+    except Exception:
+        return {"ok": False, "err": "bad"}
+    row = core.query("SELECT tg_id FROM listings WHERE id=?", (lid,), fetch="one")
+    if not row:
+        return {"ok": False, "err": "id"}
+    seller = str(row["tg_id"])
+    if not _rv_can(st, seller):
+        return {"ok": False, "err": "nochat"}
+    body = " ".join(str(b.get("body") or "").split())[:600]
+    name = " ".join(str(b.get("name") or "").split())[:40]
+    try:
+        import rules
+        for tx in (body, name):
+            lv, _h = rules.check_text(tx)
+            if lv in ("hard", "swear"):
+                return {"ok": False, "err": "words"}
+    except Exception:
+        pass
+    _rv_init()
+    me = str(st["tg_id"])
+    if core.query("SELECT id FROM reviews WHERE seller=? AND author=?", (seller, me), fetch="one"):
+        core.query("UPDATE reviews SET stars=?, body=?, name=?, lid=?, at=? WHERE seller=? AND author=?",
+                   (stars, body, name, lid, core.now_str(), seller, me))
+    else:
+        core.query("INSERT INTO reviews (seller, author, name, lid, stars, body, at, hidden) VALUES (?,?,?,?,?,?,?,0)",
+                   (seller, me, name, lid, stars, body, core.now_str()))
+    _RV["rt"].pop(seller, None)
+    return {"ok": True}
+
+
+_EXT_GET["/api/review"] = _rv_api_can
+_EXT_POST["/api/review"] = _rv_api_post
+
+
+def _rv_stars(a):
+    full = int(round(a))
+    return "★" * full + "☆" * (5 - full)
+
+
+_RV_CSS = """<style>
+.rvb{background:#fff;border-radius:18px;padding:14px;margin:12px 0;box-shadow:0 1px 6px rgba(11,27,48,.07)}
+.rvh{display:flex;align-items:center;gap:10px}.rvh .big{font-size:30px;font-weight:900;color:#0B1B30}
+.rvh .st{color:#E2A21C;font-size:18px;letter-spacing:1px}.rvh small{display:block;color:#5A6B82;font-size:12.5px}
+.rvi{padding:10px 0;border-top:1px solid #EEF2F7;font-size:14px;line-height:1.45}.rvi b{font-size:13px}.rvi .st{color:#E2A21C}
+.rvi small{color:#8A97AB;font-size:11.5px;margin-left:6px}
+.rvbtn{display:block;width:100%;margin-top:10px;border:0;border-radius:12px;padding:11px;font:inherit;font-weight:800;background:#EEF4FF;color:#163C8C;cursor:pointer}
+.rvsp{display:inline-block;margin-top:6px;background:#E3F6EE;color:#0E7A54;font-weight:800;font-size:12.5px;border-radius:9px;padding:5px 9px}
+.rvm{display:none;position:fixed;inset:0;z-index:9999;background:rgba(11,27,48,.5);align-items:flex-end;justify-content:center}
+.rvm.on{display:flex}.rvm>div{background:#fff;width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+.rvm .ss{display:flex;gap:6px;justify-content:center;margin:10px 0}.rvm .ss button{border:0;background:none;font-size:38px;color:#D5DDE9;cursor:pointer;padding:0 2px}
+.rvm .ss button.on{color:#E2A21C}.rvm textarea,.rvm input{width:100%;box-sizing:border-box;border:1.5px solid #D5DDE9;border-radius:12px;padding:11px;font:inherit;font-size:15px;margin-top:8px}
+.rvm .go{width:100%;margin-top:12px;border:0;border-radius:12px;padding:13px;font:inherit;font-weight:800;font-size:15px;background:linear-gradient(180deg,#2458C6,#163C8C);color:#fff}
+.rvm .msg{font-size:14px;line-height:1.45;color:#33435a;text-align:center;margin:8px 0}
+</style>"""
+
+_RV_JS = r"""<script>
+(function(){var L=document.documentElement.getAttribute('data-lang')||'ky';function T(k,r){return L==='ru'?r:k;}
+var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}var S=0;
+window.rvOpen=function(lid){var m=document.getElementById('rvm');var b=m.firstElementChild;m.classList.add('on');
+ if(!tok){b.innerHTML='<div class="msg">'+T('Пикир жазуу үчүн номериңизди ырастаңыз.','Чтобы оставить отзыв, подтвердите номер.')+'</div><a class="go" style="display:block;text-align:center;text-decoration:none" href="/verify?next=back" onclick="try{localStorage.setItem(\'tap_back\',location.pathname)}catch(e){}">🔐 '+T('Номерди ырастоо','Подтвердить номер')+'</a>';return;}
+ b.innerHTML='<div class="msg">…</div>';
+ fetch('/api/review?t='+encodeURIComponent(tok)+'&lid='+lid).then(function(r){return r.json();}).then(function(j){
+  if(!j.ok){b.innerHTML='<div class="msg">'+T('Ката чыкты.','Ошибка.')+'</div>';return;}
+  if(j.self){b.innerHTML='<div class="msg">'+T('Өзүңүзгө пикир жаза албайсыз 🙂','Нельзя оставить отзыв самому себе 🙂')+'</div>';return;}
+  if(!j.can){b.innerHTML='<div class="msg">'+T('Пикирди сатуучу менен ТАП! аркылуу байланышкандар гана жаза алат: адегенде «💬 жазуу» баскычы менен жазыңыз, ал жооп бергенден кийин пикир калтырасыз.','Отзыв могут оставить только те, кто общался с продавцом через ТАП!: сначала напишите ему через «💬 Написать», после его ответа можно оставить отзыв.')+'</div>';return;}
+  var mi=j.mine||{};S=mi.stars||0;
+  b.innerHTML='<b style="font-size:18px">⭐ '+T('Пикир калтыруу','Оставить отзыв')+'</b><div class="ss">'+[1,2,3,4,5].map(function(i){return '<button type="button" data-s="'+i+'">★</button>';}).join('')+'</div>'
+   +'<input id="rvn" maxlength="40" placeholder="'+T('Атыңыз (мис: Айгерим)','Ваше имя (напр.: Айгерим)')+'"><textarea id="rvt" rows="3" maxlength="600" placeholder="'+T('Эмне жакты, эмне жакпады?','Что понравилось, что нет?')+'"></textarea><button class="go" id="rvg">'+T('Жөнөтүү','Отправить')+'</button>';
+  b.querySelector('#rvn').value=mi.name||'';b.querySelector('#rvt').value=mi.body||'';
+  function paint(){b.querySelectorAll('.ss button').forEach(function(x){x.classList.toggle('on',+x.getAttribute('data-s')<=S);});}paint();
+  b.querySelectorAll('.ss button').forEach(function(x){x.onclick=function(){S=+x.getAttribute('data-s');paint();};});
+  b.querySelector('#rvg').onclick=function(){if(!S){alert(T('Жылдызды тандаңыз.','Выберите оценку.'));return;}
+   fetch('/api/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,lid:lid,stars:S,name:b.querySelector('#rvn').value,body:b.querySelector('#rvt').value})})
+   .then(function(r){return r.json();}).then(function(x){if(x.ok){b.innerHTML='<div class="msg" style="font-size:16px">✅ '+T('Рахмат! Пикириңиз кошулду.','Спасибо! Отзыв добавлен.')+'</div>';setTimeout(function(){location.reload();},1200);}
+    else alert(x.err==='words'?T('Тыюу салынган сөз бар.','Есть запрещённое слово.'):T('Ката чыкты.','Ошибка.'));});};
+ }).catch(function(){b.innerHTML='<div class="msg">'+T('Байланыш катасы.','Ошибка связи.')+'</div>';});};
+})();
+</script>"""
+
+
+def _rv_block(seller, lid, lang, show_btn=True):
+    ru = (lang == "ru")
+    a, n = _rv_stats(seller)
+    sp = _rv_speed_txt(_rv_speed(seller), ru)
+    if not n and not show_btn and not sp:
+        return ""
+    h = '<div class="rvb">'
+    if n:
+        h += ('<div class="rvh"><span class="big">%.1f</span><div><span class="st">%s</span><small>%d %s</small></div></div>'
+              % (a, _rv_stars(a), n, "отзывов" if ru else "пикир"))
+        for r in _rv_list(seller, 3):
+            h += ('<div class="rvi"><b>%s</b> <span class="st">%s</span><small>%s</small><br>%s</div>'
+                  % (esc(r.get("name") or ("Покупатель" if ru else "Кардар")), "★" * int(r.get("stars") or 0),
+                     esc(str(r.get("at") or "")[:10]), esc(r.get("body") or "")))
+    else:
+        h += '<b>⭐ %s</b><div style="color:#5A6B82;font-size:13px;margin-top:3px">%s</div>' % (
+            "Отзывы" if ru else "Пикирлер", "Пока нет отзывов." if ru else "Азырынча пикир жок.")
+    if sp:
+        h += '<span class="rvsp">%s</span>' % esc(sp)
+    if show_btn and lid:
+        h += '<button class="rvbtn" type="button" onclick="rvOpen(%d)">✍️ %s</button>' % (
+            int(lid), "Оставить отзыв" if ru else "Пикир калтыруу")
+    h += '</div>'
+    return h
+
+
+_RV_MODAL = '<div class="rvm" id="rvm" onclick="if(event.target===this)this.classList.remove(\'on\')"><div></div></div>'
+
+_detail_rv_base = detail
+
+
+def detail(r, lang="ky"):
+    h = _detail_rv_base(r, lang)
+    try:
+        blk = _rv_block(r.get("tg_id"), r.get("id"), lang)
+        if blk:
+            i = h.find('<div class="dx-st">')
+            if i < 0:
+                i = h.find('<div class="share">')
+            if i < 0:
+                i = h.rfind("</main>")
+            if i >= 0:
+                h = h[:i] + blk + h[i:]
+            h = h.replace("</body>", _RV_MODAL + _RV_CSS + _RV_JS + "</body>", 1)
+    except Exception:
+        pass
+    return h
+
+
+try:
+    _tp_store_rv_base = _tp_store
+
+    def _tp_store(slug, lang):
+        h = _tp_store_rv_base(slug, lang)
+        if not h:
+            return h
+        try:
+            s = _tp.by_slug(slug)
+            tg = s.get("tg_id")
+            a, n = _rv_stats(tg)
+            if n:
+                h = h.replace('<div class="st">', '<div class="st"><span>⭐ %.1f (%d)</span>' % (a, n), 1)
+            sp = _rv_speed_txt(_rv_speed(tg), lang == "ru")
+            if sp:
+                h = h.replace('<div class="st">', '<div class="st"><span>%s</span>' % esc(sp), 1)
+            lr = core.query("SELECT id FROM listings WHERE is_active=1 AND tg_id=? ORDER BY id DESC LIMIT 1",
+                            (str(tg),), fetch="one")
+            blk = _rv_block(tg, lr["id"] if lr else 0, lang, show_btn=bool(lr))
+            if blk:
+                ru = (lang == "ru")
+                h = h.replace("<!--TP:BEFORELIST-->", '<div class="tpsec">⭐ %s</div>%s<!--TP:BEFORELIST-->'
+                              % ("Отзывы" if ru else "Пикирлер", blk), 1)
+                h = h.replace("</body>", _RV_MODAL + _RV_CSS + _RV_JS + "</body>", 1)
+        except Exception:
+            pass
+        return h
+except NameError:
+    pass
+# ── REVIEWS_END
 
 
 

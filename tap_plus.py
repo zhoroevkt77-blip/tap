@@ -544,3 +544,38 @@ def _save(h, k):
     return h._go("/admin/plus?edit=%s&m=%s" % (quote(tg), quote("✅ Сакталды: %s → /d/%s" % (name, slug))))
 # ══ TAPPLUS2_END
 
+
+
+# ══ REVIEWS_ADMIN: пикирлерди көзөмөлдөө (/admin/plus) ══
+_admin_rv_base = admin
+
+
+def admin(h, uid, q, p, msg, page, k):
+    if p == "/admin/plus/rev":
+        g = lambda x: (q.get(x) or [""])[0]
+        if hmac.compare_digest(g("k"), k) and g("id").isdigit():
+            core.query("UPDATE reviews SET hidden=? WHERE id=?", (1 if g("h") == "1" else 0, int(g("id"))))
+            return h._go("/admin/plus?m=" + quote("✅ Пикир жаңыланды"))
+        return h._go("/admin/plus?m=" + quote("Сессия бүттү"))
+
+    def page2(title, body, tab="", m=""):
+        try:
+            rows = core.query("SELECT r.id, r.seller, r.name, r.stars, r.body, r.at, r.hidden, s.name AS sn "
+                              "FROM reviews r LEFT JOIN sellers s ON s.tg_id=r.seller ORDER BY r.id DESC LIMIT 40",
+                              fetch="all") or []
+        except Exception:
+            rows = []
+        if rows:
+            body += "<h2 style='font-size:18px;margin-top:24px'>⭐ Акыркы пикирлер</h2><table class='pt'>"
+            for r in rows:
+                hid = int(r.get("hidden") or 0)
+                body += ("<tr%s><td><b>%s</b> → %s<br>%s<br><small>%s · %s</small></td><td><a href='/admin/plus/rev?id=%d&h=%d&k=%s'>%s</a></td></tr>"
+                         % (" style='opacity:.45'" if hid else "", "★" * int(r.get("stars") or 0),
+                            E(str(r.get("sn") or r.get("seller") or "")), E(str(r.get("body") or "")),
+                            E(str(r.get("name") or "")), E(str(r.get("at") or "")[:16]), int(r["id"]),
+                            0 if hid else 1, quote(k), "↩️ Кайтаруу" if hid else "🙈 Жашыруу"))
+            body += "</table>"
+        return page(title, body, tab, m)
+    return _admin_rv_base(h, uid, q, p, msg, page2, k)
+# ══ REVIEWS_ADMIN_END
+
