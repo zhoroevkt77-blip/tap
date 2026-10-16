@@ -9106,6 +9106,285 @@ _TP_FEAT["kulun"] = _mr_feat(_TP_FEAT["kulun"], "📐 Өтүнүч баскыч�
 _TP_FEAT_RU["kulun"] = _mr_feat(_TP_FEAT_RU["kulun"], "📐 Кнопка заявки — клиент пишет вам в Telegram",
                                 "📐 Кнопка заявки — заявки клиентов приходят в ваш кабинет")
 
+
+# ── CALC2: «💱 Валюта курсу» + калькуляторлорго түшүндүрмө ──
+_FX5_CUR = (("USD", "🇺🇸", "$", "АКШ доллары", "Доллар США"), ("EUR", "🇪🇺", "€", "Евро", "Евро"),
+            ("RUB", "🇷🇺", "₽", "Орус рубли", "Российский рубль"), ("KZT", "🇰🇿", "₸", "Казак теңгеси", "Казахский тенге"),
+            ("CNY", "🇨🇳", "¥", "Кытай юаны", "Китайский юань"))
+_FX5 = {"r": {}, "day": "", "t": 0.0, "try": 0.0, "busy": False, "ready": False}
+
+
+def _fx5_init():
+    if _FX5["ready"]:
+        return
+    core.query("CREATE TABLE IF NOT EXISTS fx_daily (day TEXT, cur TEXT, val REAL)")
+    _FX5["ready"] = True
+
+
+def _fx5_fetch():
+    try:
+        import urllib.request as _ur
+        x = _ur.urlopen(_ur.Request("https://www.nbkr.kg/XML/daily.xml", headers={"User-Agent": "Mozilla/5.0 (TAP)"}),
+                        timeout=8).read().decode("utf-8", "ignore")
+        dm = _cre2.search(r'Date="(\d\d)\.(\d\d)\.(\d{4})"', x)
+        day = "%s-%s-%s" % (dm.group(3), dm.group(2), dm.group(1)) if dm else _sdt.utcnow().strftime("%Y-%m-%d")
+        got = {}
+        for c in _FX5_CUR:
+            m = _cre2.search(r'ISOCode="%s"\s*>\s*<Nominal>\s*(\d+)\s*</Nominal>\s*<Value>\s*([\d.,]+)\s*</Value>' % c[0], x)
+            if m:
+                got[c[0]] = float(m.group(2).replace(",", ".")) / max(1, int(m.group(1)))
+        if got.get("USD"):
+            _fx5_init()
+            for k, v in got.items():
+                if not core.query("SELECT 1 AS o FROM fx_daily WHERE day=? AND cur=?", (day, k), fetch="one"):
+                    core.query("INSERT INTO fx_daily (day, cur, val) VALUES (?,?,?)", (day, k, v))
+            _FX5.update(r=got, day=day, t=_t.time())
+    except Exception as e:
+        print("fx5:", e, flush=True)
+    finally:
+        _FX5["busy"] = False
+
+
+def fx5():
+    """{'USD': (курс, өзгөрүү), ...}, күнү — эс → база → USD_RATE."""
+    now = _t.time()
+    if (not _FX5["r"] or now - _FX5["t"] > 6 * 3600) and not _FX5["busy"] and now - _FX5["try"] > 600:
+        _FX5["busy"] = True
+        _FX5["try"] = now
+        _cth.Thread(target=_fx5_fetch, daemon=True).start()
+    out, day = {}, _FX5["day"]
+    try:
+        _fx5_init()
+        if not day:
+            r = core.query("SELECT MAX(day) AS d FROM fx_daily", fetch="one") or {}
+            day = str(r.get("d") or "")
+        if day:
+            for c in _FX5_CUR:
+                a = core.query("SELECT val FROM fx_daily WHERE cur=? AND day<=? ORDER BY day DESC LIMIT 2", (c[0], day),
+                               fetch="all") or []
+                a = [float(dict(z)["val"]) for z in a]
+                if a:
+                    out[c[0]] = (a[0], (a[0] - a[1]) if len(a) > 1 else 0.0)
+    except Exception as e:
+        print("fx5 db:", e, flush=True)
+    if not out.get("USD"):
+        u = None
+        try:
+            u = core.usd_rate()
+        except Exception:
+            pass
+        if u:
+            out["USD"] = (u, 0.0)
+    return out, day
+
+
+def _fx5_fmt(v, cur):
+    return ("%.4f" % v) if cur in ("RUB", "KZT") else ("%.2f" % v)
+
+
+_C2_CSS = """<style>
+.c2w{background:#FFF6DC;color:#5B4300;border-radius:14px;padding:11px 13px;font-size:13.5px;line-height:1.45;margin:0 0 12px}
+.fxc{background:#fff;border-radius:18px;padding:14px;box-shadow:0 1px 6px rgba(11,27,48,.07);margin:0 0 14px}
+.fxc h2{font-size:17px;margin:0 0 2px}.fxc .sub{font-size:12.5px;color:#7A889C;margin:0 0 10px}
+.fxt{width:100%;border-collapse:collapse}.fxt td{padding:9px 2px;border-bottom:1px solid #EEF2F8;font-size:15px}
+.fxt td.n{color:#5A6B82;font-size:13.5px}.fxt td.v{text-align:right;font-weight:800;color:#0B1B30;font-variant-numeric:tabular-nums}
+.fxt td.d{text-align:right;width:62px;font-size:12px;font-weight:700}.fxt .up{color:#1B8A4D}.fxt .dn{color:#D33A2C}.fxt .eq{color:#9AA9BE}
+.fxv{display:flex;gap:8px;margin-top:12px;align-items:center}.fxv input,.fxv select{border:1.5px solid #D5DDE9;border-radius:12px;padding:10px;font:inherit;font-size:16px;background:#fff;color:#0B1B30}
+.fxv input{flex:1;min-width:0}.fxv button{border:0;background:#EEF4FF;color:#163C8C;border-radius:12px;width:44px;height:44px;font-size:18px;flex:none}
+.fxo{margin-top:10px;background:#EEF4FF;border-radius:12px;padding:12px;font-size:20px;font-weight:900;color:#163C8C;text-align:center}
+.fxn{font-size:12px;color:#7A889C;margin-top:8px;line-height:1.4}
+.cx .c2l{font-size:13.5px;color:#3A4A60;line-height:1.45;background:#F3F6FB;border-radius:10px;padding:9px 11px;margin:0 0 10px}
+.fxbar{display:flex;align-items:center;gap:10px;max-width:1040px;margin:6px auto 0;padding:8px 14px;background:#fff;border:1.5px solid #E1E8F2;border-radius:99px;text-decoration:none;color:#17304F;font-size:13.5px;font-weight:700;overflow:hidden;white-space:nowrap}
+.c2cu{display:flex;gap:12px;align-items:center;background:#fff;border-radius:18px;padding:14px;margin:0 0 14px;box-shadow:0 1px 6px rgba(11,27,48,.07);text-decoration:none;color:#0B1B30}.c2cu>span:first-child{font-size:26px}.c2cu b{display:block;font-size:16px}.c2cu small{display:block;font-size:13px;color:#5A6B82;margin-top:2px}.c2cu i{font-style:normal;margin-left:auto;font-size:22px;color:#9AA9BE}
+.fxbar span{font-variant-numeric:tabular-nums}.fxbar i{font-style:normal;color:#9AA9BE;margin-left:auto}
+@media(max-width:1060px){.fxbar{margin:6px 16px 0}}
+</style>"""
+
+
+def _fx5_card(lang):
+    ru = (lang == "ru")
+    r, day = fx5()
+    if not r:
+        return ""
+    rows = ""
+    for c in _FX5_CUR:
+        if c[0] not in r:
+            continue
+        v, d = r[c[0]]
+        dc = "up" if d > 0.00005 else ("dn" if d < -0.00005 else "eq")
+        ds = ("▲ %.2f" % d if d > 0 else "▼ %.2f" % -d) if dc != "eq" else "—"
+        if c[0] in ("RUB", "KZT") and dc != "eq":
+            ds = ("▲ %.3f" % d) if d > 0 else ("▼ %.3f" % -d)
+        rows += ('<tr><td>%s <b>%s</b></td><td class="n">%s</td><td class="v">%s</td><td class="d %s">%s</td></tr>'
+                 % (c[1], c[0], c[4] if ru else c[3], _fx5_fmt(v, c[0]), dc, ds))
+    opts = "".join('<option value="%s" data-r="%.6f">%s %s</option>' % (c[0], r[c[0]][0], c[1], c[0])
+                   for c in _FX5_CUR if c[0] in r)
+    dd = ("%s.%s.%s" % (day[8:10], day[5:7], day[:4])) if len(day) == 10 else ""
+    return ('<div class="fxc" id="fx"><h2>💱 %s</h2><div class="sub">%s%s</div><table class="fxt">%s</table>'
+            '<div class="fxv"><input id="fxa" type="number" inputmode="decimal" value="1000"><select id="fxc">%s</select>'
+            '<button type="button" id="fxs" aria-label="swap">⇄</button></div><div class="fxo" id="fxo">—</div>'
+            '<div class="fxn">%s</div></div>'
+            '<script>(function(){var a=document.getElementById("fxa"),c=document.getElementById("fxc"),o=document.getElementById("fxo"),s=0;'
+            'function f(n,d){return n.toLocaleString("ru-RU",{maximumFractionDigits:d}).replace(/,/g,".");}'
+            'function go(){var r=+c.options[c.selectedIndex].getAttribute("data-r"),x=parseFloat(a.value)||0,k=c.value;'
+            'o.textContent=s?(f(x,0)+" сом = "+f(x/r,2)+" "+k):(f(x,2)+" "+k+" = "+f(x*r,0)+" сом");}'
+            'a.oninput=go;c.onchange=go;document.getElementById("fxs").onclick=function(){s=!s;go();};go();})();</script>'
+            % ("Курс валют" if ru else "Валюта курсу",
+               ("Официальный курс НБКР" if ru else "Улуттук банктын расмий курсу"),
+               (" · " + ("на %s" if ru else "%s абалы боюнча") % dd) if dd else "",
+               rows, opts,
+               esc("Курс в обменных бюро может немного отличаться." if ru
+                   else "Алмашуу бюролорунун курсу бир аз башкача болушу мүмкүн.")))
+
+
+_C2_SUM = {
+    "💳 Кредит калькулятору": ("💳 Айлык төлөмдү эсептөө (кредит)",
+                              "Унаанын баасын, алгачкы төлөмдү жана пайызды жазсаңыз, айына канча төлөөрүңүздү көрсөтөт."),
+    "💳 Автокредит": ("💳 Расчёт ежемесячного платежа (кредит)",
+                     "Введите цену, первый взнос и ставку — покажем платёж в месяц."),
+    "🧮 Растаможка калькулятору": ("🧮 Растаможка канча болот?",
+                                  "Унаанын жылын, көлөмүн жана баасын жазсаңыз, бажыга болжол менен канча төлөөрүңүздү көрсөтөт."),
+    "🧮 Калькулятор растаможки": ("🧮 Сколько стоит растаможка?",
+                                 "Введите год, объём и цену авто — покажем примерную сумму на таможне."),
+    "🏦 Ипотека калькулятору": ("🏦 Ипотека: айына канча төлөйм?",
+                               "Үйдүн баасын, алгачкы төлөмдү жана мөөнөтүн жазсаңыз, айлык төлөмдү көрсөтөт."),
+    "🏦 Ипотека": ("🏦 Ипотека: сколько платить в месяц?",
+                  "Введите цену жилья, первый взнос и срок — покажем платёж в месяц."),
+}
+
+_C2_PRE = r"""<script>(function(){var q=new URLSearchParams(location.search);if(!q.get('p'))return;
+function s(id,v){var e=document.getElementById(id);if(e&&v!==null&&v!==''){e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));}}
+var p=+q.get('p')||0,t=document.getElementById('cxt'),u=t?+t.getAttribute('data-usd'):0;
+s('cxc_p',p);if(u)s('cxt_v',Math.round(p/u));s('cxt_y',q.get('y'));s('cxt_c',q.get('cc'));
+var f=q.get('f');if(f){var e=document.getElementById('cxt_f');if(e){e.value=f;e.dispatchEvent(new Event('input',{bubbles:true}));}}
+var c=document.getElementById('cxc_p');if(c){var d=c.closest('details');if(d)d.scrollIntoView({block:'start'});}})();</script>"""
+
+_calc_page_c2_base = calc_page
+
+
+def calc_page(lang="ky"):
+    ru = (lang == "ru")
+    h = _calc_page_c2_base(lang)
+    try:
+        for o in ("<summary>🧮 Растаможка калькулятору</summary>", "<summary>🧮 Калькулятор растаможки</summary>"):
+            i = h.find(o)
+            if i >= 0:
+                a = h.rfind("<details", 0, i)
+                b = h.find("</details>", i) + len("</details>")
+                card = ('<a class="c2cu" href="https://www.customs.gov.kg" target="_blank" rel="noopener"><span>🛃</span>'
+                        '<span><b>%s</b><small>%s</small></span><i>›</i></a>'
+                        % (("Растаможка" if ru else "Растаможка"),
+                           esc("Узнайте о растаможке на сайте customs.gov.kg" if ru
+                               else "Растаможка тууралуу customs.gov.kg сайтынан билиңиз")))
+                h = h[:a] + card + h[b:]
+        for old, (new, line) in _C2_SUM.items():
+            o = "<summary>%s</summary>" % old
+            if o in h:
+                i = h.find(o)
+                j = h.find(">", h.find('<div class="cxb"', i)) + 1
+                h = h[:j] + '<div class="c2l">%s</div>' % esc(line) + h[j:]
+                h = h.replace(o, "<summary>%s</summary>" % new, 1)
+        ttl_old = "🧮 %s</h1>" % ("Калькуляторы" if ru else "Калькуляторлор")
+        ttl_new = "🧰 %s</h1>" % ("Курс и калькуляторы" if ru else "Курс жана калькуляторлор")
+        h = h.replace(ttl_old, ttl_new, 1)
+        lead_old = esc("Автокредит, растаможка и ипотека — введите свои цифры." if ru
+                       else "Автокредит, растаможка жана ипотека — өз сандарыңызды жазыңыз.")
+        lead_new = esc("Курс валют и примерные расчёты: кредит и ипотека." if ru
+                       else "Валюта курсу жана болжолдуу эсептөөлөр: кредит жана ипотека.")
+        warn = ('<div class="c2w">ℹ️ <b>%s</b> %s</div>'
+                % (("Это только примерный расчёт." if ru else "Бул болжолдуу эсептөө гана."),
+                   esc("ТАП! не выдаёт кредиты. Точные суммы уточняйте в банке." if ru
+                       else "ТАП! кредит бербейт. Так сумманы банктан тактаңыз.")))
+        k = h.find(lead_old)
+        if k >= 0:
+            h = h[:k] + lead_new + h[k + len(lead_old):]
+            e = h.find("</p>", k) + 4
+            h = h[:e] + warn + _fx5_card(lang) + h[e:]
+        if 'data-eur="0.0000"' in h:   # НБКР жеткиликсиз болсо — базадагы евро курсу
+            eu = (fx5()[0].get("EUR") or (0, 0))[0]
+            if eu:
+                h = h.replace('data-eur="0.0000"', 'data-eur="%.4f"' % eu, 1)
+                h = h.replace("1 € = 0.00 сом", "1 € = %.2f сом" % eu, 1)
+        h = h.replace("</head>", _C2_CSS + "</head>", 1)
+        h = h.replace("</body>", _C2_PRE + "</body>", 1)
+    except Exception as e:
+        print("calc2:", e, flush=True)
+    return h
+
+
+_me_page_c2_base = me_page
+
+
+def me_page(lang="ky"):
+    h = _me_page_c2_base(lang)
+    ru = (lang == "ru")
+    old = ('<span style="font-size:20px;width:24px;text-align:center;flex:none">🧮</span><span>%s</span>'
+           % esc("Калькуляторы: кредит, растаможка, ипотека" if ru else "Калькуляторлор: кредит, растаможка, ипотека"))
+    new = ('<span style="font-size:20px;width:24px;text-align:center;flex:none">💱</span><span>%s</span>'
+           % esc("Курс валют и калькуляторы" if ru else "Валюта курсу жана калькуляторлор"))
+    return h.replace(old, new, 1)
+
+
+def _fx5_bar(lang):
+    r, _d = fx5()
+    if not r:
+        return ""
+    parts = []
+    for c in _FX5_CUR[:3]:
+        if c[0] in r:
+            parts.append("<span>%s %s</span>" % (c[2], _fx5_fmt(r[c[0]][0], c[0]) if c[0] != "RUB" else "%.2f" % r[c[0]][0]))
+    return '%s<a class="fxbar" href="/calc#fx">💵 %s<i>%s ›</i></a>' % (
+        _C2_CSS, " · ".join(parts), "Курс" if lang == "ru" else "Курс")
+
+
+_home_c2_base = home
+
+
+def home(q, *a, **k):
+    h = _home_c2_base(q, *a, **k)
+    try:
+        lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
+        at = k.get("at") if "at" in k else (a[0] if len(a) > 0 else None)
+        cid = k.get("cid") if "cid" in k else (a[1] if len(a) > 1 else None)
+        if not (q or at or cid):
+            i = h.find('<div class="smh"')
+            if i >= 0:
+                j = h.find("</div>", i) + 6
+                h = h[:j] + _fx5_bar(lang) + h[j:]
+    except Exception as e:
+        print("fxbar:", e, flush=True)
+    return h
+
+
+_detail_c2_base = detail
+
+
+def detail(r, lang="ky"):
+    h = _detail_c2_base(r, lang)
+    try:
+        if (r.get("ad_type") or "") == "vehicle" and not is_deal(r.get("price")):
+            p = core.price_number(r.get("price"))
+            if p:
+                f = _cx_facts(r)
+                yr = _cx_num(f.get("жылы") or f.get("год"))
+                cc = ""
+                for kk in ("көлөмү", "кыймылдаткыч", "объём", "двигатель"):
+                    m = _cre2.search(r"(\d+(?:[.,]\d)?)\s*л", str(f.get(kk) or ""))
+                    if m:
+                        cc = str(int(float(m.group(1).replace(",", ".")) * 1000))
+                        break
+                url = "/calc?p=%d%s%s" % (int(p), ("&y=%d" % int(yr)) if yr else "", ("&cc=" + cc) if cc else "")
+                ru = (lang == "ru")
+                lk = ('<a href="%s" style="display:inline-flex;gap:6px;margin:6px 0 0;font-size:13.5px;font-weight:700;'
+                      'color:#163C8C;text-decoration:none;background:#EEF4FF;border-radius:99px;padding:6px 12px">'
+                      '💳 %s ›</a>' % (url, "Кредит — сколько в месяц?" if ru else "Кредитке алсаңыз — айына канча?"))
+                m = _cre2.search(r'<div class="dp">.*?</div>', h, _cre2.S)
+                if m:
+                    h = h[:m.end()] + lk + h[m.end():]
+    except Exception as e:
+        print("calc2 detail:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
