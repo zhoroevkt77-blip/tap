@@ -4484,6 +4484,16 @@ class H(BaseHTTPRequestHandler):
                 _json_out(self, {"ok": False, "err": "server"})
             return
 
+        if u.path == "/api/vit":   # VITRINA_POST
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(n).decode("utf-8")) if 0 < n < 4000000 else {}
+                _json_out(self, _vt_api_post(body))
+            except Exception as e:
+                print("vit:", e, flush=True)
+                _json_out(self, {"ok": False, "err": "server"})
+            return
+
         if u.path in _EXT_POST:   # EXTAPI_POST
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -9499,6 +9509,325 @@ def _price(price, lang):
     except Exception:
         pass
     return out
+
+
+# ── VITRINA: ТАП+ дүкөндөрүндө товарлардын витринасы (сүрөт + аты + баасы) ──
+VIT_KINDS = {
+    "store": ("🛍 Витрина", "🛍 Витрина"),
+    "factory": ("🛍 Витрина", "🛍 Витрина"),
+    "farm": ("🛍 Витрина", "🛍 Витрина"),
+    "auto": ("🚗 Сатыктагы унаалар", "🚗 Автомобили в продаже"),
+    "realtor": ("🏠 Объектилер", "🏠 Объекты"),
+    "salon": ("💇 Кызматтар жана баалар", "💇 Услуги и цены"),
+}
+VIT_LIM = {"kulun": 6, "tai": 24, "tulpar": 60}
+VIT_TAGS = {"promo": ("🔥 Акция", "🔥 Акция"), "stock": ("✅ Бар", "✅ В наличии"),
+            "order": ("⏳ Заказ менен", "⏳ Под заказ")}
+_VT = {"ready": False}
+
+
+def _vt_init():
+    if _VT["ready"]:
+        return
+    if getattr(core, "IS_PG", False):
+        core.query("CREATE TABLE IF NOT EXISTS seller_vit (id SERIAL PRIMARY KEY, tg_id TEXT, lid INTEGER, img INTEGER, "
+                   "name TEXT, price TEXT, tag TEXT, pos INTEGER DEFAULT 0, at TEXT)")
+    else:
+        core.query("CREATE TABLE IF NOT EXISTS seller_vit (id INTEGER PRIMARY KEY AUTOINCREMENT, tg_id TEXT, lid INTEGER, "
+                   "img INTEGER, name TEXT, price TEXT, tag TEXT, pos INTEGER DEFAULT 0, at TEXT)")
+    _VT["ready"] = True
+
+
+def _vt_price(p, lang):
+    p = str(p or "").strip()
+    if not p:
+        return ""
+    if _wre.match(r"^\d[\d\s]*$", p):
+        return "{:,}".format(int(p.replace(" ", ""))).replace(",", " ") + " сом"
+    return p
+
+
+def _vt_items(tg, lang="ky"):
+    _vt_init()
+    out = []
+    for r in core.query("SELECT * FROM seller_vit WHERE tg_id=? ORDER BY pos, id DESC", (str(tg),), fetch="all") or []:
+        r = dict(r)
+        it = {"id": r["id"], "lid": r.get("lid"), "tag": r.get("tag") or "", "name": r.get("name") or "",
+              "price": _vt_price(r.get("price"), lang), "src": ""}
+        if r.get("lid"):
+            x = core.query("SELECT * FROM listings WHERE id=? AND is_active=1", (int(r["lid"]),), fetch="one")
+            if not x:
+                continue
+            x = dict(x)
+            try:
+                it["name"] = it["name"] or str(L(bridge.show_title(x), lang) or x.get("title") or "")
+            except Exception:
+                it["name"] = it["name"] or str(x.get("title") or "")
+            it["price"] = it["price"] or str(_price(x.get("price"), lang) or "")
+            if x.get("photo"):
+                it["src"] = "/media/" + os.path.basename(str(x["photo"]))
+        elif r.get("img"):
+            it["src"] = "/pi/%d.jpg" % int(r["img"])
+        out.append(it)
+    return out
+
+
+_VT_CSS = """<style>
+.vtf{display:flex;gap:7px;overflow-x:auto;padding:0 2px 10px;scrollbar-width:none}.vtf::-webkit-scrollbar{display:none}
+.vtf button{flex:none;border:1.5px solid #D5DEEA;background:#fff;border-radius:99px;padding:6px 12px;font:inherit;font-size:13.5px;font-weight:700;color:#17304F}
+.vtf button.on{background:#163C8C;border-color:#163C8C;color:#fff}
+.vtg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vtc{display:block;border:0;background:#fff;border-radius:16px;padding:0;text-align:left;font:inherit;box-shadow:0 1px 6px rgba(11,27,48,.08);overflow:hidden;cursor:pointer}
+.vtc.vth{display:none}.vtg.all .vtc.vth{display:block}.vtc.vtx{display:none!important}
+.vtc .im{display:block;position:relative;aspect-ratio:1/1;background:#EEF3FA center/cover no-repeat}
+.vtc .im em{position:absolute;left:7px;top:7px;font-style:normal;font-size:11px;font-weight:800;background:#fff;color:#0B1B30;border-radius:8px;padding:3px 7px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.vtc .im em.promo{background:#E5484D;color:#fff}
+.vtc .im b{position:absolute;left:7px;bottom:7px;background:rgba(11,27,48,.82);color:#fff;font-size:13.5px;font-weight:900;border-radius:9px;padding:4px 8px}
+.vtc .nm{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding:8px 10px 10px;font-size:13.5px;font-weight:700;color:#0B1B30;line-height:1.3}
+.vtmore{display:block;width:100%;margin-top:10px;border:1.5px solid #D5DEEA;background:#fff;border-radius:99px;padding:11px;font:inherit;font-weight:800;color:#163C8C}
+.vtm{position:fixed;inset:0;z-index:300;background:rgba(11,27,48,.6);display:none;align-items:flex-end;justify-content:center}
+.vtm.on{display:flex}.vtm>div{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:0 0 18px;max-height:92vh;overflow:auto}
+.vtm .bi{aspect-ratio:1/1;background:#EEF3FA center/contain no-repeat;border-radius:20px 20px 0 0}
+.vtm .bd{padding:14px 16px 0}.vtm h3{margin:0 0 4px;font-size:18px}.vtm .pr{font-size:22px;font-weight:900;color:#163C8C}
+.vtm .tg{display:inline-block;margin-top:6px;font-size:12.5px;font-weight:800;background:#F3F6FB;border-radius:8px;padding:4px 8px}
+.vtm .bt{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.vtm .bt a,.vtm .bt button{text-align:center;border-radius:12px;padding:12px 8px;font:inherit;font-weight:800;font-size:14.5px;text-decoration:none;border:0}
+.vtm .b1{background:linear-gradient(180deg,#25A55F,#1B8A4D);color:#fff!important}.vtm .b2{background:#EEF4FF;color:#163C8C!important}
+.vtm .b3{grid-column:span 2;background:#fff;border:1.5px solid #D5DEEA!important;color:#163C8C!important}
+.vtm .x{display:block;margin:12px auto 0;background:none;border:0;color:#5A6B82;font:inherit;font-size:14px}
+</style>"""
+
+
+def _vt_html(items, s, lang, tel):
+    ru = (lang == "ru")
+    kd = _tp.kind(s)
+    ttl = VIT_KINDS.get(kd, VIT_KINDS["store"])[1 if ru else 0]
+    ex = _tp.extra(s)
+    words = [x.strip() for x in str(ex.get("services") or "").replace("\n", ",").split(",") if x.strip()]
+    low = [str(i["name"]).lower() for i in items]
+    chips = [w for w in words if any(w.lower()[:5] in n for n in low)][:12]
+    cards = ""
+    for k, it in enumerate(items):
+        tg = VIT_TAGS.get(it["tag"])
+        cards += ('<button type="button" class="vtc%s" data-i="%d" data-n="%s"><span class="im" style="background-image:url(%s)">%s%s</span>'
+                  '<span class="nm">%s</span></button>'
+                  % (" vth" if k >= 6 else "", k, esc(str(it["name"]).lower()), esc(it["src"]),
+                     ('<em class="%s">%s</em>' % (it["tag"], tg[1 if ru else 0])) if tg else "",
+                     ('<b>%s</b>' % esc(it["price"])) if it["price"] else "", esc(it["name"])))
+    data = [{"n": it["name"], "p": it["price"], "s": it["src"], "l": it["lid"] or 0,
+             "t": (VIT_TAGS.get(it["tag"]) or ("", ""))[1 if ru else 0]} for it in items]
+    T = (lambda a, b: b if ru else a)
+    return ('%s<div class="tpsec">%s <small style="color:#9AA9BE">%d</small></div>%s<div class="vtg" id="vtg">%s</div>%s'
+            '<div class="vtm" id="vtm" onclick="if(event.target===this)this.classList.remove(\'on\')"><div></div></div>'
+            '<script>(function(){var V=%s,TEL=%s,g=document.getElementById("vtg"),m=document.getElementById("vtm");document.body.appendChild(m);'
+            'function e(x){return String(x==null?"":x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c];});}'
+            'g.querySelectorAll(".vtc").forEach(function(b){b.onclick=function(){var v=V[+b.getAttribute("data-i")],d=m.firstElementChild;'
+            'd.innerHTML=\'<div class="bi" style="background-image:url(\'+e(v.s)+\')"></div><div class="bd"><h3>\'+e(v.n)+\'</h3>\'+(v.p?\'<div class="pr">\'+e(v.p)+\'</div>\':"")'
+            '+(v.t?\'<span class="tg">\'+e(v.t)+\'</span>\':"")+\'<div class="bt">\'+(TEL?\'<a class="b1" href="tel:+\'+TEL+\'">📞 %s</a>\':"")'
+            '+(window.tpReq?\'<button class="b2" id="vtq">📝 %s</button>\':"")+(v.l?\'<a class="b3" href="/e/\'+v.l+\'">📄 %s ›</a>\':"")'
+            '+\'</div><button class="x" onclick="document.getElementById(\\\'vtm\\\').classList.remove(\\\'on\\\')">%s</button></div>\';'
+            'm.classList.add("on");var q=document.getElementById("vtq");if(q)q.onclick=function(){m.classList.remove("on");window.tpReq();'
+            'setTimeout(function(){var t=document.getElementById("rqt");if(t)t.value=v.n+(v.p?" ("+v.p+")":"")+" — ";},50);};};});'
+            'var mo=document.getElementById("vtmo");if(mo)mo.onclick=function(){g.classList.add("all");mo.style.display="none";};'
+            'document.querySelectorAll(".vtf button").forEach(function(c){c.onclick=function(){var w=c.getAttribute("data-w");'
+            'document.querySelectorAll(".vtf button").forEach(function(x){x.classList.toggle("on",x===c);});'
+            'if(w){g.classList.add("all");if(mo)mo.style.display="none";}'
+            'g.querySelectorAll(".vtc").forEach(function(b){b.classList.toggle("vtx",!!w&&b.getAttribute("data-n").indexOf(w)<0);});};});'
+            '})();</script>'
+            % (_VT_CSS, esc(ttl), len(items),
+               ('<div class="vtf"><button type="button" class="on" data-w="">%s</button>%s</div>'
+                % (T("Баары", "Все"), "".join('<button type="button" data-w="%s">%s</button>' % (esc(w.lower()[:5]), esc(w)) for w in chips)))
+               if chips else "",
+               cards,
+               ('<button type="button" class="vtmore" id="vtmo">%s (%d) ›</button>' % (T("Баарын көрүү", "Показать все"), len(items)))
+               if len(items) > 6 else "",
+               json.dumps(data, ensure_ascii=False).replace("</", "<\\/"), json.dumps(tel or ""),
+               T("Чалуу", "Позвонить"), T("Буйрутма", "Заказать"), T("Толук маалымат", "Подробнее"), T("Жабуу", "Закрыть")))
+
+
+_tp_store_vt_base = _tp_store
+
+
+def _tp_store(slug, lang):
+    h = _tp_store_vt_base(slug, lang)
+    try:
+        if not h:
+            return h
+        s = _tp.by_slug(slug)
+        if not s or _tp.kind(s) not in VIT_KINDS:
+            return h
+        items = _vt_items(s["tg_id"], lang)
+        if not items:
+            return h
+        m = _wre.search(r'href="tel:\+(\d+)"', h)
+        sec = _vt_html(items, s, lang, m.group(1) if m else "")
+        # эски «сүрөттөр» бөлүмү жөнөкөй «📸 Сүрөттөр» болот
+        i = h.find('<div class="tpbox tppf">')
+        if i >= 0:
+            a = h.rfind('<div class="tpsec">', 0, i)
+            if a >= 0:
+                h = h[:a] + '<div class="tpsec">📸 %s</div>' % ("Фото" if lang == "ru" else "Сүрөттөр") + h[i:]
+        a = h.find("<!--TP:AFTERHEAD-->")
+        j = h.find('<div class="tpsec">', a if a >= 0 else 0)
+        if j < 0:
+            j = h.find("<!--TP:BEFORELIST-->")
+        if j >= 0:
+            h = h[:j] + sec + h[j:]
+    except Exception as e:
+        print("vitrina:", e, flush=True)
+    return h
+
+
+# ── «Менин дүкөнүм»: витринаны башкаруу ──
+def _vt_api_get(qs, lang):
+    s, err = _ms_seller(qs.get("t", [""])[0])
+    if err:
+        return err
+    kd = _tp.kind(s)
+    if kd not in VIT_KINDS:
+        return {"ok": True, "off": True}
+    tg = str(s["tg_id"])
+    tr = _tp.tier(tg) or "kulun"
+    items = _vt_items(tg, "ky")
+    used = {int(i["lid"]) for i in items if i.get("lid")}
+    mine = []
+    for x in core.query("SELECT * FROM listings WHERE tg_id=? AND is_active=1 ORDER BY id DESC LIMIT 60", (tg,), fetch="all") or []:
+        x = dict(x)
+        if int(x["id"]) in used:
+            continue
+        try:
+            t = str(bridge.show_title(x) or x.get("title") or "")
+        except Exception:
+            t = str(x.get("title") or "")
+        mine.append({"id": x["id"], "t": t, "p": str(_price(x.get("price"), "ky") or ""),
+                     "s": ("/media/" + os.path.basename(str(x["photo"]))) if x.get("photo") else ""})
+    return {"ok": True, "title": VIT_KINDS[kd][0], "lim": VIT_LIM.get(tr, 6), "tier": _tp.TIER[tr][1],
+            "items": items, "mine": mine}
+
+
+def _vt_api_post(b):
+    s, err = _ms_seller(b.get("token"))
+    if err:
+        return err
+    if _tp.kind(s) not in VIT_KINDS:
+        return {"ok": False, "err": "kind"}
+    _vt_init()
+    tg = str(s["tg_id"])
+    op = b.get("op")
+    if op == "del":
+        r = core.query("SELECT img FROM seller_vit WHERE id=? AND tg_id=?", (int(b.get("id") or 0), tg), fetch="one")
+        if r and dict(r).get("img"):
+            core.query("DELETE FROM seller_imgs WHERE id=? AND tg_id=?", (int(dict(r)["img"]), tg))
+        core.query("DELETE FROM seller_vit WHERE id=? AND tg_id=?", (int(b.get("id") or 0), tg))
+        return {"ok": True}
+    if op == "up":
+        rows = [dict(x) for x in (core.query("SELECT id FROM seller_vit WHERE tg_id=? ORDER BY pos, id DESC", (tg,), fetch="all") or [])]
+        ids = [x["id"] for x in rows]
+        i = int(b.get("id") or 0)
+        if i in ids:
+            k = ids.index(i)
+            if k > 0:
+                ids[k - 1], ids[k] = ids[k], ids[k - 1]
+            for n, x in enumerate(ids):
+                core.query("UPDATE seller_vit SET pos=? WHERE id=?", (n, x))
+        return {"ok": True}
+    tr = _tp.tier(tg) or "kulun"
+    r = core.query("SELECT COUNT(*) AS n FROM seller_vit WHERE tg_id=?", (tg,), fetch="one") or {}
+    if int(dict(r).get("n") or 0) >= VIT_LIM.get(tr, 6):
+        return {"ok": False, "err": "limit"}
+    if op == "addlid":
+        lid = int(b.get("lid") or 0)
+        x = core.query("SELECT id FROM listings WHERE id=? AND tg_id=? AND is_active=1", (lid, tg), fetch="one")
+        if not x:
+            return {"ok": False, "err": "lid"}
+        core.query("INSERT INTO seller_vit (tg_id, lid, name, price, tag, pos, at) VALUES (?,?,?,?,?,?,?)",
+                   (tg, lid, "", "", str(b.get("tag") or "")[:10], -1, core.now_str()))
+        return {"ok": True}
+    if op == "add":
+        name = " ".join(str(b.get("name") or "").split())[:60]
+        price = " ".join(str(b.get("price") or "").split())[:24]
+        tag = str(b.get("tag") or "")
+        tag = tag if tag in VIT_TAGS else ""
+        if not name:
+            return {"ok": False, "err": "name"}
+        try:
+            import rules
+            lv, _h = rules.check_text(name + " " + price)
+            if lv in ("hard", "swear"):
+                return {"ok": False, "err": "words"}
+        except Exception:
+            pass
+        iid = _tp.img_put(tg, "vt", b.get("img"))
+        if not iid:
+            return {"ok": False, "err": "img"}
+        core.query("INSERT INTO seller_vit (tg_id, img, name, price, tag, pos, at) VALUES (?,?,?,?,?,?,?)",
+                   (tg, int(iid), name, price, tag, -1, core.now_str()))
+        return {"ok": True}
+    return {"ok": False, "err": "op"}
+
+
+_EXT_GET["/api/vit"] = _vt_api_get
+
+_VTE_CSS = """<style>
+.vte .vr{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #EEF2F8}
+.vte .vr i{width:52px;height:52px;border-radius:10px;background:#EEF3FA center/cover;flex:none}
+.vte .vr span{flex:1;min-width:0;font-size:14px}.vte .vr span b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vte .vr span small{color:#163C8C;font-weight:800}.vte .vr button{border:0;background:#F3F6FB;border-radius:9px;width:34px;height:34px;font-size:14px;flex:none}
+.vte .add{display:grid;grid-template-columns:76px 1fr;gap:8px;margin-top:10px}.vte .add .pv{grid-row:span 3;width:76px;height:76px;border-radius:12px;border:2px dashed #2458C6;background:#EEF4FF center/cover;display:grid;place-items:center;color:#2458C6;font-size:26px;cursor:pointer}
+.vte .add input,.vte .add select{width:100%;box-sizing:border-box;border:1.5px solid #D5DDE9;border-radius:10px;padding:8px 10px;font:inherit;font-size:14.5px;background:#fff}
+.vte .go{display:block;width:100%;margin-top:8px;border:0;border-radius:12px;padding:11px;font:inherit;font-weight:800;background:#163C8C;color:#fff}
+.vte .lim{background:#FFF6DC;color:#5B4300;border-radius:10px;padding:9px 11px;font-size:13px;margin-top:8px}.vte .lim a{color:#163C8C;font-weight:800}
+.vte .hd{font-size:12.5px;font-weight:800;color:#5A6B82;margin:14px 0 4px}
+</style>"""
+
+_VTE_JS = r"""
+(function(){var box=document.getElementById('vtbox');if(!box)return;var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}if(!tok)return;
+function e(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var IMG='';
+function post(o){o.token=tok;return fetch('/api/vit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}).then(function(r){return r.json();});}
+function err(x){alert(x.err==='limit'?'Витрина толду. Көбүрөөк товар үчүн тарифти жогорулатыңыз.':x.err==='name'?'Товардын атын жазыңыз.':x.err==='img'?'Сүрөт тандаңыз.':x.err==='words'?'Тыюу салынган сөз бар.':'Ката чыкты.');}
+function load(){fetch('/api/vit?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(D){
+ if(!D.ok||D.off){box.innerHTML='';return;}
+ var full=D.items.length>=D.lim;
+ var h='<div class="msf vte"><label>'+e(D.title)+' · '+D.items.length+'/'+D.lim+'</label><div style="font-size:12px;color:#7A889C;margin:-2px 0 6px">Витрина өзү сакталат — «Сактоо» баскычы керек эмес.</div>';
+ if(!D.items.length)h+='<div style="font-size:13.5px;color:#5A6B82;line-height:1.45">Товарларыңызды сүрөтү, аты жана баасы менен коюңуз — кардарлар дүкөнүңүздүн барагында витрина катары көрөт.</div>';
+ D.items.forEach(function(it,k){h+='<div class="vr"><i style="background-image:url('+e(it.src)+')"></i><span><b>'+e(it.name)+'</b><small>'+e(it.price||'')+'</small>'+(it.lid?' · 📄 жарыя':'')+'</span>'+(k?'<button data-up="'+it.id+'">⬆</button>':'')+'<button data-del="'+it.id+'">✕</button></div>';});
+ if(full){h+='<div class="lim">Витрина толду ('+D.lim+' товар, '+e(D.tier)+'). Көбүрөөк коюу үчүн <a href="/plus">тарифти жогорулатыңыз ›</a></div>';}
+ else{h+='<div class="hd">＋ Жаңы товар</div><div class="add"><label class="pv" id="vtpv">📷<input type="file" accept="image/*" id="vtin" style="display:none"></label>'
+  +'<input id="vtn" maxlength="60" placeholder="Аты: Диван «Комфорт»"><input id="vtp" maxlength="24" placeholder="Баасы: 45000" inputmode="text">'
+  +'<select id="vtt"><option value="">Белгисиз</option><option value="stock">✅ Бар</option><option value="order">⏳ Заказ менен</option><option value="promo">🔥 Акция</option></select></div>'
+  +'<button type="button" class="go" id="vtgo">＋ Витринага кошуу</button>';
+  if(D.mine.length){h+='<div class="hd">📌 Жарыяларыңыздан кошуу</div>';D.mine.slice(0,20).forEach(function(m){h+='<div class="vr"><i style="background-image:url('+e(m.s)+')"></i><span><b>'+e(m.t)+'</b><small>'+e(m.p)+'</small></span><button data-lid="'+m.id+'">＋</button></div>';});}}
+ h+='</div>';box.innerHTML=h;IMG='';
+ box.querySelectorAll('[data-del]').forEach(function(b){b.onclick=function(){if(confirm('Витринадан алып салынсынбы?'))post({op:'del',id:+b.getAttribute('data-del')}).then(load);};});
+ box.querySelectorAll('[data-up]').forEach(function(b){b.onclick=function(){post({op:'up',id:+b.getAttribute('data-up')}).then(load);};});
+ box.querySelectorAll('[data-lid]').forEach(function(b){b.onclick=function(){b.disabled=true;post({op:'addlid',lid:+b.getAttribute('data-lid')}).then(function(x){if(!x.ok)err(x);load();});};});
+ var fi=document.getElementById('vtin');if(fi)fi.onchange=function(){var f=this.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){var im=new Image();im.onload=function(){
+  var c=document.createElement('canvas'),s=Math.min(im.width,im.height);c.width=c.height=900;c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,900,900);
+  IMG=c.toDataURL('image/jpeg',0.84);var p=document.getElementById('vtpv');p.style.backgroundImage='url('+IMG+')';p.firstChild.textContent='';};im.src=rd.result;};rd.readAsDataURL(f);};
+ var go=document.getElementById('vtgo');if(go)go.onclick=function(){go.disabled=true;go.textContent='…';
+  post({op:'add',img:IMG,name:document.getElementById('vtn').value,price:document.getElementById('vtp').value,tag:document.getElementById('vtt').value})
+  .then(function(x){if(!x.ok){err(x);go.disabled=false;go.textContent='＋ Витринага кошуу';return;}load();}).catch(function(){go.disabled=false;alert('Байланыш катасы.');});};
+});}
+load();})();
+"""
+
+_myshop_page_vt_base = myshop_page
+
+
+def myshop_page(lang="ky"):
+    h = _myshop_page_vt_base(lang)
+    return h.replace('<div id="msbox">…</div></main>',
+                     '<div id="msbox">…</div><div id="vtbox"></div></main>' + _VTE_CSS + '<script>' + _VTE_JS + '</script>', 1)
+
+
+# POST /api/vit — VITRINA_POST маршруту аркылуу (чоң сүрөт үчүн)
+
+for _k, _n in (("kulun", 6), ("tai", 24), ("tulpar", 60)):
+    try:
+        _TP_FEAT[_k] = _TP_FEAT[_k] + ("🛍 Витрина — %d товар" % _n,)
+        _TP_FEAT_RU[_k] = _TP_FEAT_RU[_k] + ("🛍 Витрина — %d товаров" % _n,)
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     core.init_db()
