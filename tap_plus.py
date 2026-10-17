@@ -829,3 +829,94 @@ def admin(h, uid, q, p, msg, page, k):
                             "<label id='pflb'>📸 Сүрөттөр (бир нечесин тандаса болот)</label>")
         return page(title, body + _KL_JS.replace("__M__", _json.dumps(PF_LBL, ensure_ascii=False)), tab, m)
     return _admin_kl_base(h, uid, q, p, msg, page4, k)
+
+
+# ── PLUSSELF: сатуучу ТАП+'ты өзү ачат (7 күн акысыз), төлөмдү чек менен өзү узартат ──
+_PP = {"ready": False}
+PAY_MONTHS = {1: 1, 3: 3, 12: 10}   # канча айга → канча айдын баасы (12 ай = 10 айдын баасы)
+
+
+def pp_init():
+    if _PP["ready"]:
+        return
+    _ensure2()
+    if getattr(core, "IS_PG", False):
+        core.query("CREATE TABLE IF NOT EXISTS plus_pay (id SERIAL PRIMARY KEY, tg_id TEXT, tier TEXT, months INTEGER, "
+                   "amount INTEGER, img INTEGER, status TEXT, at TEXT, done_at TEXT)")
+    else:
+        core.query("CREATE TABLE IF NOT EXISTS plus_pay (id INTEGER PRIMARY KEY AUTOINCREMENT, tg_id TEXT, tier TEXT, "
+                   "months INTEGER, amount INTEGER, img INTEGER, status TEXT, at TEXT, done_at TEXT)")
+    _PP["ready"] = True
+
+
+def pp_amount(tier, months):
+    return TIER[tier][2] * PAY_MONTHS.get(int(months), int(months))
+
+
+def pp_extend(tg_id, tier, days):
+    """Тарифти коюп, мөөнөтүн узартат (бүгүндөн же азыркы мөөнөттөн)."""
+    r = get(tg_id) or {}
+    start = max(_today(), str(r.get("until") or ""))
+    d = _dt.date.fromisoformat(start) + _dt.timedelta(days=int(days))
+    core.query("UPDATE sellers SET tier=?, until=? WHERE tg_id=?", (tier, d.isoformat(), str(tg_id)))
+    _load(force=True)
+    return d.isoformat()
+
+
+_admin_pp_base = admin
+
+
+def admin(h, uid, q, p, msg, page, k):
+    if not p.startswith("/admin/plus/pay"):
+        return _admin_pp_base(h, uid, q, p, msg, page, k)
+    pp_init()
+    if getattr(h, "command", "GET") == "POST":
+        try:
+            n = int(h.headers.get("Content-Length") or 0)
+            d = parse_qs(h.rfile.read(n).decode("utf-8")) if 0 < n < 5000 else {}
+        except Exception:
+            d = {}
+        g = lambda x: (d.get(x) or [""])[0]
+        if g("k") != k:
+            return h._send(page("ТАП+ төлөм", "<p class='er'>Ката: k</p>", "pl"))
+        pid = int(g("id") or 0)
+        r = core.query("SELECT * FROM plus_pay WHERE id=?", (pid,), fetch="one")
+        if r and dict(r)["status"] == "wait":
+            r = dict(r)
+            if g("act") == "ok":
+                until = pp_extend(r["tg_id"], r["tier"], int(r["months"]) * 30)
+                core.query("UPDATE plus_pay SET status='ok', done_at=? WHERE id=?", (core.now_str(), pid))
+                m = "✅ Ырасталды: %s чейин" % until
+            else:
+                core.query("UPDATE plus_pay SET status='no', done_at=? WHERE id=?", (core.now_str(), pid))
+                m = "❌ Четке кагылды"
+            return h._go("/admin/plus/pay?id=%d&m=%s" % (pid, quote(m)))
+    pid = int((q.get("id") or ["0"])[0] or 0)
+    if pid:
+        r = core.query("SELECT * FROM plus_pay WHERE id=?", (pid,), fetch="one")
+        if not r:
+            return h._send(page("ТАП+ төлөм", "<p>Табылган жок.</p>", "pl", msg))
+        r = dict(r)
+        s = get(r["tg_id"]) or {}
+        st = {"wait": "⏳ Күтүүдө", "ok": "✅ Ырасталды", "no": "❌ Четке кагылды", "trial": "🎁 Акысыз сыноо"}.get(r["status"], r["status"])
+        body = ("<div style='background:#fff;border-radius:14px;padding:14px;line-height:1.6'>"
+                "<b style='font-size:18px'>%s</b><br>📞 %s<br>🏷 %s · %d ай<br>💵 <b>%s сом</b><br>📅 %s<br>Абалы: <b>%s</b>"
+                "<br>Азыркы мөөнөтү: %s</div>%s"
+                % (E(str(s.get("name") or "")), E(str(s.get("phone") or "")), E(TIER.get(r["tier"], ("", r["tier"]))[1]),
+                   int(r["months"] or 0), "{:,}".format(int(r["amount"] or 0)).replace(",", " "), E(str(r["at"] or "")[:16]),
+                   st, E(str(s.get("until") or "—")),
+                   ("<p><b>Чек:</b></p><a href='/pi/%d.jpg' target='_blank'><img src='/pi/%d.jpg' style='max-width:100%%;border-radius:12px'></a>"
+                    % (int(r["img"]), int(r["img"]))) if r.get("img") else ""))
+        if r["status"] == "wait":
+            body += ("<form method='post' action='/admin/plus/pay' style='display:flex;gap:8px;margin-top:14px'>"
+                     "<input type='hidden' name='k' value='%s'><input type='hidden' name='id' value='%d'>"
+                     "<button name='act' value='ok' style='flex:1;border:0;border-radius:10px;padding:13px;background:#1F7A4D;color:#fff;font-weight:800;font-size:15px'>✅ Ырастоо (+%d күн)</button>"
+                     "<button name='act' value='no' style='flex:1;border:1.5px solid #E24B4A;border-radius:10px;padding:13px;background:#fff;color:#A32D2D;font-weight:800;font-size:15px'>❌ Четке кагуу</button></form>"
+                     % (E(k), pid, int(r["months"]) * 30))
+        return h._send(page("ТАП+ төлөм №%d" % pid, body, "pl", msg))
+    rows = core.query("SELECT * FROM plus_pay WHERE status<>'trial' ORDER BY id DESC LIMIT 100", fetch="all") or []
+    t = "".join("<tr><td><a href='/admin/plus/pay?id=%d'>№%d</a></td><td>%s</td><td>%s · %d ай</td><td>%s</td></tr>"
+                % (int(dict(r)["id"]), int(dict(r)["id"]), E(str((get(dict(r)["tg_id"]) or {}).get("name") or dict(r)["tg_id"])),
+                   E(TIER.get(dict(r)["tier"], ("", dict(r)["tier"]))[1]), int(dict(r)["months"] or 0),
+                   {"wait": "⏳", "ok": "✅", "no": "❌"}.get(dict(r)["status"], "")) for r in rows)
+    return h._send(page("ТАП+ төлөмдөр", _ACSS + "<table class='pt'>%s</table>" % (t or "<tr><td>Азырынча жок</td></tr>"), "pl", msg))

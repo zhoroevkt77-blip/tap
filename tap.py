@@ -4494,6 +4494,16 @@ class H(BaseHTTPRequestHandler):
                 _json_out(self, {"ok": False, "err": "server"})
             return
 
+        if u.path == "/api/myplus":   # PLUSSELF_ROUTE
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(n).decode("utf-8")) if 0 < n < 6000000 else {}
+                _json_out(self, _mp_api_post(body))
+            except Exception as e:
+                print("myplus:", e, flush=True)
+                _json_out(self, {"ok": False, "err": "server"})
+            return
+
         if u.path in _EXT_POST:   # EXTAPI_POST
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -4719,6 +4729,10 @@ class H(BaseHTTPRequestHandler):
 
         if u.path == "/my/vitrina":   # VITKAB_ROUTE
             self._send(vitrina_page(lang))
+            return
+
+        if u.path == "/my/plus":   # PLUSSELF_ROUTE
+            self._send(myplus_page(lang))
             return
 
         if u.path == "/my/shop":   # MYSHOP_ROUTE
@@ -10207,6 +10221,274 @@ def _tp_page(lang):
         h = h.replace("</body>", _PR_CSS + modal + "</body>", 1)
     except Exception as ex:
         print("plusreq:", ex, flush=True)
+    return h
+
+
+# ── PLUSSELF: ТАП+'ты сатуучу өзү ачат жана өзү узартат ──
+def _po_state(st):
+    _tp.pp_init()
+    tg = str(st["tg_id"])
+    s = _tp.get(tg)
+    trial = core.query("SELECT id FROM plus_pay WHERE tg_id=? AND status='trial'", (tg,), fetch="one")
+    return s, bool(trial)
+
+
+def _po_api_get(qs, lang):
+    st = _wverified(qs.get("t", [""])[0])
+    if not st:
+        return {"ok": False, "err": "verify"}
+    s, trial = _po_state(st)
+    if s and _tp.tier(st["tg_id"]):
+        return {"ok": True, "state": "has", "slug": s.get("slug")}
+    if trial or s:
+        return {"ok": True, "state": "pay"}
+    return {"ok": True, "state": "new"}
+
+
+def _po_api_post(b):
+    st = _wverified(b.get("token"))
+    if not st:
+        return {"ok": False, "err": "verify"}
+    s, trial = _po_state(st)
+    tg = str(st["tg_id"])
+    if s and _tp.tier(tg):
+        return {"ok": True, "slug": s.get("slug"), "has": 1}
+    name = " ".join(str(b.get("name") or "").split())[:60]
+    kd = str(b.get("kind") or "store")
+    kd = kd if kd in _tp.KIND else "store"
+    tr = str(b.get("tier") or "tai")
+    tr = tr if tr in _tp.TIER else "tai"
+    if len(name) < 2:
+        return {"ok": False, "err": "name"}
+    try:
+        import rules
+        lv, _h = rules.check_text(name)
+        if lv in ("hard", "swear"):
+            return {"ok": False, "err": "words"}
+    except Exception:
+        pass
+    slug = _tp._uniq_slug(name, tg)
+    phone = "0" + str(st.get("phone") or "")
+    if s:
+        core.query("UPDATE sellers SET name=?, kind=?, slug=? WHERE tg_id=?", (name, kd, slug, tg))
+    else:
+        core.query("INSERT INTO sellers (tg_id, slug, name, phone, tier, until, ishenim, created_at, kind, extra) "
+                   "VALUES (?,?,?,?,?,?,?,?,?,?)", (tg, slug, name, phone, None, None, 0, core.now_str(), kd, "{}"))
+    _tp._load(force=True)
+    if trial:
+        return {"ok": True, "slug": slug, "pay": 1}
+    until = _tp.pp_extend(tg, tr, 7)
+    core.query("INSERT INTO plus_pay (tg_id, tier, months, amount, img, status, at) VALUES (?,?,?,?,?,?,?)",
+               (tg, tr, 0, 0, None, "trial", core.now_str()))
+    K = _tp.KIND[kd]
+    _tp.inbox_add("🎁 <b>Жаңы ТАП+ (7 күн акысыз)</b>\n%s %s · <b>%s</b>\n🏷 %s · %s чейин\n📞 %s"
+                  % (K[1], html.escape(K[2]), html.escape(name), _tp.TIER[tr][1], until, html.escape(phone)),
+                  {"inline_keyboard": [[{"text": "👁 Көрүү", "url": "/d/" + slug},
+                                        {"text": "✏️ Админде", "url": "/admin/plus?edit=" + tg}]]}, "plus")
+    return {"ok": True, "slug": slug}
+
+
+_EXT_GET["/api/plusopen"] = _po_api_get
+_EXT_POST["/api/plusopen"] = _po_api_post
+
+
+# ── /my/plus: тарифим, узартуу, чек жөнөтүү ──
+def _mp_api_get(qs, lang):
+    st = _wverified(qs.get("t", [""])[0])
+    if not st:
+        return {"ok": False, "err": "verify"}
+    tg = str(st["tg_id"])
+    _tp.pp_init()
+    s = _tp.get(tg)
+    if not s:
+        return {"ok": True, "none": True}
+    tr = _tp.tier(tg)
+    left = None
+    if tr:
+        try:
+            import datetime as _pdt
+            left = (_pdt.date.fromisoformat(str(s.get("until"))) - _pdt.date.today()).days
+        except Exception:
+            left = None
+    pays = [dict(x) for x in (core.query("SELECT tier, months, amount, status, at FROM plus_pay WHERE tg_id=? ORDER BY id DESC LIMIT 20",
+                                         (tg,), fetch="all") or [])]
+    return {"ok": True, "name": s.get("name") or "", "slug": s.get("slug") or "", "tier": tr or "",
+            "tname": _tp.TIER[tr][1] if tr else "", "until": s.get("until") or "", "left": left,
+            "last": s.get("tier") or "tai",
+            "tiers": [[t[0], t[1], t[2]] for t in _tp.TIERS], "months": [[m, c] for m, c in sorted(_tp.PAY_MONTHS.items())],
+            "phone": _tp.PAY_PHONE or "", "pays": [{"t": _tp.TIER.get(p["tier"], ("", p["tier"]))[1], "m": p["months"],
+                                                    "a": p["amount"], "s": p["status"], "at": str(p["at"] or "")[:10]} for p in pays]}
+
+
+def _mp_api_post(b):
+    st = _wverified(b.get("token"))
+    if not st:
+        return {"ok": False, "err": "verify"}
+    tg = str(st["tg_id"])
+    _tp.pp_init()
+    s = _tp.get(tg)
+    if not s:
+        return {"ok": False, "err": "none"}
+    tr = str(b.get("tier") or "")
+    m = int(b.get("months") or 0)
+    if tr not in _tp.TIER or m not in _tp.PAY_MONTHS:
+        return {"ok": False, "err": "bad"}
+    w = core.query("SELECT COUNT(*) AS n FROM plus_pay WHERE tg_id=? AND status='wait'", (tg,), fetch="one") or {}
+    if int(dict(w).get("n") or 0) >= 2:
+        return {"ok": False, "err": "wait"}
+    iid = _tp.img_put(tg, "rcpt", b.get("img"))
+    if not iid:
+        return {"ok": False, "err": "img"}
+    amt = _tp.pp_amount(tr, m)
+    core.query("INSERT INTO plus_pay (tg_id, tier, months, amount, img, status, at) VALUES (?,?,?,?,?,?,?)",
+               (tg, tr, m, amt, int(iid), "wait", core.now_str()))
+    r = core.query("SELECT MAX(id) AS i FROM plus_pay WHERE tg_id=?", (tg,), fetch="one") or {}
+    pid = int(dict(r).get("i") or 0)
+    _tp.inbox_add("💵 <b>ТАП+ төлөм — чекти текшериңиз</b>\n<b>%s</b>\n🏷 %s · %d ай\n💵 %s сом"
+                  % (html.escape(str(s.get("name") or "")), _tp.TIER[tr][1], m, _tp_money(amt)),
+                  {"inline_keyboard": [[{"text": "🧾 Чекти көрүү жана ырастоо", "url": "/admin/plus/pay?id=%d" % pid}]]}, "plus")
+    return {"ok": True}
+
+
+_EXT_GET["/api/myplus"] = _mp_api_get
+
+_MP_JS = r"""
+(function(){var box=document.getElementById('mpbox');var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+function e(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function nf(n){return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');}
+if(!tok){box.innerHTML='<div class="msno">Номериңизди ырастаңыз.<a href="/verify">🔐 Номерди ырастоо</a></div>';return;}
+var D,TR,MO=1,IMG='';
+function draw(){var h='';
+ if(D.tier){h+='<div class="mst"><b>'+e(D.name)+'</b><small>Тарифиңиз: '+e(D.tname)+' · '+e(D.until)+' чейин</small>'
+  +'<div class="bd"><span>'+(D.left!=null?('⏳ '+D.left+' күн калды'):'')+'</span></div><a href="/d/'+encodeURIComponent(D.slug)+'">👁 Барагымды көрүү ›</a></div>';}
+ else{h+='<div class="mpw">⚠️ ТАП+ мөөнөтүңүз бүткөн. Барагыңыз жабык турат — төлөп, кайра ачыңыз.</div>';}
+ h+='<div class="msf"><label>1. Тарифти тандаңыз</label><div class="mpt">';
+ D.tiers.forEach(function(t){h+='<button type="button" data-t="'+t[0]+'" class="'+(TR===t[0]?'on':'')+'"><b>'+e(t[1])+'</b><small>'+nf(t[2])+' сом/ай</small></button>';});
+ h+='</div><label>2. Мөөнөтү</label><div class="mpt">';
+ D.months.forEach(function(m){h+='<button type="button" data-m="'+m[0]+'" class="'+(MO===m[0]?'on':'')+'"><b>'+m[0]+' ай</b><small>'+(m[0]!==m[1]?('🎁 '+(m[0]-m[1])+' ай бекер'):'&nbsp;')+'</small></button>';});
+ var pr=0;D.tiers.forEach(function(t){if(t[0]===TR)pr=t[2];});var mm=1;D.months.forEach(function(m){if(m[0]===MO)mm=m[1];});
+ h+='</div><div class="mpsum">Төлөө: <b>'+nf(pr*mm)+' сом</b></div>'
+  +'<label>3. MBank аркылуу которуңуз</label><div class="mpph">📱 '+(D.phone?('<b>'+e(D.phone)+'</b>'):'админдин номери')+' <small>MBank → Которуу → номер боюнча</small></div>'
+  +'<label>4. Чектин сүрөтүн жүктөңүз</label><label class="mpup" id="mpup">🧾 Чектин сүрөтүн тандоо<input type="file" accept="image/*" id="mpin" style="display:none"></label>'
+  +'<button type="button" class="mpgo" id="mpgo">✅ Жөнөтүү</button><div style="font-size:12.5px;color:#7A889C;margin-top:8px;line-height:1.45">Чек текшерилгенден кийин (адатта бир нече саатта) мөөнөтүңүз өзү узарат.</div></div>';
+ if(D.pays.length){h+='<div class="msf"><label>Төлөмдөрүм</label>';D.pays.forEach(function(p){
+  var s={wait:'⏳ Текшерилүүдө',ok:'✅ Ырасталды',no:'❌ Четке кагылды',trial:'🎁 Акысыз сыноо (7 күн)'}[p.s]||p.s;
+  h+='<div class="mpr"><span>'+e(p.at)+' · '+e(p.t)+(p.m?(' · '+p.m+' ай · '+nf(p.a)+' сом'):'')+'</span><b>'+s+'</b></div>';});h+='</div>';}
+ box.innerHTML=h;
+ box.querySelectorAll('[data-t]').forEach(function(b){b.onclick=function(){TR=b.getAttribute('data-t');draw();};});
+ box.querySelectorAll('[data-m]').forEach(function(b){b.onclick=function(){MO=+b.getAttribute('data-m');draw();};});
+ if(IMG){var u=document.getElementById('mpup');u.style.backgroundImage='url('+IMG+')';u.classList.add('has');}
+ document.getElementById('mpin').onchange=function(){var f=this.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){var im=new Image();im.onload=function(){
+  var c=document.createElement('canvas'),k=Math.min(1,1400/Math.max(im.width,im.height));c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+  c.getContext('2d').drawImage(im,0,0,c.width,c.height);IMG=c.toDataURL('image/jpeg',0.82);draw();};im.src=rd.result;};rd.readAsDataURL(f);};
+ document.getElementById('mpgo').onclick=function(){if(!IMG){alert('Чектин сүрөтүн тандаңыз.');return;}var b=this;b.disabled=true;b.textContent='…';
+  fetch('/api/myplus',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,tier:TR,months:MO,img:IMG})})
+  .then(function(r){return r.json();}).then(function(x){if(x.ok){IMG='';load('<div class="msok">✅ Чек жөнөтүлдү! Текшерилгенден кийин мөөнөтүңүз өзү узарат.</div>');}
+   else{b.disabled=false;b.textContent='✅ Жөнөтүү';alert(x.err==='wait'?'Мурунку төлөмүңүз текшерилүүдө.':'Ката чыкты.');}}).catch(function(){b.disabled=false;alert('Байланыш катасы.');});};}
+function load(msg){fetch('/api/myplus?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){
+ if(!j.ok){box.innerHTML='<div class="msno">Номериңизди ырастаңыз.<a href="/verify">🔐 Номерди ырастоо</a></div>';return;}
+ if(j.none){box.innerHTML='<div class="msno">Сизде азырынча ТАП+ барагы жок.<a href="/plus">⭐ ТАП+ ачуу (7 күн акысыз)</a></div>';return;}
+ D=j;TR=TR||j.tier||j.last||'tai';draw();if(msg){box.insertAdjacentHTML('afterbegin',msg);window.scrollTo(0,0);}});}
+load('');})();
+"""
+
+_MP_CSS = """<style>
+.mpw{background:#FFF1E6;color:#8A3B00;border-radius:14px;padding:12px;font-weight:700;margin-bottom:12px;line-height:1.45}
+.mpt{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.mpt button{border:1.5px solid #D5DDE9;background:#fff;border-radius:12px;padding:10px 4px;font:inherit;text-align:center}
+.mpt button b{display:block;font-size:14px}.mpt button small{display:block;font-size:11.5px;color:#5A6B82;margin-top:2px}
+.mpt button.on{border-color:#163C8C;background:#EEF4FF;box-shadow:0 0 0 2px #163C8C inset}
+.mpsum{margin:12px 0 4px;font-size:16px;background:#F3F6FB;border-radius:12px;padding:12px;text-align:center}.mpsum b{font-size:22px;color:#163C8C}
+.mpph{background:#E3F6EA;border-radius:12px;padding:12px;font-size:16px}.mpph small{display:block;font-size:12px;color:#3A5A45;margin-top:3px}
+.mpup{display:block!important;border:2px dashed #2458C6!important;border-radius:14px;padding:22px 10px!important;text-align:center;color:#2458C6!important;font-weight:800!important;background:#EEF4FF center/contain no-repeat;cursor:pointer;margin:0!important;font-size:14.5px!important}
+.mpup.has{min-height:160px;color:transparent!important}
+.mpgo{display:block;width:100%;margin-top:12px;border:0;border-radius:14px;padding:14px;font:inherit;font-weight:900;font-size:16px;color:#fff;background:linear-gradient(180deg,#25A55F,#1B8A4D)}
+.mpr{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid #EEF2F8;font-size:13.5px}.mpr b{white-space:nowrap}
+</style>"""
+
+
+def myplus_page(lang="ky"):
+    body = ('<main class="msw"><a href="/me" style="display:inline-block;margin:0 0 6px;color:#163C8C;font-weight:700;text-decoration:none">‹ Кабинет</a>'
+            '<h1 style="font-size:24px;margin:0 0 10px">⭐ ТАП+ тарифим</h1><div id="mpbox">…</div></main>'
+            + _MS_CSS + _MP_CSS + '<script>' + _MP_JS + '</script>')
+    return page(header("", None, None, lang) + body, title="ТАП+ тарифим", lang=lang)
+
+
+# /plus: өтүнүч формасынын ордуна — өзү ачуу
+_PO_JS = r"""<script>(function(){var m=document.getElementById('prm');if(!m)return;var b=m.firstElementChild;
+var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+function e(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var X='<button class=x onclick="document.getElementById(\'prm\').classList.remove(\'on\')">Жабуу</button>';
+window.tpOpen=function(k){m.classList.add('on');
+ if(!tok){b.innerHTML='<h3>⭐ ТАП+ ачуу</h3><p class=sb>Адегенде номериңизди ырастаңыз — бир жолу, Telegram аркылуу.</p><a class=go style="text-align:center;text-decoration:none" href="/verify">🔐 Номерди ырастоо</a>'+X;return;}
+ b.innerHTML='<p class=sb>…</p>';
+ fetch('/api/plusopen?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){
+  if(!j.ok){b.innerHTML='<h3>⭐ ТАП+ ачуу</h3><p class=sb>Номериңизди кайра ырастаңыз.</p><a class=go style="text-align:center;text-decoration:none" href="/verify">🔐 Номерди ырастоо</a>'+X;return;}
+  if(j.state==='has'){b.innerHTML='<h3>⭐ Сизде ТАП+ бар</h3><p class=sb>Барагыңызды «Менин дүкөнүм» бөлүмүнөн толтуруңуз.</p><a class=go style="text-align:center;text-decoration:none" href="/my/shop">🏪 Менин дүкөнүм ›</a>'+X;return;}
+  var fr=j.state==='new';
+  b.innerHTML='<h3>⭐ ТАП+ ачуу</h3><p class=sb>'+(fr?'🎁 Алгачкы 7 күн акысыз. Барагыңыз дароо ачылат — андан кийин өзүңүз толтурасыз.':'Акысыз сыноо колдонулган. Барагыңызды ачып, андан кийин төлөйсүз.')+'</p>'
+   +'<select id=prk>'+document.getElementById('poko').innerHTML+'</select><input id=prn maxlength=60 placeholder="Дүкөндүн / иштин аты: Армана мебель">'
+   +'<div class=mpt id=pot style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 10px"></div>'
+   +'<button class=go id=prg>'+(fr?'🎁 7 күн акысыз баштоо':'Улантуу — төлөмгө өтүү ›')+'</button>'+X;
+  if(k)document.getElementById('prk').value=k;
+  var TT=JSON.parse(document.getElementById('potiers').textContent),TR='tai';
+  function dt(){document.getElementById('pot').innerHTML=TT.map(function(t){return '<button type="button" data-t="'+t[0]+'" style="border:1.5px solid '+(TR===t[0]?'#163C8C':'#D5DDE9')+';background:'+(TR===t[0]?'#EEF4FF':'#fff')+';border-radius:12px;padding:9px 4px;font:inherit"><b style="display:block;font-size:13.5px">'+e(t[1])+'</b><small style="font-size:11.5px;color:#5A6B82">'+t[2]+' сом/ай</small></button>';}).join('');
+   document.querySelectorAll('#pot button').forEach(function(x){x.onclick=function(){TR=x.getAttribute('data-t');dt();};});}
+  dt();
+  document.getElementById('prg').onclick=function(){var nm=document.getElementById('prn').value.trim();if(nm.length<2){alert('Аталышын жазыңыз.');return;}var t=this;t.disabled=true;
+   fetch('/api/plusopen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,kind:document.getElementById('prk').value,name:nm,tier:TR})})
+   .then(function(r){return r.json();}).then(function(x){if(x.ok){location.href=x.pay?'/my/plus':'/my/shop?new=1';}else{t.disabled=false;alert(x.err==='words'?'Тыюу салынган сөз бар.':x.err==='verify'?'Номериңизди кайра ырастаңыз.':'Ката чыкты.');}})
+   .catch(function(){t.disabled=false;alert('Байланыш катасы.');});};});};
+var pro=null;new MutationObserver(function(){var p=document.getElementById('pro');if(p&&p!==pro){pro=p;var k=null;
+ var i=Array.prototype.indexOf.call(document.querySelectorAll('.klc'),window.__klc);k=(window.__K||[])[i];p.textContent='🎁 Ушул түр менен ТАП+ ачуу';p.onclick=function(){tpOpen(k);};}}).observe(b,{childList:true});
+document.querySelectorAll('.klc').forEach(function(c){c.addEventListener('click',function(){window.__klc=c;},true);});
+var bb=document.getElementById('prbig');if(bb){bb.textContent='🎁 ТАП+ ачуу — 7 күн акысыз';bb.onclick=function(){tpOpen('');};}
+})();</script>"""
+
+_tp_page_po_base = _tp_page
+
+
+def _tp_page(lang):
+    h = _tp_page_po_base(lang)
+    try:
+        kinds = "".join('<option value="%s">%s %s</option>' % (k[0], k[1], esc(k[2])) for k in _tp.KINDS)
+        tiers = json.dumps([[t[0], t[1], _tp_money(t[2])] for t in _tp.TIERS], ensure_ascii=False)
+        extra = ('<template id="poko">%s</template><script type="application/json" id="potiers">%s</script>'
+                 '<script>window.__K=%s;</script>' % (kinds, tiers, json.dumps([k[0] for k in _tp.KINDS])))
+        h = h.replace("</body>", extra + _PO_JS + "</body>", 1)
+        h = h.replace("ТАП+'ты бир апта акысыз сынап көрүңүз: бизге жазыңыз — «Алтын» тарифин 7 күнгө жандырабыз.",
+                      "ТАП+'ты бир апта акысыз сынап көрүңүз: «🎁 ТАП+ ачуу» баскычын басыңыз — барагыңыз дароо ачылат.")
+        h = h.replace("Попробуйте ТАП+ неделю без оплаты: напишите нам — подключим тариф «Золото» на 7 дней.",
+                      "Попробуйте ТАП+ неделю бесплатно: нажмите «🎁 Открыть ТАП+» — страница откроется сразу.")
+        # «Кантип туташуу керек» кадамдары жаңы тартипке
+        h = _wre.sub(r'<div class="tpstep">.*?</div></div>',
+                     '<div class="tpstep"><div>1. «🎁 ТАП+ ачуу» баскычын басып, барагыңыздын түрүн жана атын жазыңыз — барагыңыз дароо ачылат, 7 күн акысыз.</div>'
+                     '<div>2. «Менин дүкөнүм» бөлүмүнөн логотип, сүрөттөр, витрина, бааларды өзүңүз толтурасыз.</div>'
+                     '<div>3. 7 күндөн кийин «⭐ ТАП+ тарифим» бөлүмүнөн MBank аркылуу төлөп, чектин сүрөтүн жүктөйсүз — мөөнөт өзү узарат.</div></div>',
+                     h, count=1, flags=_wre.S)
+    except Exception as e:
+        print("plusself:", e, flush=True)
+    return h
+
+
+_me_page_po_base = me_page
+
+
+def me_page(lang="ky"):
+    h = _me_page_po_base(lang)
+    try:
+        mk = '<a class="mrow2" href="/my/shop" id="msrow"'
+        if mk in h:
+            i = h.find(mk)
+            j = h.find("</a>", i) + 4
+            row = ('<a class="mrow2" href="/my/plus" id="mprow" style="display:none"><span style="font-size:20px;width:24px;text-align:center;flex:none">⭐</span>'
+                   '<span>ТАП+ тарифим <b id="mpn" style="color:#5A6B82;font-weight:700;font-size:13px"></b></span><span class="mear">›</span></a>')
+            h = h[:j] + row + h[j:]
+            h = h.replace("</body>", '<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}if(!t)return;'
+                          'fetch("/api/myplus?t="+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){if(!j.ok||j.none)return;'
+                          'var r=document.getElementById("mprow");r.style.display="";document.getElementById("mpn").textContent=j.tier?("· "+j.tname+" · "+j.left+" күн"):"· мөөнөтү бүттү";'
+                          'if(!j.tier){r.style.background="#FFF1E6";}}).catch(function(){});})();</script></body>', 1)
+    except Exception:
+        pass
     return h
 
 if __name__ == "__main__":
