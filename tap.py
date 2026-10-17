@@ -9440,6 +9440,46 @@ def _ms_api_get(qs, lang):
 
 _EXT_GET["/api/myshop"] = _ms_api_get
 
+
+# ── CPTP: бөлүмдөрдөгү бош жарнама ордунда «⭐ ТАП+» плиткасы ──
+_CPTP_CSS = ('<style>nav.cats a.cptp{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:9px 11px;text-decoration:none;'
+             'background:linear-gradient(140deg,#163C8C 0%,#2556C7 62%,#3A6FE0 100%)!important;color:#fff;border-color:#E2B33C!important;'
+             'border-width:2px!important;position:relative;overflow:hidden}'
+             'nav.cats a.cptp:before{content:"";position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;'
+             'background:radial-gradient(circle,rgba(255,214,102,.55),rgba(255,214,102,0) 70%)}'
+             'nav.cats a.cptp .t1{font-size:22px;font-weight:900;letter-spacing:.01em;line-height:1;color:#FFD666}'
+             'nav.cats a.cptp .t2{font-size:13px;font-weight:800;line-height:1.2}'
+             'nav.cats a.cptp .t3{font-size:11.5px;font-weight:700;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+             'nav.cats a.cptp .t3 i{font-style:normal;font-size:10px;font-weight:800;background:rgba(255,255,255,.16);border-radius:6px;padding:2px 4px;white-space:nowrap}'
+             'nav.cats a.cptp .t4{display:inline-block;margin-top:4px;align-self:flex-start;background:#FFD666;color:#3A2A00;'
+             'font-size:11.5px;font-weight:900;border-radius:99px;padding:4px 9px}</style>')
+
+
+def _cptp_tile(lang):
+    ru = (lang == "ru")
+    return ('<a class="catpromo pb cptp" href="/plus"><span class="t1">⭐ ТАП+</span>'
+            '<span class="t2">%s</span><span class="t3">%s · %s · %s</span>'
+            '<span class="t4">🎁 %s ›</span></a>'
+            % ("Откройте свой магазин" if ru else "Дүкөнүңүздү ачыңыз",
+               "Серебро" if ru else "Күмүш", "Золото" if ru else "Алтын", "Алмаз",
+               "7 дней бесплатно" if ru else "7 күн акысыз")) + _CPTP_CSS
+
+
+_home_cptp_base = home
+
+
+def home(q, *a, **k):
+    h = _home_cptp_base(q, *a, **k)
+    try:
+        i = h.find('<div class="catpromo cpfree">')
+        if i >= 0:
+            j = h.find("</div>", i) + 6
+            lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
+            h = h[:i] + _cptp_tile(lang) + h[j:]
+    except Exception as e:
+        print("cptp:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
