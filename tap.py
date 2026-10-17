@@ -9921,6 +9921,95 @@ try:
 except Exception:
     pass
 
+
+# ── PLUSSLOT: ар бир тизменин 1-бетинде ТАП+ жарыялары үчүн орундар (кезек менен) ──
+import random as _psr
+
+_PS_ARGS = ("q", "cat", "region", "sub", "limit", "offset", "ad_type", "cat_id", "oblast", "district",
+            "village", "sub_id", "pmin", "pmax", "sort", "locality", "role")
+PS_W = {"tulpar": 3, "tai": 2, "kulun": 1}   # кезекке чыгуу салмагы
+PS_MAX = 4                                     # чоң тизмеде канча орун
+
+
+def _ps_pick(pool, n):
+    by = {}
+    for r in pool:
+        t = _tp.tier(r.get("tg_id"))
+        if t:
+            by.setdefault(str(r.get("tg_id")), (t, []))[1].append(r)
+    picked = []
+    sellers = list(by.items())
+    while sellers and len(picked) < n:
+        tot = sum(PS_W.get(v[0], 1) for _k, v in sellers)
+        x = _psr.uniform(0, tot)
+        for i, (k, v) in enumerate(sellers):
+            x -= PS_W.get(v[0], 1)
+            if x <= 0:
+                picked.append(_psr.choice(v[1][:6]))
+                sellers.pop(i)
+                break
+    return picked
+
+
+_core_find_ps_base = core.find
+
+
+def _core_find_ps(*a, **k):
+    rows = _core_find_ps_base(*a, **k)
+    try:
+        kw = dict(zip(_PS_ARGS, a))
+        kw.update(k)
+        if int(kw.get("offset") or 0) != 0 or (kw.get("sort") or "new") != "new" or not rows:
+            return rows
+        if kw.get("ad_type") == "taxi":
+            return rows
+        lim = int(kw.get("limit") or 30)
+        if lim <= 1 or lim >= 200:   # статистика/сүрөт үчүн чакырылганда тийбейбиз
+            return rows
+        n = PS_MAX if lim >= 12 else 1
+        kw2 = dict(kw, limit=300, offset=0)
+        pool = [dict(r) for r in (_core_find_ps_base(**kw2) or [])]
+        pk = _ps_pick(pool, n)
+        if not pk:
+            return rows
+        ids = {int(r["id"]) for r in pk}
+        for r in pk:
+            r["_ps"] = 1
+        rest = [r for r in rows if int(dict(r)["id"]) not in ids]
+        # калгандары кадимки тартипте: көтөрүлгөндөр, анан жаңысынан (ТАП+ тизмени толтурбасын)
+        try:
+            blim = (_sdt.utcnow() - _std(hours=BUMP_HOURS)).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            blim = "9999"
+        rest.sort(key=lambda r: (0 if str(dict(r).get("bumped_at") or "") >= blim else 1, -int(dict(r)["id"])))
+        out = pk + rest
+        if lim < 12:
+            out = out[:len(rows)]
+        return out
+    except Exception as e:
+        print("plusslot:", e, flush=True)
+        return rows
+
+
+core.find = _core_find_ps
+
+_card_ps_base = card
+
+
+def card(r, lang="ky"):
+    h = _card_ps_base(r, lang)
+    try:
+        if isinstance(r, dict) and r.get("_ps"):
+            h = h.replace('<div class="cb">', '<div class="cb"><div class="psl">⭐ %s</div>'
+                          % ("Предложение ТАП+" if lang == "ru" else "ТАП+ сунушу"), 1)
+    except Exception:
+        pass
+    return h
+
+
+EXTRA_CSS += chr(10) + ('body .c .psl{font-size:11px;font-weight:800;color:#9A6A00;background:#FFF4D6;border-radius:6px;'
+                        'padding:2px 7px;display:inline-block;margin:0 0 4px}/* PLUSSLOT */')
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
