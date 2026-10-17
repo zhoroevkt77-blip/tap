@@ -10010,6 +10010,53 @@ def card(r, lang="ky"):
 EXTRA_CSS += chr(10) + ('body .c .psl{font-size:11px;font-weight:800;color:#9A6A00;background:#FFF4D6;border-radius:6px;'
                         'padding:2px 7px;display:inline-block;margin:0 0 4px}/* PLUSSLOT */')
 
+
+# ── KINDLIST: /plus барагында «Ким үчүн?» — барактын 10 түрү ──
+_KL_PF = {"brigade": ("📸 Бүткөн иштер", "📸 Наши работы"), "builder": ("📸 Курулган объектилер", "📸 Построенные объекты"),
+          "transport": ("📸 Унааларыбыз", "📸 Наш автопарк"), "edu": ("📸 Сабактардан сүрөттөр", "📸 Фото с занятий")}
+_KL_BTN_RU = {"📝 Буйрутма берүү": "📝 Заказать", "📐 Өлчөөгө чакыруу": "📐 Вызвать на замер",
+              "🏠 Көрүүгө жазылуу": "🏠 Записаться на просмотр", "🚗 Көрүүгө жазылуу": "🚗 Записаться на осмотр",
+              "📝 Өтүнүч калтыруу": "📝 Оставить заявку", "🚚 Буйрутма берүү": "🚚 Заказать", "📅 Жазылуу": "📅 Записаться",
+              "📅 Курска жазылуу": "📅 Записаться на курс"}
+_KL_CSS = ("<style>.kls{margin:18px 0 6px}.kls h3{font-size:19px;margin:0 0 4px}.kls p{margin:0 0 10px;color:#5A6B82;font-size:13.5px}"
+           ".klg{display:grid;grid-template-columns:1fr 1fr;gap:8px}"
+           ".klc{background:#fff;border:1.5px solid #E1E8F2;border-radius:14px;padding:10px 11px}"
+           ".klc .e{font-size:24px;line-height:1}.klc b{display:block;font-size:14px;margin:5px 0 4px;color:#0B1B30}"
+           ".klc span{display:block;font-size:12px;color:#3A4A60;line-height:1.45}</style>")
+
+
+def _kl_block(lang):
+    ru = (lang == "ru")
+    cards = ""
+    for k in _tp.KINDS:
+        key, em, nm = k[0], k[1], k[2]
+        if key in VIT_KINDS:
+            f1 = VIT_KINDS[key][1 if ru else 0]
+        else:
+            f1 = (_KL_PF.get(key) or ("📸 Сүрөттөр", "📸 Фото"))[1 if ru else 0]
+        btn = _KL_BTN_RU.get(k[5], k[5]) if ru else k[5]
+        cards += ('<div class="klc"><div class="e">%s</div><b>%s</b><span>%s</span><span>%s</span></div>'
+                  % (em, esc(_tp.KIND_RU.get(key, nm) if ru else nm), esc(f1), esc(btn)))
+    return ('%s<div class="kls"><h3>%s</h3><p>%s</p><div class="klg">%s</div></div>'
+            % (_KL_CSS, "Для кого ТАП+?" if ru else "ТАП+ ким үчүн?",
+               esc("Выберите тип страницы — разделы и кнопки подстроятся под ваш бизнес." if ru else
+                   "Барагыңыздын түрүн тандайсыз — бөлүмдөр жана баскычтар ишиңизге ылайыкташат."), cards))
+
+
+_tp_page_kl_base = _tp_page
+
+
+def _tp_page(lang):
+    h = _tp_page_kl_base(lang)
+    try:
+        i = h.find('<div class="tppl')
+        if i >= 0:
+            h = h[:i] + _kl_block(lang) + '<h3 class="qh" style="margin-top:18px">%s</h3>' % (
+                "Тарифы" if lang == "ru" else "Тарифтер") + h[i:]
+    except Exception as e:
+        print("kindlist:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
