@@ -10057,6 +10057,158 @@ def _tp_page(lang):
         print("kindlist:", e, flush=True)
     return h
 
+
+# ── PLUSREQ: /plus карточкалары басылат — түрү тууралуу маалымат, үлгү дүкөн, ТАП+ ачууга өтүнүч ──
+_PR_RATE = {}
+
+
+def _pr_api(b):
+    ph = "".join(c for c in str(b.get("phone") or "") if c.isdigit())[-9:]
+    if len(ph) != 9:
+        return {"ok": False, "err": "phone"}
+    now = _t.time()
+    box = [x for x in _PR_RATE.get(ph, []) if now - x < 3600]
+    if len(box) >= 3:
+        return {"ok": False, "err": "rate"}
+    _PR_RATE[ph] = box + [now]
+    if len(_PR_RATE) > 3000:
+        _PR_RATE.clear()
+    kd = str(b.get("kind") or "store")
+    kd = kd if kd in _tp.KIND else "store"
+    tr = str(b.get("tier") or "tai")
+    tr = tr if tr in _tp.TIER else "tai"
+    name = " ".join(str(b.get("name") or "").split())[:60]
+    note = " ".join(str(b.get("note") or "").split())[:400]
+    if not name:
+        return {"ok": False, "err": "name"}
+    try:
+        import rules
+        for tx in (name, note):
+            lv, _h = rules.check_text(tx)
+            if lv in ("hard", "swear"):
+                return {"ok": False, "err": "words"}
+    except Exception:
+        pass
+    K = _tp.KIND[kd]
+    e = html.escape
+    txt = ("⭐ <b>ТАП+ ачууга өтүнүч</b>\n%s %s · <b>%s</b>\n🏷 Тариф: %s\n📞 +996%s%s"
+           % (K[1], e(K[2]), e(name), _tp.TIER[tr][1], ph, ("\n💬 " + e(note)) if note else ""))
+    kb = {"inline_keyboard": [[{"text": "⭐ ТАП+ ачуу", "url": "/admin/plus"}, {"text": "📞 Чалуу", "url": "tel:+996" + ph}]]}
+    _tp.inbox_add(txt, kb, "plus")
+    return {"ok": True}
+
+
+_EXT_POST["/api/plusreq"] = _pr_api
+try:
+    if not any(x[0] == "plus" for x in _tp._IB_KINDS):
+        _tp._IB_KINDS.append(("plus", "⭐ ТАП+ өтүнүчтөр"))
+except Exception:
+    pass
+
+_PR_CSS = ("<style>.klc{cursor:pointer;font:inherit;text-align:left;width:100%;position:relative}"
+           ".klc:after{content:'›';position:absolute;right:10px;top:8px;color:#9AA9BE;font-size:20px}"
+           ".klc:active{background:#F3F6FB}"
+           ".prm{position:fixed;inset:0;z-index:300;background:rgba(11,27,48,.6);display:none;align-items:flex-end;justify-content:center}"
+           ".prm.on{display:flex}.prm>div{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:18px 16px 22px;max-height:92vh;overflow:auto}"
+           ".prm h3{margin:0 0 4px;font-size:20px}.prm .sb{color:#5A6B82;font-size:13.5px;margin:0 0 12px}"
+           ".prm ul{margin:0 0 12px;padding:0;list-style:none}.prm li{padding:7px 0;border-bottom:1px solid #EEF2F8;font-size:14.5px}"
+           ".prm .ex{display:block;background:#EEF4FF;color:#163C8C;border-radius:12px;padding:11px 12px;font-weight:800;text-decoration:none;margin:0 0 10px}"
+           ".prm .go{display:block;width:100%;border:0;border-radius:14px;padding:14px;font:inherit;font-weight:900;font-size:16px;color:#fff;background:linear-gradient(180deg,#2458C6,#163C8C)}"
+           ".prm input,.prm select,.prm textarea{width:100%;box-sizing:border-box;border:1.5px solid #D5DDE9;border-radius:12px;padding:11px;font:inherit;font-size:15px;margin:0 0 8px;background:#fff}"
+           ".prm .x{display:block;margin:12px auto 0;background:none;border:0;color:#5A6B82;font:inherit}"
+           ".prm .ok{background:#E3F6EA;color:#155C33;border-radius:14px;padding:14px;font-weight:800;line-height:1.45}"
+           ".prbig{display:block;width:100%;border:0;border-radius:14px;padding:15px;margin:14px 0 10px;font:inherit;font-weight:900;font-size:16px;color:#3A2A00;background:#FFD666}</style>")
+
+
+def _pr_data(lang):
+    ru = (lang == "ru")
+    ex = {}
+    try:
+        for s in _sh_all():
+            ex.setdefault(s["_kd"][0], {"n": str(s.get("name") or ""), "u": "/d/" + urllib.parse.quote(str(s.get("slug") or ""))})
+    except Exception:
+        pass
+    out = {}
+    for k in _tp.KINDS:
+        key = k[0]
+        L2 = (lambda x: _TP_KIND_RU.get(x, x)) if ru else (lambda x: x)
+        if key in VIT_KINDS:
+            f1 = VIT_KINDS[key][1 if ru else 0] + (" — товары с ценами" if ru else " — товарлар баасы менен")
+        else:
+            f1 = (_KL_PF.get(key) or ("📸 Сүрөттөр", "📸 Фото"))[1 if ru else 0] + (" — фото работ" if ru else " — иштердин сүрөттөрү")
+        out[key] = {"e": k[1], "n": _tp.KIND_RU.get(key, k[2]) if ru else k[2],
+                    "f": [f1, (_KL_BTN_RU.get(k[5], k[5]) if ru else k[5]) + (" — кнопка заявки" if ru else " — өтүнүч баскычы"),
+                          "📋 " + L2(k[3]), "👥 " + L2(k[4]),
+                          ("⭐ Значок ТАП+, рейтинг и отзывы" if ru else "⭐ ТАП+ белгиси, рейтинг жана пикирлер")],
+                    "x": ex.get(key)}
+    return out
+
+
+_kl_block_pr_base = _kl_block
+
+
+def _kl_block(lang):
+    h = _kl_block_pr_base(lang)
+    return _wre.sub(r'<div class="klc">(.*?)</span></div>', r'<button type="button" class="klc">\1</span></button>', h, flags=_wre.S)
+
+
+_tp_page_pr_base = _tp_page
+
+
+def _tp_page(lang):
+    h = _tp_page_pr_base(lang)
+    try:
+        ru = (lang == "ru")
+        T = (lambda a, b: b if ru else a)
+        keys = [k[0] for k in _tp.KINDS]
+        tiers = "".join('<option value="%s"%s>%s · %s сом</option>' % (t[0], " selected" if t[0] == "tai" else "", t[1],
+                                                                        _tp_money(t[2])) for t in _tp.TIERS)
+        kinds = "".join('<option value="%s">%s %s</option>' % (k[0], k[1], esc(_tp.KIND_RU.get(k[0], k[2]) if ru else k[2]))
+                        for k in _tp.KINDS)
+        modal = ('<div class="prm" id="prm" onclick="if(event.target===this)this.classList.remove(\'on\')"><div></div></div>'
+                 '<script>(function(){var D=%s,K=%s,TI=%s,KO=%s,m=document.getElementById("prm");document.body.appendChild(m);var b=m.firstElementChild;'
+                 'function e(x){return String(x==null?"":x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c];});}'
+                 'function form(k){b.innerHTML="<h3>⭐ %s</h3><p class=sb>%s</p>"'
+                 '+"<select id=prk>"+KO+"</select><input id=prn maxlength=60 placeholder=\\"%s\\"><input id=prp inputmode=tel maxlength=16 placeholder=\\"%s\\">"'
+                 '+"<select id=prt>"+TI+"</select><textarea id=prc rows=2 maxlength=400 placeholder=\\"%s\\"></textarea>"'
+                 '+"<button class=go id=prg>%s</button><button class=x onclick=\\"document.getElementById(\'prm\').classList.remove(\'on\')\\">%s</button>";'
+                 'if(k)document.getElementById("prk").value=k;'
+                 'document.getElementById("prg").onclick=function(){var t=this;var ph=document.getElementById("prp").value.replace(/\\D/g,"");'
+                 'if(!document.getElementById("prn").value.trim()){alert("%s");return;}if(ph.length<9){alert("%s");return;}t.disabled=true;'
+                 'fetch("/api/plusreq",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:document.getElementById("prk").value,'
+                 'name:document.getElementById("prn").value,phone:ph,tier:document.getElementById("prt").value,note:document.getElementById("prc").value})})'
+                 '.then(function(r){return r.json();}).then(function(x){if(x.ok){b.innerHTML="<div class=ok>✅ %s</div><button class=x onclick=\\"document.getElementById(\'prm\').classList.remove(\'on\')\\">%s</button>";}'
+                 'else{t.disabled=false;alert(x.err==="rate"?"%s":x.err==="words"?"%s":"%s");}}).catch(function(){t.disabled=false;alert("%s");});};m.classList.add("on");}'
+                 'document.querySelectorAll(".klc").forEach(function(c,i){c.onclick=function(){var k=K[i],d=D[k];'
+                 'b.innerHTML="<h3>"+d.e+" "+e(d.n)+"</h3><p class=sb>%s</p><ul>"+d.f.map(function(x){return "<li>"+e(x)+"</li>";}).join("")+"</ul>"'
+                 '+(d.x?"<a class=ex href=\\""+e(d.x.u)+"\\">👁 %s: "+e(d.x.n)+" ›</a>":"")'
+                 '+"<button class=go id=pro>✍️ %s</button><button class=x onclick=\\"document.getElementById(\'prm\').classList.remove(\'on\')\\">%s</button>";'
+                 'document.getElementById("pro").onclick=function(){form(k);};m.classList.add("on");};});'
+                 'var bb=document.getElementById("prbig");if(bb)bb.onclick=function(){form("");};})();</script>'
+                 % (json.dumps(_pr_data(lang), ensure_ascii=False).replace("</", "<\\/"), json.dumps(keys),
+                    json.dumps(tiers, ensure_ascii=False), json.dumps(kinds, ensure_ascii=False),
+                    T("ТАП+ ачууга өтүнүч", "Заявка на ТАП+"),
+                    T("Маалыматыңызды калтырыңыз — админ сизге чалып, барагыңызды ачып берет. Алгачкы 7 күн акысыз.",
+                      "Оставьте данные — администратор позвонит и откроет страницу. Первые 7 дней бесплатно."),
+                    T("Дүкөндүн / иштин аты", "Название магазина / бизнеса"), T("Телефон: 0700 123 456", "Телефон: 0700 123 456"),
+                    T("Кошумча (милдеттүү эмес)", "Комментарий (необязательно)"),
+                    T("Өтүнүч жөнөтүү", "Отправить заявку"), T("Жабуу", "Закрыть"),
+                    T("Аталышын жазыңыз.", "Укажите название."), T("Телефон номериңизди жазыңыз.", "Укажите телефон."),
+                    T("Өтүнүчүңүз жөнөтүлдү! Админ жакында чалып, барагыңызды ачып берет.", "Заявка отправлена! Администратор скоро позвонит."),
+                    T("Жабуу", "Закрыть"),
+                    T("Өтө көп өтүнүч. Бир сааттан кийин аракет кылыңыз.", "Слишком много заявок. Попробуйте через час."),
+                    T("Тыюу салынган сөз бар.", "Есть запрещённые слова."), T("Ката чыкты.", "Ошибка."), T("Байланыш катасы.", "Ошибка связи."),
+                    T("Бул түрдөгү барагыңызда эмнелер болот:", "Что будет на вашей странице:"),
+                    T("Үлгү", "Пример"), T("Ушул түр менен ТАП+ ачуу", "Открыть ТАП+ с этим типом"), T("Жабуу", "Закрыть")))
+        big = '<button type="button" class="prbig" id="prbig">✍️ %s</button>' % T("ТАП+ ачууга өтүнүч калтыруу", "Оставить заявку на ТАП+")
+        i = h.find('<a class="btn tgbtn"')
+        if i >= 0:
+            h = h[:i] + big + h[i:]
+        h = h.replace("</body>", _PR_CSS + modal + "</body>", 1)
+    except Exception as ex:
+        print("plusreq:", ex, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
