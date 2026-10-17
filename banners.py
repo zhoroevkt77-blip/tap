@@ -792,7 +792,7 @@ def sell_body(lang="ky"):
         'function row(t){var d=document.createElement("div");d.className="mr";d.textContent=t;mp.appendChild(d);}'
         'function card(s){var d=document.createElement("div");d.className="slc";d.dataset.s=s;var b=document.createElement("span");b.textContent=slab(s);var m=document.createElement("small");d.appendChild(b);d.appendChild(m);'
         'd.onclick=function(){SID=s;apply();};mp.appendChild(d);}'
-        'function drawMap(){mp.innerHTML="";if(PG==="home"){row(T("Бөлүмдөрдүн тактасы · эң көрүнүктүү орун","Сетка разделов · самое заметное место"));card("p1");SL.names.forEach(function(x,i){if(i<SL.home.length){row((i+1)+T("-бөлүм · 4 жарыя","-й раздел · 4 объявл."));card(SL.home[i][0]);}});}'
+        'function drawMap(){mp.innerHTML="";if(PG==="home"){SL.names.forEach(function(x,i){if(i<SL.home.length){row((i+1)+T("-бөлүм · 4 жарыя","-й раздел · 4 объявл."));card(SL.home[i][0]);}});}'
         'else{row(T("«","«")+nm(PG)+T("» бөлүмү ачылганда","» — при открытии раздела"));card(PG+":top");var CN=(SL.cnt||{})[PG]||0;if(CN>=7){row(T("1–6-жарыялар","1–6-е объявления"));card(PG+":g1");}if(CN>=14){row(T("7–12-жарыялар","7–12-е объявления"));card(PG+":g2");}if(CN<7)row(T("Ара жарнама бөлүмдө 7 жарыя болгондо ачылат (азыр "+CN+")","Межреклама — от 7 объявлений (сейчас "+CN+")"));else if(CN<14)row(T("2-ара бөлүмдө 14 жарыя болгондо ачылат (азыр "+CN+")","2-я — от 14 объявлений (сейчас "+CN+")"));else row("…");}/* GBANDIAG GBANHIDE */'
         'paint();}'
         'function fdl(f){var p=f.split("-"),L=["январда","февралда","мартта","апрелде","майда","июнда","июлда","августта","сентябрда","октябрда","ноябрда","декабрда"];return RU?"🔒 свободно с "+fd(f):"🔒 "+(+p[2])+"-"+L[+p[1]-1]+" бошойт";}/* FREETXT */function stat(f){if(!f)return "";return f>TD?fdl(f):"✓";}'
@@ -1105,7 +1105,7 @@ _SECN = {"top": ("Эң үстү", "Самый верх"),
 
 
 def slot_ids():
-    out = ["p1"] + ["h%d" % i for i in range(1, HOME_N + 1)]   # PREMSLOT
+    out = ["h%d" % i for i in range(1, HOME_N + 1)]   # NOP1: p1 — ТАП+ плиткасы
     for code, _n in SECTIONS:
         out += ["%s:%s" % (code, k) for k in ("top", "g1", "g2")]
     return out
@@ -1262,7 +1262,7 @@ def slots_js(lang="ky"):
 def _slot_rows():
     pr, base = slot_prices()
     out = "<div class='ah' style='margin-top:14px'>Номерленген орундардын баасы (сом/жума)</div>"
-    out += ("<label>⭐ Башкы плитка (бөлүмдөрдүн астында)</label><input class='sp' data-k='p1' inputmode='numeric' value='%d'>" % pr["p1"])   # PREMSLOT
+    out += ("<!--NOP1 p1:%d-->" % pr["p1"])   # PREMSLOT
     for i in range(1, HOME_N + 1):
         out += ("<label>Башкы бет Б-%d</label><input class='sp' data-k='h%d' inputmode='numeric' value='%d'>"
                 % (i, i, pr["h%d" % i]))
@@ -1428,7 +1428,7 @@ def _slotmap(q):
 
         out += "<div class='smap'>"
         if pg == "home":
-            out += "<div class='smr2'>Бөлүмдөрдүн тактасы</div>" + card("p1", "⭐ Башкы плитка")   # PREMSLOT
+            pass   # NOP1
             for i in range(1, HOME_N + 1):
                 out += "<div class='smr2'>%d-бөлүм · 4 жарыя</div>" % i
                 out += card("h%d" % i, "Б-%d" % i)
