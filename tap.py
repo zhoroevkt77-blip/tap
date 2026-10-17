@@ -4174,7 +4174,7 @@ def _ad_help(lang="ky", open_key=None):   # ADLINKS: Жардамдагы «Жа
              "администратором.") if ru else
             ("Сайтта баннер жарнама бере аласыз: башкы бетте, бөлүмдөрдүн үстүндө же "
              "жарыялардын арасында. Бүт Кыргызстанга же бир облуска гана көрсөтүлөт "
-             "(%d%% чейин арзан). Баалар жумасына %d сомдон башталат. Көрсөтүү жана басуу "
+             "(%d%% чейин арзан). Баалар аптасына %d сомдон башталат. Көрсөтүү жана басуу "
              "саны эсептелет. Төлөм MBank аркылуу, админ текшергенден кийин баннер "
              "иштей баштайт.")) % (max(banners.region_offs().values()), lo))   # ROFF
     btn = "📢 Разместить рекламу ›" if ru else "📢 Жарнама берүү ›"
@@ -5551,7 +5551,7 @@ _fx_alt_rq_base = _fx_alt
 
 def _fx_alt(price):
     s = str(price or "").strip()
-    m = _fxre.match(r"^(.*?)\s*/\s*(саат|күн|жума|ай)$", s)
+    m = _fxre.match(r"^(.*?)\s*/\s*(саат|күн|жума|апта|ай)$", s)
     if m:
         a = _fx_alt_rq_base(m.group(1))
         return ("%s/%s" % (a, m.group(2))) if a else ""
@@ -7677,7 +7677,7 @@ def _tp_page(lang):
         t = ('<div class="tpish" style="background:#FFF6DC;color:#5B4300"><b>🎁 %s</b><br>%s</div>'
              % ("Первые 7 дней — бесплатно" if ru else "Алгачкы 7 күн — акысыз",
                 esc("Попробуйте ТАП+ неделю без оплаты: напишите нам — подключим тариф «Золото» на 7 дней." if ru else
-                    "ТАП+'ты бир жума акысыз сынап көрүңүз: бизге жазыңыз — «Алтын» тарифин 7 күнгө жандырабыз.")))
+                    "ТАП+'ты бир апта акысыз сынап көрүңүз: бизге жазыңыз — «Алтын» тарифин 7 күнгө жандырабыз.")))
         i = h.find('<div class="tpish">')
         if i >= 0:
             h = h[:i] + t + h[i:]
@@ -8329,7 +8329,7 @@ if(sb){paint();sb.onclick=function(){var a=rd(),i=-1;a.forEach(function(x,k){if(
  wr(a);paint();};}
 var W=0;
 window.tpReq=function(){var m=document.getElementById('rqm');var b=m.firstElementChild;m.classList.add('on');
- var wh=[T('Бүгүн','Сегодня'),T('Эртең','Завтра'),T('Ушул жумада','На этой неделе'),T('Убакыт маанилүү эмес','Не важно')];
+ var wh=[T('Бүгүн','Сегодня'),T('Эртең','Завтра'),T('Ушул аптада','На этой неделе'),T('Убакыт маанилүү эмес','Не важно')];
  b.innerHTML='<b style="font-size:18px">'+C.btn+'</b><div style="color:#5A6B82;font-size:13px;margin-top:4px">'+T('Өтүнүчүңүз сатуучуга дароо жетет, ал сизге өзү чалат.','Заявка сразу уйдёт продавцу, он сам вам позвонит.')+'</div>'
   +'<input id="rqn" maxlength="40" placeholder="'+T('Атыңыз','Ваше имя')+'"><input id="rqp" inputmode="tel" maxlength="16" placeholder="'+T('Телефон: 0700 123 456','Телефон: 0700 123 456')+'">'
   +'<div class="wh">'+wh.map(function(x,i){return '<button type="button" data-w="'+i+'">'+x+'</button>';}).join('')+'</div>'
@@ -9479,6 +9479,26 @@ def home(q, *a, **k):
     except Exception as e:
         print("cptp:", e, flush=True)
     return h
+
+
+# ── APTA: баадагы мөөнөт: кыргызча «/апта», орусча «/час /день /нед. /мес.» ──
+_APTA_RU = (("/саат", "/час"), ("/күн", "/день"), ("/апта", "/нед."), ("/жума", "/нед."), ("/ай", "/мес."), ("/рейс", "/рейс"))
+_price_apta_base = _price
+
+
+def _price(price, lang):
+    out = _price_apta_base(price, lang)
+    try:
+        if isinstance(out, str) and "/" in out:
+            if lang == "ru":
+                for a, b in _APTA_RU:
+                    if out.endswith(a):
+                        return out[:-len(a)] + b
+            elif out.endswith("/жума"):
+                return out[:-5] + "/апта"
+    except Exception:
+        pass
+    return out
 
 if __name__ == "__main__":
     core.init_db()

@@ -603,7 +603,7 @@ def order(h, lang="ky"):
          core.now_str(), "pending", total, rec or "", prod[0], weeks), fetch="id")
     _RATE[ip] = hits + [now]
     site = (__import__("os").environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
-    _notify("💰 <b>Жаңы баннер буйрутмасы №%s</b>\n\n📍 %s%s%s\n📅 %s → %s (%d жума)\n💵 %s сом%s\n"
+    _notify("💰 <b>Жаңы баннер буйрутмасы №%s</b>\n\n📍 %s%s%s\n📅 %s → %s (%d апта)\n💵 %s сом%s\n"
             "👤 %s\n☎️ %s\n\n🛠 <a href=\"%s/admin/banners\">Админде текшерүү</a>"
             % (bid, E(prod[1]), (" · " + E(dict(SECTIONS)[sec])) if sec else "",
                (" · " + E(obl)) if obl else "", start, end, weeks, total,
@@ -647,7 +647,7 @@ def sell_body(lang="ky"):
         '<label class="pr" data-k="%s" data-sec="%d"><input type="radio" name="prod" value="%s">'
         '<span class="nm">%s</span><em>%s %s</em></label>'
         % (k, 1 if ns else 0, k, E(rn if ru else kn), "{:,}".format(pr[k]).replace(",", " "),
-           t("сом/жума", "сом/нед."))
+           t("сом/апта", "сом/нед."))
         for k, kn, rn, _pl, ns, _b in PRODUCTS)
     # SELRU: бөлүм жана аймак аттары орусча бетте орусча
     _sr = {"trade": "Торговля", "wholesale": "Оптовая торговля", "property": "Продажа недвижимости",
@@ -663,8 +663,8 @@ def sell_body(lang="ky"):
     obls = "".join('<option value="%s">%s</option>' % (E(v), E(_or.get(v, n) if ru else n))
                    for v, n in _oblasts())
     wk = "".join('<button type="button" data-w="%d"%s>%d %s%s</button>'
-                 % (w, ' class="on"' if w == 1 else "", w, t("жума", "нед."),
-                    ("<small>%s</small>" % t("1 жума бекер", "1 нед. в подарок")) if w == 4 else "")
+                 % (w, ' class="on"' if w == 1 else "", w, t("апта", "нед."),
+                    ("<small>%s</small>" % t("1 апта бекер", "1 нед. в подарок")) if w == 4 else "")
                  for w, _m in WEEKS)
     if c.get("mbank"):
         pay = ('<div class="pay">%s<br>📱 MBank: <b>%s</b>%s%s</div>'
@@ -777,7 +777,7 @@ def sell_body(lang="ky"):
         'var wrap=document.createElement("div");'
         'wrap.appendChild(lab(T("1) Кайсы бет","1) Страница")));'
         'var pc=document.createElement("div");pc.className="cps";wrap.appendChild(pc);'
-        'wrap.appendChild(lab(T("2) Орунду тандаңыз — жашыл орундар бош (баалар 1 жума үчүн)","2) Выберите место — зелёные свободны (цены за 1 неделю)")));'
+        'wrap.appendChild(lab(T("2) Орунду тандаңыз — жашыл орундар бош (баалар 1 апта үчүн)","2) Выберите место — зелёные свободны (цены за 1 неделю)")));'
         'var mp=document.createElement("div");mp.className="map";wrap.appendChild(mp);'
         'wrap.appendChild(lab(T("3) Шаар / облус","3) Город / область")));'
         'var oc=document.createElement("div");oc.className="cps";wrap.appendChild(oc);'
@@ -808,7 +808,7 @@ def sell_body(lang="ky"):
         'var w=OB?T(rn+" тандаган колдонуучулар гана","Только пользователи, выбравшие «"+rn+"»"):T("Бүт Кыргызстандагы бардык колдонуучулар","Все пользователи Кыргызстана");'
         'w+=SID==="p1"?T(", башкы беттеги бөлүмдөрдүн тактасында",", в сетке разделов на главной"):SID.charAt(0)==="h"?T(", башкы беттин "+SID.slice(1)+"-баннери",", баннер №"+SID.slice(1)+" на главной"):T(", «"+nm(PG)+"» бөлүмүндө: "+slab(SID),", раздел «"+nm(PG)+"»: "+slab(SID));'
         'pw.innerHTML="<p class=pvw></p><div class=pvc></div>";pw.querySelector(".pvw").textContent=T("Ким көрөт: ","Кто увидит: ")+w+".";'
-        'pw.querySelector(".pvc").innerHTML="<div class=pvr><span>1 "+T("жума","нед.")+"</span><span>"+nf(p)+SOM+"</span></div><div class=pvr><span>× "+W+" "+T("жума","нед.")+(W===4?T(" (1 бекер)"," (1 в подарок)"):"")+"</span><span>"+nf(sub)+SOM+"</span></div>"+(ro?"<div class=pvrg><span>−"+ro+"%% "+T("аймак","регион")+"</span><span>−"+nf(sub-tot)+SOM+"</span></div>":"")+"<div class=pvrt><span>"+T("Төлөйсүз","К оплате")+"</span><span>"+nf(tot)+SOM+"</span></div>";}'
+        'pw.querySelector(".pvc").innerHTML="<div class=pvr><span>1 "+T("апта","нед.")+"</span><span>"+nf(p)+SOM+"</span></div><div class=pvr><span>× "+W+" "+T("апта","нед.")+(W===4?T(" (1 бекер)"," (1 в подарок)"):"")+"</span><span>"+nf(sub)+SOM+"</span></div>"+(ro?"<div class=pvrg><span>−"+ro+"%% "+T("аймак","регион")+"</span><span>−"+nf(sub-tot)+SOM+"</span></div>":"")+"<div class=pvrt><span>"+T("Төлөйсүз","К оплате")+"</span><span>"+nf(tot)+SOM+"</span></div>";}'
         'function apply(){window.TAPSLOT=SID;var k=!SID?"":SID.charAt(0)==="h"?"home":SID.indexOf(":top")>0?"top_sec":"grid_sec";'
         'document.querySelectorAll("input[name=prod]").forEach(function(r){r.checked=(r.value===k);});$("sec").value=PG!=="home"&&SID?PG:"";ob.value=OB;calc();paint();}'
         'function loadAv(){fetch("/reklama/avail?weeks="+W).then(function(r){return r.json();}).then(function(j){if(j&&j.ok){AV=j.s||{};TD=j.today;paint();}}).catch(function(){});}'
@@ -877,7 +877,7 @@ def _orders(k):
         out += (
             "<div class='bn' id='o%d' style='border-color:#E3A008;scroll-margin-top:70px'><img src='/bimg/%d.jpg?v=o' alt=''>"
             "<div class='ah' style='margin-top:8px'>№%d · %s</div>"
-            "<div class='am'>📍 %s%s · %s</div><div class='am'>📅 %s → %s (%s жума)</div>"
+            "<div class='am'>📍 %s%s · %s</div><div class='am'>📅 %s → %s (%s апта)</div>"
             "<div class='am'>💵 <b>%s сом</b> · 👤 %s · ☎️ %s</div>%s%s"
             "<div class='ab'><a href='%spaid' onclick=\"return confirm('Төлөм келдиби? №%d иштетилсинби?')\">✅ Төлөм келди, иштетүү</a>"
             "<a class='del' href='%srej' onclick=\"return confirm('№%d четке кагылсынбы?')\">❌ Четке кагуу</a></div></div>"
@@ -897,7 +897,7 @@ def _cfg_form(k):
     c = cfg()
     pr = prices()
     cp = caps()   # BANCAP
-    rows = "".join('<label>%s (сом/жума)</label><input id="p_%s" inputmode="numeric" value="%d">'
+    rows = "".join('<label>%s (сом/апта)</label><input id="p_%s" inputmode="numeric" value="%d">'
                    '<label style="font-size:12px">↳ бир убакта канча баннер</label>'
                    '<input id="cap_%s" inputmode="numeric" value="%d">'
                    % (E(kn), key, pr[key], key, cp.get(key, 1))
@@ -1261,7 +1261,7 @@ def slots_js(lang="ky"):
 
 def _slot_rows():
     pr, base = slot_prices()
-    out = "<div class='ah' style='margin-top:14px'>Номерленген орундардын баасы (сом/жума)</div>"
+    out = "<div class='ah' style='margin-top:14px'>Номерленген орундардын баасы (сом/апта)</div>"
     out += ("<!--NOP1 p1:%d-->" % pr["p1"])   # PREMSLOT
     for i in range(1, HOME_N + 1):
         out += ("<label>Башкы бет Б-%d</label><input class='sp' data-k='h%d' inputmode='numeric' value='%d'>"
@@ -1336,7 +1336,7 @@ def _order_slot(h, d, ru, ip, hits, now):
     if _f:
         core.query("UPDATE banners SET imgfull=? WHERE id=?", (_f, int(bid)))
     site = (__import__("os").environ.get("SITE_URL") or "https://tapmeni.up.railway.app").rstrip("/")
-    _notify("💰 <b>Жаңы баннер буйрутмасы №%s</b>\n\n📍 %s%s\n📅 %s → %s (%d жума)\n💵 %s сом%s\n"
+    _notify("💰 <b>Жаңы баннер буйрутмасы №%s</b>\n\n📍 %s%s\n📅 %s → %s (%d апта)\n💵 %s сом%s\n"
             "👤 %s\n☎️ %s\n\n🛠 <a href=\"%s\">Админде текшерүү</a>"
             % (bid, E(slot_label(sid)), (" · " + E(obl)) if obl else "", start, end, weeks, total,
                " · чек жүктөлдү" if rec else "", E(title or "—"), E(phone), "%s/admin/banners?pg=%s#o%s" % (site, "home" if sid.startswith("h") else sid.split(":")[0], bid)))
