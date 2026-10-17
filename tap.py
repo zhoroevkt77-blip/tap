@@ -4751,6 +4751,15 @@ class H(BaseHTTPRequestHandler):
             self._send(shops_page(qs, lang))
             return
 
+        if u.path.startswith("/d/") and len(u.path) > 3:   # KINDSELF_REDIR
+            _ksr = _ks_redirect(urllib.parse.unquote(u.path[3:]).strip("/"))
+            if _ksr and not _tp.by_slug(urllib.parse.unquote(u.path[3:]).strip("/")):
+                self.send_response(301)
+                self.send_header("Location", _ksr)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+
         if u.path == "/plus" or u.path.startswith("/d/"):   # TAPPLUS_ROUTE
             self._send(*_plus_route(u.path, lang))
             return
@@ -10490,6 +10499,154 @@ def me_page(lang="ky"):
     except Exception:
         pass
     return h
+
+
+# ── KINDSELF: сатуучу барактын түрүн жана шилтемесин өзү өзгөртөт ──
+_KS = {"ready": False}
+KS_BAD = {"tap", "tapmeni", "admin", "plus", "api", "my", "d", "msg", "help", "support", "globus", "narodny", "narodnyy",
+          "frunze", "beta", "bishkek", "osh", "kyrgyzstan", "lalafo", "mbank", "elcart", "official", "rasmiy"}
+
+
+def _ks_init():
+    if _KS["ready"]:
+        return
+    if getattr(core, "IS_PG", False):
+        core.query("CREATE TABLE IF NOT EXISTS seller_slugs (old TEXT PRIMARY KEY, tg_id TEXT, at TEXT)")
+    else:
+        core.query("CREATE TABLE IF NOT EXISTS seller_slugs (old TEXT PRIMARY KEY, tg_id TEXT, at TEXT)")
+    _KS["ready"] = True
+
+
+def _ks_last(tg):
+    r = core.query("SELECT MAX(at) AS a FROM seller_slugs WHERE tg_id=?", (str(tg),), fetch="one") or {}
+    return str(dict(r).get("a") or "")
+
+
+def _ks_api_get(qs, lang):
+    s, err = _ms_seller(qs.get("t", [""])[0])
+    if err:
+        return err
+    _ks_init()
+    tg = str(s["tg_id"])
+    last = _ks_last(tg)
+    nxt = ""
+    if last:
+        try:
+            import datetime as _kd
+            d = _kd.datetime.strptime(last[:10], "%Y-%m-%d").date() + _kd.timedelta(days=30)
+            if d > _kd.date.today():
+                nxt = d.isoformat()
+        except Exception:
+            pass
+    vit = 0
+    try:
+        vit = int(dict(core.query("SELECT COUNT(*) AS n FROM seller_vit WHERE tg_id=?", (tg,), fetch="one") or {}).get("n") or 0)
+    except Exception:
+        pass
+    return {"ok": True, "kind": _tp.kind(s), "slug": s.get("slug") or "", "next": nxt, "vit": vit,
+            "kinds": [[k[0], k[1], k[2], 1 if k[0] in VIT_KINDS else 0] for k in _tp.KINDS]}
+
+
+def _ks_api_post(b):
+    s, err = _ms_seller(b.get("token"))
+    if err:
+        return err
+    _ks_init()
+    tg = str(s["tg_id"])
+    op = b.get("op")
+    if op == "kind":
+        k = str(b.get("kind") or "")
+        if k not in _tp.KIND:
+            return {"ok": False, "err": "bad"}
+        core.query("UPDATE sellers SET kind=? WHERE tg_id=?", (k, tg))
+        _tp._load(force=True)
+        try:
+            core.cache_clear()
+        except Exception:
+            pass
+        return {"ok": True}
+    if op == "slug":
+        if _ks_api_get({"t": [b.get("token")]}, "ky").get("next"):
+            return {"ok": False, "err": "month"}
+        new = _tp.slugify(b.get("slug"))
+        if len(new) < 3:
+            return {"ok": False, "err": "short"}
+        if new in KS_BAD or any(new == w or new.startswith(w + "-") for w in ("tap", "admin", "tapmeni")):
+            return {"ok": False, "err": "bad"}
+        if new == s.get("slug"):
+            return {"ok": True, "slug": new}
+        r = core.query("SELECT tg_id FROM sellers WHERE slug=?", (new,), fetch="one")
+        o = core.query("SELECT tg_id FROM seller_slugs WHERE old=?", (new,), fetch="one")
+        if (r and str(dict(r)["tg_id"]) != tg) or (o and str(dict(o)["tg_id"]) != tg):
+            return {"ok": False, "err": "taken"}
+        old = str(s.get("slug") or "")
+        if old:
+            core.query("DELETE FROM seller_slugs WHERE old=?", (old,))
+            core.query("INSERT INTO seller_slugs (old, tg_id, at) VALUES (?,?,?)", (old, tg, core.now_str()))
+        core.query("DELETE FROM seller_slugs WHERE old=? AND tg_id=?", (new, tg))
+        core.query("UPDATE sellers SET slug=? WHERE tg_id=?", (new, tg))
+        _tp._load(force=True)
+        return {"ok": True, "slug": new}
+    return {"ok": False, "err": "op"}
+
+
+_EXT_GET["/api/kindself"] = _ks_api_get
+_EXT_POST["/api/kindself"] = _ks_api_post
+
+
+def _ks_redirect(slug):
+    """Эски шилтеме → жаңы шилтеме."""
+    try:
+        _ks_init()
+        r = core.query("SELECT tg_id FROM seller_slugs WHERE old=?", (str(slug),), fetch="one")
+        if r:
+            s = _tp.get(dict(r)["tg_id"])
+            if s and s.get("slug") and s.get("slug") != slug:
+                return "/d/" + urllib.parse.quote(str(s["slug"]))
+    except Exception:
+        pass
+    return None
+
+
+_KS_JS = r"""<script>(function(){var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}if(!tok)return;
+function e(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var K=null;function post(o){o.token=tok;return fetch('/api/kindself',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}).then(function(r){return r.json();});}
+function fix(){var lab=Array.prototype.find.call(document.querySelectorAll('.msf label'),function(l){return l.textContent.indexOf('админ аркылуу')>=0;});
+ if(!lab||lab.dataset.ks)return;lab.dataset.ks=1;var box=lab.parentNode;
+ fetch('/api/kindself?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){if(!j.ok)return;K=j;
+  lab.textContent='⚙️ Барагымдын жөндөөлөрү';
+  var rows=box.querySelectorAll('.lkr');var rk=rows[1],rs=rows[2];
+  var sel='<select id="kssel" style="width:100%;border:1.5px solid #D5DDE9;border-radius:12px;padding:10px;font:inherit;font-size:15px;background:#fff">'
+   +j.kinds.map(function(k){return '<option value="'+k[0]+'"'+(k[0]===j.kind?' selected':'')+'>'+k[1]+' '+e(k[2])+'</option>';}).join('')+'</select>';
+  rk.outerHTML='<div style="margin:8px 0 2px;font-size:13px;color:#5A6B82;font-weight:700">🏷 Барактын түрү</div>'+sel;
+  rs.outerHTML='<div style="margin:12px 0 2px;font-size:13px;color:#5A6B82;font-weight:700">🔗 Шилтеме</div>'
+   +'<div style="display:flex;gap:6px;align-items:center"><span style="color:#5A6B82">/d/</span><input id="ksslug" value="'+e(j.slug)+'" maxlength="40" style="flex:1;min-width:0;border:1.5px solid #D5DDE9;border-radius:12px;padding:10px;font:inherit;font-size:15px"'+(j.next?' disabled':'')+'>'
+   +'<button type="button" id="ksgo" style="border:0;background:#163C8C;color:#fff;border-radius:12px;padding:10px 12px;font:inherit;font-weight:800"'+(j.next?' disabled':'')+'>OK</button></div>'
+   +'<div style="font-size:12px;color:#7A889C;margin-top:5px;line-height:1.4">'+(j.next?('🔒 Кийинки өзгөртүү: '+e(j.next)+'дан баштап'):'Айына 1 жолу өзгөртсө болот. Эски шилтеме жана QR-код жаңысына өзү өтөт.')+'</div>';
+  var ab=document.getElementById('msask');if(ab)ab.textContent='✉️ Админге жазуу';
+  document.getElementById('kssel').onchange=function(){var s=this,nk=s.value,o=j.kinds.filter(function(x){return x[0]===j.kind;})[0],n=j.kinds.filter(function(x){return x[0]===nk;})[0];
+   var w='Барагыңыздын түрү «'+n[2]+'» болуп өзгөрөт. Бөлүмдөр жана баскычтар ага жараша алмашат.';
+   if(o[3]&&!n[3]&&j.vit)w+='\n\n⚠️ Витринадагы '+j.vit+' товар жашырылат (өчпөйт). Кайра «'+o[2]+'» тандасаңыз, кайтып келет.';
+   if(!confirm(w+'\n\nУлантасызбы?')){s.value=j.kind;return;}
+   post({op:'kind',kind:nk}).then(function(x){if(x.ok)location.reload();else{alert('Ката чыкты.');s.value=j.kind;}});};
+  var go=document.getElementById('ksgo');if(go)go.onclick=function(){var v=document.getElementById('ksslug').value.trim();if(!v)return;
+   if(!confirm('Шилтемеңиз /d/'+v+' болот. Кийинки өзгөртүү 30 күндөн кийин гана. Улантасызбы?'))return;
+   post({op:'slug',slug:v}).then(function(x){if(x.ok)location.reload();else alert({taken:'Бул шилтеме бош эмес, башкасын жазыңыз.',bad:'Бул сөздү колдонууга болбойт.',short:'Өтө кыска (3 тамгадан кем эмес).',month:'Айына бир жолу гана өзгөртсө болот.'}[x.err]||'Ката чыкты.');});};
+ });}
+new MutationObserver(fix).observe(document.getElementById('msbox')||document.body,{childList:true,subtree:true});fix();})();</script>"""
+
+_myshop_page_ks_base = myshop_page
+
+
+def myshop_page(lang="ky"):
+    return _myshop_page_ks_base(lang).replace("</body>", _KS_JS + "</body>", 1)
+
+
+# Админ панелдеги ТАП+ маалыматы
+try:
+    _tp.KS_NOTE = True
+except Exception:
+    pass
 
 if __name__ == "__main__":
     core.init_db()
