@@ -4717,6 +4717,10 @@ class H(BaseHTTPRequestHandler):
             self._send(myreqs_page(lang))
             return
 
+        if u.path == "/my/vitrina":   # VITKAB_ROUTE
+            self._send(vitrina_page(lang))
+            return
+
         if u.path == "/my/shop":   # MYSHOP_ROUTE
             self._send(myshop_page(lang))
             return
@@ -9828,6 +9832,94 @@ for _k, _n in (("kulun", 6), ("tai", 24), ("tulpar", 60)):
         _TP_FEAT_RU[_k] = _TP_FEAT_RU[_k] + ("🛍 Витрина — %d товаров" % _n,)
     except Exception:
         pass
+
+
+# ── VITKAB: Витрина Кабинеттин «Бизнес» бөлүмүндө, өзүнчө барак /my/vitrina ──
+_vt_api_get_kb = _vt_api_get
+
+
+def _vt_api_get(qs, lang):
+    j = _vt_api_get_kb(qs, lang)
+    try:
+        if j.get("ok") and j.get("off"):
+            s, _e = _ms_seller(qs.get("t", [""])[0])
+            if s:
+                j["pfl"] = _tp.pf_label(_tp.kind(s)) if hasattr(_tp, "pf_label") else "Сүрөттөр"
+                j["pfn"] = len(_tp.imgs(s["tg_id"], "pf"))
+        elif j.get("ok"):
+            j["n"] = len(j.get("items") or [])
+    except Exception:
+        pass
+    return j
+
+
+_EXT_GET["/api/vit"] = _vt_api_get
+
+
+def vitrina_page(lang="ky"):
+    body = ('<main class="msw"><a href="/me" style="display:inline-block;margin:0 0 6px;color:#163C8C;font-weight:700;text-decoration:none">‹ %s</a>'
+            '<h1 id="vth1" style="font-size:24px;margin:0 0 10px">🛍 Витрина</h1><div id="vtbox">…</div></main>'
+            % ("Кабинет")
+            + _MS_CSS + _VTE_CSS + '<script>' + _VTE_JS + '</script>'
+            '<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}'
+            'if(!t){document.getElementById("vtbox").innerHTML=\'<div class="msno">Номериңизди ырастаңыз.<a href="/verify">🔐 Номерди ырастоо</a></div>\';return;}'
+            'fetch("/api/vit?t="+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){'
+            'if(j.ok&&j.title)document.getElementById("vth1").textContent=j.title;'
+            'else if(j.ok&&j.off)location.replace("/my/shop#msph");'
+            'else if(!j.ok)document.getElementById("vtbox").innerHTML=j.err==="noplus"?\'<div class="msno">🛍 Витрина — ТАП+ сатуучулары үчүн.<a href="/plus">⭐ ТАП+ жөнүндө</a></div>\':\'<div class="msno">Номериңизди ырастаңыз.<a href="/verify">🔐 Номерди ырастоо</a></div>\';'
+            '}).catch(function(){});})();</script>')
+    return page(header("", None, None, lang) + body, title="Витрина", lang=lang)
+
+
+# «Менин дүкөнүм» барагында толук редактордун ордуна шилтеме
+def myshop_page(lang="ky"):
+    h = _myshop_page_vt_base(lang)
+    return h.replace('<div id="msbox">…</div></main>',
+                     '<div id="msbox">…</div><div id="vtlk"></div></main>'
+                     '<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}if(!t)return;'
+                     'fetch("/api/vit?t="+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){if(!j.ok||j.off)return;'
+                     'document.getElementById("vtlk").innerHTML=\'<a href="/my/vitrina" style="display:flex;align-items:center;gap:10px;background:#fff;border:2px solid #E2B33C;'
+                     'border-radius:16px;padding:14px;margin:0 0 12px;text-decoration:none;color:#0B1B30;font-weight:800"><span style="font-size:22px">🛍</span>'
+                     '<span style="flex:1">\'+j.title.replace(/^\\S+\\s/,"")+\' · \'+j.n+\'/\'+j.lim+\'<small style="display:block;font-weight:600;color:#5A6B82;font-size:12.5px">Товар кошуу, өчүрүү, тартибин өзгөртүү</small></span>'
+                     '<span style="color:#9AA9BE;font-size:22px">›</span></a>\';}).catch(function(){});})();</script>', 1)
+
+
+_me_page_vk_base = me_page
+
+
+def me_page(lang="ky"):
+    h = _me_page_vk_base(lang)
+    try:
+        mk = '<a class="mrow2" href="/my/reqs" id="mrrow"'
+        if mk in h:
+            row = ('<a class="mrow2" href="/my/vitrina" id="vkrow" style="display:none">'
+                   '<span style="font-size:20px;width:24px;text-align:center;flex:none" id="vkic">🛍</span><span><span id="vktx">Витрина</span> '
+                   '<b id="vkn" style="color:#5A6B82;font-weight:700;font-size:13px"></b></span><span class="mear">›</span></a>')
+            h = h.replace(mk, row + mk, 1)
+            h = h.replace("</body>", '<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}if(!t)return;'
+                          'fetch("/api/vit?t="+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){if(!j.ok)return;'
+                          'var r=document.getElementById("vkrow");if(!r)return;'
+                          'if(j.off){r.href="/my/shop#msph";document.getElementById("vkic").textContent="📸";document.getElementById("vktx").textContent=j.pfl||"Сүрөттөр";'
+                          'document.getElementById("vkn").textContent=j.pfn?("· "+j.pfn):"";}'
+                          'else{var p=String(j.title).split(" ");document.getElementById("vkic").textContent=p.shift();document.getElementById("vktx").textContent=p.join(" ");'
+                          'document.getElementById("vkn").textContent="· "+j.n+"/"+j.lim;}'
+                          'r.style.display="";}).catch(function(){});})();</script></body>', 1)
+    except Exception:
+        pass
+    return h
+
+
+# Витрина бар түрлөрдө жөнөкөй сүрөттөр — «дүкөндүн/салондун сүрөттөрү» (товарлар витринада)
+try:
+    _tp.PF_LBL.update({
+        "store": ("Дүкөндүн сүрөттөрү", "Фото магазина"),
+        "factory": ("Цехтин сүрөттөрү", "Фото цеха"),
+        "auto": ("Салондун сүрөттөрү", "Фото автосалона"),
+        "realtor": ("Офистин сүрөттөрү", "Фото офиса"),
+        "salon": ("Салондун сүрөттөрү", "Фото салона"),
+    })
+except Exception:
+    pass
 
 if __name__ == "__main__":
     core.init_db()
