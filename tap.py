@@ -12447,6 +12447,136 @@ def me_page(lang="ky"):
     h = _me_page_st2_base(lang)
     return h.replace("</body>", "<style>#vkrow{display:none!important}</style></body>", 1)
 
+
+# ── REQDONE: өтүнүчтөр — ✅ Бүттү, 🗑 Өчүрүү, «Жаңы / Бүткөндөр» өтмөктөрү, 30 күндөн кийин өзү өчөт ──
+_RD = {"ready": False}
+
+
+def _rd_init():
+    if _RD["ready"]:
+        return
+    _mr_init()
+    for col, typ in (("done", "INTEGER DEFAULT 0"), ("done_at", "TEXT")):
+        try:
+            if getattr(core, "IS_PG", False):
+                core.query("ALTER TABLE seller_reqs ADD COLUMN IF NOT EXISTS %s %s" % (col, typ))
+            else:
+                core.query("ALTER TABLE seller_reqs ADD COLUMN %s %s" % (col, typ))
+        except Exception:
+            pass
+    _RD["ready"] = True
+
+
+def _rd_hours(at):
+    try:
+        t = _sdt.strptime(str(at)[:19], "%Y-%m-%d %H:%M:%S")
+        return int((_sdt.utcnow() - t).total_seconds() // 3600)
+    except Exception:
+        return 0
+
+
+_mr_api_rd_base = _mr_api
+
+
+def _mr_api(qs, lang):
+    s, err = _ms_seller(qs.get("t", [""])[0])
+    if err:
+        return err
+    if qs.get("n", [""])[0] == "1":
+        return _mr_api_rd_base(qs, lang)
+    _rd_init()
+    tg = str(s["tg_id"])
+    try:   # 30 күндөн эски бүткөндөр өчөт
+        lim = (_sdt.utcnow() - _std(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+        core.query("DELETE FROM seller_reqs WHERE seller=? AND done=1 AND done_at<?", (tg, lim))
+    except Exception:
+        pass
+    tab = "done" if qs.get("tab", [""])[0] == "done" else "open"
+    rows = [dict(x) for x in (core.query(
+        "SELECT id, name, phone, wish, note, at, seen FROM seller_reqs WHERE seller=? AND %s ORDER BY id DESC LIMIT 100"
+        % ("done=1" if tab == "done" else "(done IS NULL OR done=0)"), (tg,), fetch="all") or [])]
+    cnt = {}
+    for k, cond in (("open", "(done IS NULL OR done=0)"), ("done", "done=1")):
+        r = core.query("SELECT COUNT(*) AS n FROM seller_reqs WHERE seller=? AND " + cond, (tg,), fetch="one") or {}
+        cnt[k] = int(dict(r).get("n") or 0)
+    out = []
+    for x in rows:
+        try:
+            ago_t = core.ago(x.get("at"), lang)
+        except Exception:
+            ago_t = str(x.get("at") or "")[:16]
+        out.append({"id": x["id"], "name": x.get("name") or "", "phone": x.get("phone") or "", "wish": x.get("wish") or "",
+                    "note": x.get("note") or "", "ago": ago_t, "new": not int(x.get("seen") or 0),
+                    "h": _rd_hours(x.get("at"))})
+    if tab == "open":
+        core.query("UPDATE seller_reqs SET seen=1 WHERE seller=? AND (seen IS NULL OR seen=0)", (tg,))
+    return {"ok": True, "items": out, "tab": tab, "cnt": cnt}
+
+
+def _mr_api_post(b):
+    s, err = _ms_seller(b.get("token"))
+    if err:
+        return err
+    _rd_init()
+    tg = str(s["tg_id"])
+    try:
+        rid = int(b.get("id") or 0)
+    except Exception:
+        return {"ok": False}
+    op = b.get("op")
+    if op == "done":
+        core.query("UPDATE seller_reqs SET done=1, done_at=? WHERE id=? AND seller=?",
+                   (_sdt.utcnow().strftime("%Y-%m-%d %H:%M:%S"), rid, tg))
+    elif op == "undo":
+        core.query("UPDATE seller_reqs SET done=0, done_at=NULL WHERE id=? AND seller=?", (rid, tg))
+    elif op == "del":
+        core.query("DELETE FROM seller_reqs WHERE id=? AND seller=?", (rid, tg))
+    else:
+        return {"ok": False}
+    return {"ok": True}
+
+
+_EXT_GET["/api/myreqs"] = _mr_api
+_EXT_POST["/api/myreqs"] = _mr_api_post
+
+_MR_CSS += """<style>
+.mrtabs{display:flex;gap:8px;margin:0 0 12px}.mrtabs button{flex:1;border:1.5px solid #D5DEEA;background:#fff;border-radius:12px;padding:10px 6px;font:inherit;font-size:14.5px;font-weight:800;color:#17304F}
+.mrtabs button.on{background:linear-gradient(180deg,#2458C6,#163C8C);border-color:#163C8C;color:#fff}
+.mrc .bt a,.mrc .bt button{flex:1;text-align:center;border-radius:12px;padding:10px 4px;font:inherit;font-weight:800;font-size:14px;text-decoration:none}
+.mrc .bt button.d{border:0;background:#E3F6EE;color:#0E7A54}.mrc .bt button.u{border:0;background:#EEF4FF;color:#163C8C}
+.mrc .x{border:0;background:none;color:#B3261E;font:inherit;font-size:13px;font-weight:700;padding:6px 0 0;cursor:pointer}
+.mrc .late{display:inline-block;margin:6px 0 0 6px;background:#FFF1D6;color:#7A4B00;border-radius:8px;padding:4px 9px;font-size:12.5px;font-weight:800}
+.mrc.dn{opacity:.75}.mrc.gone{transition:opacity .25s,transform .25s;opacity:0;transform:translateX(30px)}
+</style>"""
+
+_MR_JS = r"""
+(function(){var box=document.getElementById('mrbox');var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+if(!tok){box.innerHTML='<div class="mrno">Номериңизди ырастаңыз.<br><a href="/verify">🔐 Ырастоо</a></div>';return;}
+var TAB='open';
+function post(o){o.token=tok;return fetch('/api/myreqs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}).then(function(r){return r.json();});}
+function load(){fetch('/api/myreqs?t='+encodeURIComponent(tok)+'&tab='+TAB).then(function(r){return r.json();}).then(function(j){
+ if(!j.ok){box.innerHTML='<div class="mrno">'+(j.err==='noplus'?'📥 Өтүнүчтөр — ТАП+ сатуучулары үчүн.<br><a href="/plus">⭐ ТАП+ жөнүндө</a>':'Номериңизди ырастаңыз.<br><a href="/verify">🔐 Ырастоо</a>')+'</div>';return;}
+ var h='<div class="mrtabs"><button type="button" data-t="open" class="'+(TAB==='open'?'on':'')+'">🆕 Жаңы ('+j.cnt.open+')</button><button type="button" data-t="done" class="'+(TAB==='done'?'on':'')+'">✅ Бүткөндөр ('+j.cnt.done+')</button></div>';
+ if(TAB==='open')h+='<div class="mrtip">⚡ Кардарга тезирээк чалыңыз. Сүйлөшүп бүткөндөн кийин «✅ Бүттү» басыңыз — өтүнүч «Бүткөндөр» бөлүмүнө өтөт.</div>';
+ else h+='<div class="mrtip" style="background:#EEF4FF;color:#163C8C">Бүткөн өтүнүчтөр 30 күн сакталат, анан өзү өчөт.</div>';
+ if(!j.items.length){h+='<div class="mrno">'+(TAB==='open'?'Жаңы өтүнүч жок. 👍<br>Кардарлар барагыңыздагы баскыч аркылуу өтүнүч калтырганда, ушул жерде көрүнөт.':'Бүткөн өтүнүч жок.')+'</div>';box.innerHTML=h;bind();return;}
+ j.items.forEach(function(x){var ph=String(x.phone||'').replace(/[^0-9+]/g,'');var wa=ph.replace(/[^0-9]/g,'');
+  var w=String(x.wish||'');var wi=/^[←-⯿\uD83C-\uDBFF]/.test(w)?w:('📌 '+w);
+  h+='<div class="mrc'+(x.new&&TAB==='open'?' nw':'')+(TAB==='done'?' dn':'')+'" data-id="'+x.id+'"><div class="h"><b>👤 '+esc(x.name||'—')+(x.new&&TAB==='open'?'<span class="nb">ЖАҢЫ</span>':'')+'</b><span class="a">'+esc(x.ago)+'</span></div>'
+   +'<div class="tel">'+esc(x.phone)+'</div>'+(w?'<span class="w">'+esc(wi)+'</span>':'')+(TAB==='open'&&x.h>=24?'<span class="late">⏰ '+(x.h>=48?Math.floor(x.h/24)+' күндөн':'1 күндөн')+' бери жооп жок</span>':'')
+   +(x.note?'<p>'+esc(x.note)+'</p>':'')
+   +'<div class="bt"><a class="c" href="tel:'+esc(ph)+'">📞 Чалуу</a><a class="s" href="https://wa.me/'+esc(wa)+'" target="_blank" rel="noopener">💬 WhatsApp</a>'
+   +(TAB==='open'?'<button type="button" class="d" data-op="done">✅ Бүттү</button>':'<button type="button" class="u" data-op="undo">↩️ Кайтаруу</button>')+'</div>'
+   +'<button type="button" class="x" data-op="del">🗑 Өчүрүү</button></div>';});
+ box.innerHTML=h;bind();}).catch(function(){box.innerHTML='<div class="mrno">Байланыш катасы.</div>';});}
+function bind(){box.querySelectorAll('.mrtabs button').forEach(function(b){b.onclick=function(){TAB=b.getAttribute('data-t');load();};});
+ box.querySelectorAll('[data-op]').forEach(function(b){b.onclick=function(){var c=b.closest('.mrc'),op=b.getAttribute('data-op');
+  if(op==='del'&&!confirm('Бул өтүнүч толук өчүрүлөт. Улантасызбы?'))return;
+  b.disabled=true;post({id:+c.getAttribute('data-id'),op:op}).then(function(x){if(!x.ok){b.disabled=false;alert('Ката чыкты.');return;}c.classList.add('gone');setTimeout(load,260);});};});}
+load();})();
+"""
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
