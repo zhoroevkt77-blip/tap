@@ -13191,6 +13191,31 @@ def _sh_row(s, ru, btn=True):
         pass
     return h
 
+
+# ── TPIMG: Башкы беттеги бөлүмдөрдүн аягындагы (Таксинин жанындагы) плитка — ТАП!+ сүрөтү, /d каталогуна ──
+_TPI_CSS = ('<style>a.catpromo.tpimg{display:block!important;grid-column:span 2;border-radius:16px;overflow:hidden;min-height:100%%;'
+            'background:#fff url(/si/tapplus.jpg?v=%s) center/contain no-repeat!important;border:2px solid #E2B33C!important;'
+            'box-shadow:0 4px 14px rgba(22,60,140,.18)!important;aspect-ratio:auto}</style>')
+
+_home_tpi_base = home
+
+
+def home(q, *a, **k):
+    h = _home_tpi_base(q, *a, **k)
+    try:
+        for mk in ('<a class="catpromo pb cpshop"', '<a class="catpromo pb cptp"'):
+            i = h.find(mk)
+            if i >= 0:
+                j = h.find("</a>", i) + 4
+                lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
+                ttl = "Магазины ТАП+" if lang == "ru" else "ТАП+ дүкөндөр"
+                h = h[:i] + ('<a class="catpromo pb tpimg" href="/d" aria-label="%s" title="%s"></a>' % (ttl, ttl)) \
+                    + (_TPI_CSS % secimg.VERSION) + h[j:]
+                break
+    except Exception as e:
+        print("tpimg:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
