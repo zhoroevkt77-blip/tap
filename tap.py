@@ -12372,6 +12372,81 @@ try:
 except NameError:
     pass
 
+
+# ── SHOPTABS: «Барагымды башкаруу» — бир барак, өтмөктөр: 📝 Маалымат · 🛍 Витрина · 📅 Календарь ──
+_ST2_CSS = """<style>
+.mstabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;background:#F3F6FB;padding:8px 0 10px;margin:0 0 6px}
+.mstabs button{flex:1;min-width:0;border:1.5px solid #D5DEEA;background:#fff;border-radius:12px;padding:10px 4px;font:inherit;font-size:13.5px;font-weight:800;color:#17304F;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mstabs button.on{background:linear-gradient(180deg,#2458C6,#163C8C);border-color:#163C8C;color:#fff;box-shadow:0 4px 12px rgba(22,60,140,.25)}
+.mstabs button small{font-weight:700;opacity:.8;margin-left:3px}
+.mspane{display:none}.mspane.on{display:block}
+#vtlk{display:none!important}
+body.mst-x .mssave{display:none!important}
+</style>"""
+
+_ST2_JS = r"""<script>(function(){
+var bar=document.getElementById('mstabs');if(!bar)return;
+var P={info:document.getElementById('mp-info'),vit:document.getElementById('mp-vit'),cal:document.getElementById('mp-cal')};
+function show(k){if(!P[k]||bar.querySelector('[data-t="'+k+'"]').style.display==='none')k='info';
+ Object.keys(P).forEach(function(x){P[x].classList.toggle('on',x===k);var b=bar.querySelector('[data-t="'+x+'"]');if(b)b.classList.toggle('on',x===k);});
+ document.body.classList.toggle('mst-x',k!=='info');try{localStorage.setItem('tap_mstab',k);}catch(e){}}
+bar.querySelectorAll('button').forEach(function(b){b.onclick=function(){show(b.getAttribute('data-t'));window.scrollTo(0,0);};});
+var want=(location.hash||'').replace('#','');if(!P[want]){try{want=localStorage.getItem('tap_mstab')||'info';}catch(e){want='info';}}
+var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+function done(){show(want);}
+var n=0;function step(){if(++n>=2)done();}
+if(!tok){done();return;}
+fetch('/api/vit?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){var b=bar.querySelector('[data-t="vit"]');
+ if(j.ok&&!j.off){var p=String(j.title||'🛍 Витрина').split(' ');var ic=p.shift();b.innerHTML=ic+' '+p.join(' ')+'<small>'+j.items.length+'/'+j.lim+'</small>';b.style.display='';}
+ step();}).catch(step);
+// календарь: BOOKCAL өз блогун кошкондо ушул өтмөккө жылдырабыз
+var cb=bar.querySelector('[data-t="cal"]');
+new MutationObserver(function(){var c=document.getElementById('bcme');if(c&&!P.cal.contains(c)){var w=c.closest('.msf')||c.parentNode;P.cal.appendChild(w);cb.style.display='';show(want==='cal'?'cal':(bar.querySelector('.on')||{getAttribute:function(){return 'info';}}).getAttribute('data-t'));}})
+ .observe(document.body,{childList:true,subtree:true});
+fetch('/api/busy?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){step();}).catch(step);
+})();</script>"""
+
+_myshop_page_st2_base = myshop_page
+
+
+def myshop_page(lang="ky"):
+    h = _myshop_page_st2_base(lang)
+    try:
+        ru = (lang == "ru")
+        a = h.find('<div id="vtlk"></div>')
+        b = h.find('<div id="msbox">')
+        if a < 0 or b < 0:
+            return h
+        e = h.find("</main>", b)
+        tabs = ('<div class="mstabs" id="mstabs"><button type="button" data-t="info" class="on">📝 %s</button>'
+                '<button type="button" data-t="vit" style="display:none">🛍 %s</button>'
+                '<button type="button" data-t="cal" style="display:none">📅 %s</button></div>'
+                % ("Данные" if ru else "Маалымат", "Витрина", "Календарь"))
+        inner = h[a:e]
+        vit = ('<div class="mspane" id="mp-vit"><div id="vtbox">…</div></div>'
+               + _VTE_CSS + '<script>' + _VTE_JS + '</script>')
+        h = (h[:a] + tabs + '<div class="mspane on" id="mp-info">' + inner + '</div>' + vit
+             + '<div class="mspane" id="mp-cal"></div>' + h[e:])
+        h = h.replace("</body>", _ST2_CSS + _ST2_JS + "</body>", 1)
+    except Exception as ex:
+        print("shoptabs:", ex, flush=True)
+    return h
+
+
+# /my/vitrina эми «Барагымды башкаруу» → Витрина өтмөгү
+def vitrina_page(lang="ky"):
+    return '<!doctype html><meta charset="utf-8"><script>location.replace("/my/shop#vit")</script>'
+
+
+# Кабинеттеги өзүнчө «Витрина» сабы керек эмес — баары бир баракта
+_me_page_st2_base = me_page
+
+
+def me_page(lang="ky"):
+    h = _me_page_st2_base(lang)
+    return h.replace("</body>", "<style>#vkrow{display:none!important}</style></body>", 1)
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
