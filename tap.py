@@ -13216,6 +13216,28 @@ def home(q, *a, **k):
         print("tpimg:", e, flush=True)
     return h
 
+
+# ── PPIMG: «Жарыя берүүдөгү» ТАП+ плиткасы да башкы беттегидей ТАП!+ сүрөтү ──
+_PPI_CSS = ('<style>.pwrap nav.cats a#ppcp{position:relative;background:#fff url(/si/tapplus.jpg?v=%s) center/contain no-repeat!important;'
+            'border:2px solid #E2B33C!important;box-shadow:0 4px 14px rgba(22,60,140,.18)!important;border-radius:16px;overflow:hidden}'
+            '.pwrap nav.cats a#ppcp::before,.pwrap nav.cats a#ppcp::after{display:none!important}'
+            '.pwrap nav.cats a#ppcp>span{display:none!important}'
+            '.pwrap nav.cats a#ppcp[data-own="1"]>.t4{display:block!important;position:absolute;right:6px;bottom:6px;margin:0;'
+            'font-size:10.5px;padding:3px 8px;box-shadow:0 2px 6px rgba(0,0,0,.18)}</style>')
+
+_post_page_ppi_base = post_page
+
+
+def post_page(lang="ky"):
+    h = _post_page_ppi_base(lang)
+    try:
+        ttl = "Магазины ТАП+" if lang == "ru" else "ТАП+ дүкөн ачуу"
+        h = h.replace('id="ppcp" style="display:none">', 'id="ppcp" style="display:none" aria-label="%s" title="%s">' % (ttl, ttl), 1)
+        h = h.replace("</body>", (_PPI_CSS % secimg.VERSION) + "</body>", 1)
+    except Exception as e:
+        print("ppimg:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
