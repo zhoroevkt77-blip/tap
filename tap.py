@@ -12902,6 +12902,53 @@ def _tp_store(slug, lang):
         print("pageup:", e, flush=True)
     return h
 
+
+# ── PAGELIST: дүкөн барагында бизнеске туура келген жарыялар үстүндө, калгандары «Башка жарыялары» болуп жыйналат ──
+_PL_CSS = """<style>
+details.oth{margin:14px 0 6px}details.oth>summary{list-style:none;cursor:pointer;background:#fff;border-radius:14px;padding:13px 14px;font-weight:800;font-size:15px;color:#163C8C;
+ box-shadow:0 1px 6px rgba(11,27,48,.07);display:flex;justify-content:space-between;align-items:center}
+details.oth>summary::-webkit-details-marker{display:none}details.oth>summary small{color:#7A889C;font-weight:600;font-size:12.5px;display:block;margin-top:2px}
+details.oth[open]>summary{margin-bottom:10px}details.oth>summary i{font-style:normal;transition:transform .2s}details.oth[open]>summary i{transform:rotate(90deg)}
+</style>"""
+
+_tp_store_pl_base = _tp_store
+
+
+def _tp_store(slug, lang):
+    h = _tp_store_pl_base(slug, lang)
+    try:
+        s = _tp.by_slug(slug)
+        if not h or not s:
+            return h
+        secs = _PK_SEC.get(_tp.kind(s))
+        if not secs:
+            return h
+        ru = (lang == "ru")
+        hd = '<h2 style="font-size:18px;margin:16px 4px 10px">%s</h2><div class="g">' % ("Объявления" if ru else "Жарыялары")
+        a = h.find(hd)
+        if a < 0:
+            return h
+        e = h.find("</main>", a)
+        r = h.find('<div class="rvmini">', a)
+        if 0 <= r < e:
+            e = r
+        rows = [dict(x) for x in (core.query("SELECT * FROM listings WHERE is_active=1 AND tg_id=? ORDER BY id DESC LIMIT 60",
+                                             (str(s["tg_id"]),), fetch="all") or [])]
+        main = [x for x in rows if str(x.get("ad_type") or "") in secs]
+        oth = [x for x in rows if str(x.get("ad_type") or "") not in secs]
+        if not main or not oth:
+            return h
+        blk = hd + "".join(card(x, lang) for x in main) + "</div>"
+        blk += ('<details class="oth"><summary><span>📋 %s (%d)<small>%s</small></span><i>›</i></summary><div class="g">%s</div></details>'
+                % ("Другие объявления" if ru else "Башка жарыялары", len(oth),
+                   "Не связаны с этой страницей" if ru else "Бул баракка тиешеси жок жарыялар",
+                   "".join(card(x, lang) for x in oth)))
+        h = h[:a] + blk + h[e:]
+        h = h.replace("</body>", _PL_CSS + "</body>", 1)
+    except Exception as ex:
+        print("pagelist:", ex, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
