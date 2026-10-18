@@ -12790,6 +12790,118 @@ _myshop_page_na_base = myshop_page
 def myshop_page(lang="ky"):
     return _myshop_page_na_base(lang).replace("</body>", _NA_JS + "</body>", 1)
 
+
+# ── PAGEUP: дүкөн барагы — ээсине «% толтурулган», жазылуу түрүнө жараша, пикир кичине, 📤 Бөлүшүү, 🗺 2GIS ──
+_PU_SUB = {
+    "store": "жаңы товарлар жана акциялар", "factory": "жаңы товарлар жана акциялар", "farm": "жаңы продукция жана баалар",
+    "cafe": "жаңы тамактар жана акциялар", "hotel": "арзандатуулар жана бош бөлмөлөр", "toy": "бош күндөр жана акциялар",
+    "auto": "жаңы унаалар", "realtor": "жаңы объектилер", "builder": "жаңы объектилер жана баалар",
+    "travel": "жаңы турлар жана арзандатуулар", "fitness": "акциялар жана жаңы сабактар", "edu": "жаңы курстар жана топтор",
+}
+
+
+def _pu_check(s):
+    """Барактын толтурулушу: [(ачкыч, аталыш, бүттүбү, шилтеме)]."""
+    kd = _tp.kind(s)
+    items = [("logo", "Логотип", bool(s.get("logo")), "/my/shop"),
+             ("banner", "Баннер", bool(s.get("banner")), "/my/shop"),
+             ("about", "Жөнүндө", bool(str(s.get("about") or "").strip()), "/my/shop"),
+             ("address", "Дарек", bool(str(s.get("address") or "").strip()), "/my/shop"),
+             ("hours", "Иш убактысы", bool(str(s.get("hours") or "").strip()), "/my/shop")]
+    if kd in VIT_KINDS:
+        n = 0
+        try:
+            r = core.query("SELECT COUNT(*) AS n FROM seller_vit WHERE tg_id=?", (str(s["tg_id"]),), fetch="one") or {}
+            n = int(dict(r).get("n") or 0)
+        except Exception:
+            pass
+        lb = VIT_KINDS[kd][0].split(" ", 1)[-1]
+        items.append(("vit", "%s (3+)" % lb, n >= 3, "/my/shop#vit"))
+    return items
+
+
+def _pu_api(qs, lang):
+    s, err = _ms_seller(qs.get("t", [""])[0])
+    if err:
+        return {"ok": False}
+    it = _pu_check(s)
+    done = sum(1 for x in it if x[2])
+    return {"ok": True, "slug": s.get("slug") or "", "pct": int(round(done * 100.0 / len(it))),
+            "todo": [[x[1], x[3]] for x in it if not x[2]]}
+
+
+_EXT_GET["/api/mypage"] = _pu_api
+
+_PU_CSS = """<style>
+.pubar{background:#fff;border:2px solid #E2B33C;border-radius:16px;padding:12px 14px;margin:10px 0 12px;box-shadow:0 2px 10px rgba(226,179,60,.18)}
+.pubar b{font-size:15px}.pubar .ln{height:9px;border-radius:9px;background:#F1E7CC;margin:8px 0 9px;overflow:hidden}.pubar .ln i{display:block;height:100%;background:linear-gradient(90deg,#E9B949,#0E7A54);border-radius:9px}
+.pubar .td{display:flex;flex-wrap:wrap;gap:6px}.pubar .td a{font-size:12.5px;font-weight:700;color:#5B4300;background:#FFF6DC;border-radius:8px;padding:4px 8px;text-decoration:none}
+.pubar .go{display:block;margin-top:10px;text-align:center;background:#163C8C;color:#fff!important;border-radius:12px;padding:10px;font-weight:800;text-decoration:none}
+.pubar small{display:block;color:#7A889C;font-size:11.5px;margin-top:6px}
+.tphd .bt.b4x{grid-template-columns:1fr 1fr 1fr 1fr!important}.tphd .b4{background:#F3F6FB;color:#17304F!important;border:0;font:inherit;font-weight:800;font-size:14px;border-radius:12px;padding:11px 4px;cursor:pointer}
+.rvmini{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;border-radius:14px;padding:11px 14px;margin:14px 0 6px;box-shadow:0 1px 6px rgba(11,27,48,.06)}
+.rvmini span{color:#5A6B82;font-size:13.5px;font-weight:700}.rvmini button{border:0;background:#EEF4FF;color:#163C8C;border-radius:10px;padding:8px 10px;font:inherit;font-weight:800;font-size:13px}
+.tpinf a.gis{margin-left:8px;white-space:nowrap;font-size:12.5px;font-weight:800;color:#0E7A54;background:#E3F6EE;border-radius:8px;padding:2px 8px;text-decoration:none}
+</style>"""
+
+_PU_JS = r"""<script>(function(){var SL=%s,tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+window.tpShare=function(){var u=location.origin+'/d/'+SL,t=document.title.replace(/ — ТАП\+$/,'');
+ if(navigator.share){navigator.share({title:t,text:t+' — ТАП!',url:u}).catch(function(){});return;}
+ location.href='https://wa.me/?text='+encodeURIComponent(t+' — '+u);};
+if(!tok)return;fetch('/api/mypage?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){
+ if(!j.ok||j.slug!==SL||j.pct>=100)return;var hd=document.querySelector('.tphd');if(!hd)return;
+ var b=document.createElement('div');b.className='pubar';
+ b.innerHTML='<b>📊 Барагыңыз '+j.pct+'%% толтурулган</b><div class="ln"><i style="width:'+j.pct+'%%"></i></div><div class="td">'
+  +j.todo.map(function(t){return '<a href="'+t[1]+'">☐ '+t[0]+'</a>';}).join('')+'</div><a class="go" href="/my/shop">✏️ Толтуруу ›</a>'
+  +'<small>👁 Муну сиз гана көрөсүз. Толук толтурулган барак кардарды көбүрөөк ишендирет.</small>';
+ hd.parentNode.insertBefore(b,hd.nextSibling);}).catch(function(){});})();</script>"""
+
+_tp_store_pu_base = _tp_store
+
+
+def _tp_store(slug, lang):
+    h = _tp_store_pu_base(slug, lang)
+    try:
+        s = _tp.by_slug(slug)
+        if not h or not s:
+            return h
+        ru = (lang == "ru")
+        kd = _tp.kind(s)
+        # 2. Жазылуу — түрүнө жараша
+        if not ru:
+            sub = _PU_SUB.get(kd, "жаңылыктар жана акциялар")
+            h = h.replace("Дүкөнгө жазылуу — жаңы товарлар тууралуу кабар алуу", "Жазылуу — %s тууралуу кабар алуу" % sub)
+        # 3. Пикир жок болсо — ылдыйда кичине сап
+        a = h.find('<div class="tpsec">⭐ Пикирлер</div><div class="rvb">')
+        if a >= 0:
+            e = h.find("<!--TP:BEFORELIST-->", a)
+            blk = h[a:e] if e > a else ""
+            if blk and ("Азырынча пикир жок" in blk or "Отзывов пока нет" in blk):
+                m = _wre.search(r'onclick="(rvOpen\([^)]*\))"', blk)
+                h = h[:a] + h[e:]
+                mini = ('<div class="rvmini"><span>⭐ %s</span><button type="button" onclick="%s">✍️ %s</button></div>'
+                        % ("Отзывов пока нет" if ru else "Азырынча пикир жок", m.group(1) if m else "",
+                           "Оставить первый отзыв" if ru else "Биринчи пикирди калтыруу"))
+                k = h.find("</main>", h.find("<!--TP:BEFORELIST-->"))
+                if k >= 0 and m:
+                    h = h[:k] + mini + h[k:]
+        # 4. 📤 Бөлүшүү — QR'дун жанында
+        h = h.replace('<div class="bt b3x">', '<div class="bt b3x b4x">', 1)
+        h = h.replace('<a class="b3" href="#" onclick="tpQr();return false">▦ QR</a></div>',
+                      '<a class="b3" href="#" onclick="tpQr();return false">▦ QR</a><button type="button" class="b4" onclick="tpShare()">📤</button></div>', 1)
+        # 5. 🗺 2GIS — дарек болсо
+        adr = str(s.get("address") or "").strip()
+        if adr:
+            old = '<div><b>📍</b><span>%s</span></div>' % esc(adr)
+            if old in h:
+                h = h.replace(old, '<div><b>📍</b><span>%s<a class="gis" href="https://2gis.kg/search/%s" target="_blank" rel="noopener">🗺 2GIS</a></span></div>'
+                              % (esc(adr), urllib.parse.quote(adr)), 1)
+        # 1. Ээсине — толтурулушу
+        h = h.replace("</body>", _PU_CSS + (_PU_JS % json.dumps(str(s.get("slug") or ""))) + "</body>", 1)
+    except Exception as e:
+        print("pageup:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
