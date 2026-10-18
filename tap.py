@@ -13238,6 +13238,36 @@ def post_page(lang="ky"):
         print("ppimg:", e, flush=True)
     return h
 
+
+# ── PPTAP: «Жарыя берүүдө» ТАП+ плиткасы дайыма турат; ТАП+ бар болсо — өз барагы, «＋ Кошуу» ──
+_PPT_JS = r"""<script>(function(){var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+var D={st:null,ready:0,name:'',icon:'',vit:null,pct:null};
+function e(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function paint(){document.querySelectorAll('#ppcp').forEach(function(t){var x=t.querySelector('.x');if(x)x.remove();
+ if(t.style.display==='none'){t.style.display='';}if(!t.classList.contains('on'))t.classList.add('on');
+ if(D.st!=='has'||!D.ready||t.dataset.own==='1')return;
+ var t3=D.vit?(e(D.vit.ic)+' '+e(D.vit.t)+' · '+D.vit.n+'/'+D.vit.l):(D.pct!=null&&D.pct<100?'📊 Барак '+D.pct+'% толтурулган':'');
+ t.href=D.vit?'/my/shop#vit':'/my/shop';
+ t.innerHTML='<span class="t1">⭐ ТАП+</span>'+(D.name?'<span class="t2">'+e(D.icon+' '+D.name)+'</span>':'')+(t3?'<span class="t3">'+t3+'</span>':'')
+  +'<span class="t4">'+(D.vit?'＋ Кошуу ›':'Барагым ›')+'</span>';
+ t.dataset.own='1';});}
+new MutationObserver(paint).observe(document.body,{childList:true,subtree:true});paint();
+if(!tok)return;
+fetch('/api/plusopen?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){if(!(j.ok&&j.state==='has'))return;D.st='has';
+ Promise.all([fetch('/api/myshop?peek=1&t='+encodeURIComponent(tok)).then(function(r){return r.json();}).catch(function(){return {};}),
+  fetch('/api/vit?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).catch(function(){return {};}),
+  fetch('/api/mypage?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).catch(function(){return {};})])
+ .then(function(a){D.name=a[0].name||'';D.icon=a[0].icon||'🏪';
+  if(a[1].ok&&!a[1].off){var p=String(a[1].title||'🛍 Витрина').split(' ');var ic=p.shift();D.vit={ic:ic,t:p.join(' ').split(' жана ')[0],n:(a[1].items||[]).length,l:a[1].lim};}
+  if(a[2].ok)D.pct=a[2].pct;D.ready=1;paint();});}).catch(function(){});
+})();</script>"""
+
+_post_page_ppt_base = post_page
+
+
+def post_page(lang="ky"):
+    return _post_page_ppt_base(lang).replace("</body>", _PPT_JS + "</body>", 1)
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
