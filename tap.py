@@ -10888,6 +10888,79 @@ def _st_pick():
             return _psr.choice(pool)
     return _st_pick_sr_base()
 
+
+# ── KINDS4: жаңы түрлөрдүн витринасы, аталыштары, «Азыр ачык» белгиси ──
+VIT_KINDS.update({"cafe": ("📋 Меню", "📋 Меню"), "toy": ("🎉 Залдар жана пакеттер", "🎉 Залы и пакеты"),
+                  "autosvc": ("🔧 Кызматтар жана баалар", "🔧 Услуги и цены"), "hotel": ("🛏 Бөлмөлөр", "🛏 Номера")})
+_KL_BTN_RU.update({"🛵 Буйрутма / стол брондоо": "🛵 Заказ / бронь стола", "📅 Күндү брондоо": "📅 Забронировать дату",
+                   "🔧 Сервиске жазылуу": "🔧 Записаться в сервис", "🛏 Бөлмө брондоо": "🛏 Забронировать номер"})
+_TP_KIND_RU.update({"Меню": "Меню", "Ашпозчулар": "Повара", "Залдар жана пакеттер": "Залы и пакеты", "Усталар": "Мастера",
+                    "Бөлмөлөр": "Номера"})
+
+
+def _op_state(hours):
+    """«09:00–20:00» → (ачыкпы, жабылуу/ачылуу убактысы). Белгисиз болсо None."""
+    h = str(hours or "")
+    if "24/7" in h or "күнү-түнү" in h.lower():
+        return (True, "")
+    m = _wre.search(r"(\d{1,2})[:.](\d{2})\s*[–\-—]\s*(\d{1,2})[:.](\d{2})", h)
+    if not m:
+        return None
+    a = int(m.group(1)) * 60 + int(m.group(2))
+    b = int(m.group(3)) * 60 + int(m.group(4))
+    now = _sdt.utcnow() + _std(hours=6)
+    n = now.hour * 60 + now.minute
+    low = h.lower()
+    if now.weekday() == 6 and ("жекшембиден башка" in low or "жекшемби — дем" in low or "дем алыш: жекшемби" in low):
+        return (False, "%02d:%02d" % (a // 60, a % 60))
+    op = (a <= n < b) if a < b else (n >= a or n < b)
+    return (op, "%02d:%02d" % ((b // 60) % 24, b % 60) if op else "%02d:%02d" % (a // 60, a % 60))
+
+
+def _op_badge(hours, lang, small=False):
+    st = _op_state(hours)
+    if not st:
+        return ""
+    ru = (lang == "ru")
+    if st[0]:
+        t = ("🟢 Открыто" if ru else "🟢 Азыр ачык") + (((" до %s" if ru else " · %s чейин") % st[1]) if st[1] and not small else "")
+        c = "#E3F6EA;color:#155C33"
+    else:
+        t = ("🔴 Закрыто" if ru else "🔴 Жабык") + (((" · откроется в %s" if ru else " · %s ачылат") % st[1]) if st[1] and not small else "")
+        c = "#FDECEC;color:#A32D2D"
+    return ('<span style="display:inline-block;background:%s;font-size:%s;font-weight:800;border-radius:8px;padding:3px 8px;margin:4px 0 0;align-self:flex-start;width:auto">%s</span>'
+            % (c, "11px" if small else "12.5px", esc(t)))
+
+
+_tp_store_op_base = _tp_store
+
+
+def _tp_store(slug, lang):
+    h = _tp_store_op_base(slug, lang)
+    try:
+        if h:
+            s = _tp.by_slug(slug)
+            b = _op_badge((s or {}).get("hours"), lang)
+            if b:
+                i = h.find('<div class="sub">')
+                if i >= 0:
+                    j = h.find("</div>", i) + 6
+                    h = h[:j] + "<div>" + b + "</div>" + h[j:]
+    except Exception as e:
+        print("openbadge:", e, flush=True)
+    return h
+
+
+_sh_row_op_base = _sh_row
+
+
+def _sh_row(s, ru, btn=True):
+    h = _sh_row_op_base(s, ru, btn)
+    b = _op_badge(s.get("hours"), "ru" if ru else "ky", small=True)
+    if b:
+        h = h.replace('<span class="sm">', b + ' <span class="sm">', 1)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
