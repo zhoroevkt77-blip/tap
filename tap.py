@@ -12774,6 +12774,22 @@ _myshop_page_va_base = myshop_page
 def myshop_page(lang="ky"):
     return _myshop_page_va_base(lang).replace("</body>", (_VTN_JS % json.dumps(_VT_NOUN, ensure_ascii=False)) + "</body>", 1)
 
+
+# ── NOADM: «Барагымдын жөндөөлөрү» — «Админге жазуу» алынды, тариф шилтемеси «ТАП+ тарифим» барагына ──
+_NA_JS = r"""<script>(function(){var ISH=null,tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+if(tok)fetch('/api/myshop?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){if(j.ok)ISH=!!j.ish;fix();}).catch(function(){});
+function fix(){var a=document.getElementById('msask');if(a)a.remove();
+ document.querySelectorAll('a.lkp[href="/plus"],a.lkp[href="/my/plus"]').forEach(function(l){if(l.getAttribute('href')!=='/my/plus'){l.href='/my/plus';l.textContent='⭐ Тарифти жогорулатуу же узартуу ›';}
+  if(ISH===false&&!document.getElementById('naish')){var x=document.createElement('a');x.id='naish';x.className='lkp';x.href='/msg';
+   x.style.cssText='display:block;margin-top:6px;color:#0E7A54';x.textContent='✅ «Ишеним» белгисин алуу (акысыз) ›';l.parentNode.insertBefore(x,l.nextSibling);}});}
+new MutationObserver(fix).observe(document.body,{childList:true,subtree:true});})();</script>"""
+
+_myshop_page_na_base = myshop_page
+
+
+def myshop_page(lang="ky"):
+    return _myshop_page_na_base(lang).replace("</body>", _NA_JS + "</body>", 1)
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
