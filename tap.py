@@ -12730,6 +12730,50 @@ _CHS_JS = _CHS_JS.replace(
     .then(function(r){return r.json();}).then(function(x){p.remove();if(x.ok){a.classList.add('gone');setTimeout(function(){a.remove();if(!box.querySelector('.chi'))box.innerHTML='<p class="che">'+T('Азырынча билдирүү жок.','Сообщений пока нет.')+'</p>';},260);}else alert(T('Ката чыкты.','Ошибка.'));});};};});
   }).catch(""", 1)
 
+
+# ── VITALL: витрина калган 6 түргө да + товар/кызмат/тамак сөзү түрүнө жараша ──
+VIT_KINDS.update({
+    "clean": ("🧹 Кызматтар жана баалар", "🧹 Услуги и цены"),
+    "brigade": ("🛠 Кызматтар жана баалар", "🛠 Услуги и цены"),
+    "builder": ("🏗 Объектилер", "🏗 Объекты"),
+    "transport": ("🚚 Унаалар жана тарифтер", "🚚 Машины и тарифы"),
+    "edu": ("📚 Курстар", "📚 Курсы"),
+    "legal": ("⚖️ Кызматтар жана баалар", "⚖️ Услуги и цены"),
+})
+try:
+    _VP_F["edu"] = [("dur", "⏱ Узактыгы", "text", "Мис: 3 ай, жумасына 3 жолу"), ("age", "👤 Кимдер үчүн", "text", "Мис: 7–12 жаш")]
+    _VP_SUF["edu"] = " / ай"
+    _VP_SECS.update({
+        "clean": ["Батир", "Үй", "Кеңсе", "Килем", "Терезе"],
+        "brigade": ["Ремонт", "Электрика", "Сантехника", "Плитка", "Шыбак"],
+        "builder": ["Батир", "Коммерциялык", "Паркинг"],
+        "transport": ["Шаар ичинде", "Шаар аралык", "Көчүү"],
+        "edu": ["Англис тили", "Математика", "Балдар үчүн", "Онлайн"],
+        "legal": ["Консультация", "Документтер", "Сот", "Бизнес"],
+    })
+except NameError:
+    pass
+
+_VT_NOUN = {"cafe": "тамак", "auto": "унаа", "realtor": "объект", "builder": "объект", "hotel": "бөлмө", "toy": "зал же пакет",
+            "travel": "тур", "fitness": "абонемент", "photo": "пакет", "edu": "курс", "transport": "унаа",
+            "salon": "кызмат", "autosvc": "кызмат", "clean": "кызмат", "brigade": "кызмат", "legal": "кызмат", "vet": "кызмат же товар"}
+
+_VTN_JS = r"""<script>(function(){var N=%s,K=null;
+function fix(){var box=document.getElementById('vtbox');if(!box||!K||!N[K])return;var n=N[K];
+ box.querySelectorAll('.hd').forEach(function(h){if(h.textContent.indexOf('Жаңы товар')>=0)h.textContent='＋ Жаңы '+n;});
+ var g=document.getElementById('vtgo');if(g&&g.textContent.indexOf('Витринага')>=0&&K!=='cafe')g.textContent='＋ Кошуу';
+ var i=document.getElementById('vtn');if(i&&!i.dataset.k){i.dataset.k=1;i.placeholder='Аты: '+({clean:'Батир тазалоо, 2 бөлмө',brigade:'Плитка коюу, 1 м²',builder:'2 бөлмөлүү батир, 65 м²',transport:'Портер, 1.5 тонна',edu:'Англис тили, баштоочулар',legal:'ИП ачуу',auto:'Toyota Camry 70',realtor:'2 бөлмөлүү батир',hotel:'Стандарт бөлмө',toy:'Чоң зал, 300 киши',travel:'Ысык-Көл, 3 күн',fitness:'Айлык абонемент',photo:'Той пакети',salon:'Чач кырктыруу',autosvc:'Май алмаштыруу',vet:'Эмдөө'}[K]||'');}}
+var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(e){}
+if(tok)fetch('/api/vit?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){K=j.kind||null;fix();});
+function tab(){var b=document.querySelector('.mstabs [data-t="vit"]');if(!b||b.dataset.s)return;var t=b.childNodes[0];if(t&&t.nodeType===3&&t.textContent.indexOf(' жана ')>0){t.textContent=t.textContent.split(' жана ')[0]+' ';b.dataset.s=1;}}
+new MutationObserver(function(){fix();tab();}).observe(document.body,{childList:true,subtree:true});})();</script><style>.mstabs{position:static!important}</style>"""
+
+_myshop_page_va_base = myshop_page
+
+
+def myshop_page(lang="ky"):
+    return _myshop_page_va_base(lang).replace("</body>", (_VTN_JS % json.dumps(_VT_NOUN, ensure_ascii=False)) + "</body>", 1)
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
