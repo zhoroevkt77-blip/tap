@@ -4743,6 +4743,10 @@ class H(BaseHTTPRequestHandler):
             self._send(stats_page(lang))
             return
 
+        if u.path.startswith("/qr/"):   # QRFIX_ROUTE
+            _qr_serve(self, u.path)
+            return
+
         if u.path.startswith("/pi/"):   # TAPPLUS2_ROUTE
             _tp_img(self, u.path)
             return
@@ -11235,6 +11239,320 @@ def page(body, *a, **k):
     h = _page_tc_base(body, *a, **k)
     if isinstance(h, str) and "</head>" in h:
         h = h.replace("</head>", _TC_CSS + "</head>", 1)
+    return h
+
+
+# ── QRFIX: QR-код сервердин өзүндө (CDN'сиз), 4 модулдук ак чек, так пикселдер ──
+import zlib as _qz
+import struct as _qst
+
+_QR_ECC_M = (None, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26)
+_QR_BLK_M = (None, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16)
+
+
+def _qr_raw_modules(v):
+    r = (16 * v + 128) * v + 64
+    if v >= 2:
+        n = v // 7 + 2
+        r -= (25 * n - 10) * n - 55
+        if v >= 7:
+            r -= 36
+    return r
+
+
+def _qr_align(v):
+    if v == 1:
+        return []
+    n = v // 7 + 2
+    step = (v * 8 + n * 3 + 5) // (n * 4 - 4) * 2
+    res = [6]
+    for i in range(n - 1):
+        res.insert(1, v * 4 + 17 - 7 - i * step)
+    return res
+
+
+def _qr_gf_mul(x, y):
+    z = 0
+    for i in range(7, -1, -1):
+        z = (z << 1) ^ ((z >> 7) * 0x11D)
+        z ^= ((y >> i) & 1) * x
+    return z & 0xFF
+
+
+def _qr_rs_div(deg):
+    res = [0] * (deg - 1) + [1]
+    root = 1
+    for _ in range(deg):
+        for j in range(deg):
+            res[j] = _qr_gf_mul(res[j], root)
+            if j + 1 < deg:
+                res[j] ^= res[j + 1]
+        root = _qr_gf_mul(root, 0x02)
+    return res
+
+
+def _qr_rs_rem(data, div):
+    res = [0] * len(div)
+    for b in data:
+        f = b ^ res.pop(0)
+        res.append(0)
+        for i, c in enumerate(div):
+            res[i] ^= _qr_gf_mul(c, f)
+    return res
+
+
+def qr_matrix(text):
+    """Байт режими, ката оңдоо деңгээли M. Модулдардын матрицасын (True=кара) кайтарат."""
+    data = text.encode("utf-8")
+    ver = None
+    for v in range(1, 21):
+        cap = _qr_raw_modules(v) // 8 - _QR_ECC_M[v] * _QR_BLK_M[v]
+        need = 4 + (8 if v < 10 else 16) + len(data) * 8
+        if need <= cap * 8:
+            ver = v
+            break
+    if ver is None:
+        raise ValueError("too long")
+    v = ver
+    cap = _qr_raw_modules(v) // 8 - _QR_ECC_M[v] * _QR_BLK_M[v]
+    bits = []
+
+    def put(val, n):
+        for i in range(n - 1, -1, -1):
+            bits.append((val >> i) & 1)
+    put(4, 4)
+    put(len(data), 8 if v < 10 else 16)
+    for b in data:
+        put(b, 8)
+    put(0, min(4, cap * 8 - len(bits)))
+    put(0, (8 - len(bits) % 8) % 8)
+    pad = 0xEC
+    while len(bits) < cap * 8:
+        put(pad, 8)
+        pad ^= 0xEC ^ 0x11
+    cw = [int("".join(map(str, bits[i:i + 8])), 2) for i in range(0, len(bits), 8)]
+    # блокторго бөлүү + RS
+    nb = _QR_BLK_M[v]
+    ecl = _QR_ECC_M[v]
+    raw = _qr_raw_modules(v) // 8
+    nshort = nb - raw % nb
+    slen = raw // nb
+    div = _qr_rs_div(ecl)
+    blocks = []
+    k = 0
+    for i in range(nb):
+        dl = slen - ecl + (0 if i < nshort else 1)
+        dat = cw[k:k + dl]
+        k += dl
+        ec = _qr_rs_rem(dat, div)
+        if i < nshort:
+            dat = dat + [None]
+        blocks.append(dat + ec)
+    allcw = []
+    for i in range(len(blocks[0])):
+        for j, bl in enumerate(blocks):
+            if bl[i] is not None:
+                allcw.append(bl[i])
+    size = v * 4 + 17
+    mod = [[False] * size for _ in range(size)]
+    fn = [[False] * size for _ in range(size)]
+
+    def setf(x, y, d):
+        mod[y][x] = d
+        fn[y][x] = True
+    for i in range(size):
+        setf(6, i, i % 2 == 0)
+        setf(i, 6, i % 2 == 0)
+    for cx, cy in ((3, 3), (size - 4, 3), (3, size - 4)):
+        for dy in range(-4, 5):
+            for dx in range(-4, 5):
+                d = max(abs(dx), abs(dy))
+                xx, yy = cx + dx, cy + dy
+                if 0 <= xx < size and 0 <= yy < size:
+                    setf(xx, yy, d not in (2, 4))
+    al = _qr_align(v)
+    na = len(al)
+    for i in range(na):
+        for j in range(na):
+            if (i == 0 and j == 0) or (i == 0 and j == na - 1) or (i == na - 1 and j == 0):
+                continue
+            for dy in range(-2, 3):
+                for dx in range(-2, 3):
+                    setf(al[i] + dx, al[j] + dy, max(abs(dx), abs(dy)) != 1)
+
+    def draw_format(mask):
+        d = (0 << 3) | mask   # M = 0b00
+        rem = d
+        for _ in range(10):
+            rem = (rem << 1) ^ ((rem >> 9) * 0x537)
+        b = ((d << 10) | rem) ^ 0x5412
+        g = lambda i: ((b >> i) & 1) != 0
+        for i in range(0, 6):
+            setf(8, i, g(i))
+        setf(8, 7, g(6))
+        setf(8, 8, g(7))
+        setf(7, 8, g(8))
+        for i in range(9, 15):
+            setf(14 - i, 8, g(i))
+        for i in range(0, 8):
+            setf(size - 1 - i, 8, g(i))
+        for i in range(8, 15):
+            setf(8, size - 15 + i, g(i))
+        setf(8, size - 8, True)
+    draw_format(0)
+    if v >= 7:
+        rem = v
+        for _ in range(12):
+            rem = (rem << 1) ^ ((rem >> 11) * 0x1F25)
+        b = (v << 12) | rem
+        for i in range(18):
+            bt = ((b >> i) & 1) != 0
+            a, c = size - 11 + i % 3, i // 3
+            setf(a, c, bt)
+            setf(c, a, bt)
+    # маалыматты жайгаштыруу (зигзаг)
+    i = 0
+    right = size - 1
+    while right >= 1:
+        if right == 6:
+            right = 5
+        for vert in range(size):
+            for j in range(2):
+                x = right - j
+                up = ((right + 1) & 2) == 0
+                y = size - 1 - vert if up else vert
+                if not fn[y][x] and i < len(allcw) * 8:
+                    mod[y][x] = ((allcw[i >> 3] >> (7 - (i & 7))) & 1) != 0
+                    i += 1
+        right -= 2
+
+    def apply_mask(m):
+        for y in range(size):
+            for x in range(size):
+                if fn[y][x]:
+                    continue
+                if m == 0: inv = (x + y) % 2 == 0
+                elif m == 1: inv = y % 2 == 0
+                elif m == 2: inv = x % 3 == 0
+                elif m == 3: inv = (x + y) % 3 == 0
+                elif m == 4: inv = (x // 3 + y // 2) % 2 == 0
+                elif m == 5: inv = x * y % 2 + x * y % 3 == 0
+                elif m == 6: inv = (x * y % 2 + x * y % 3) % 2 == 0
+                else: inv = ((x + y) % 2 + x * y % 3) % 2 == 0
+                if inv:
+                    mod[y][x] = not mod[y][x]
+
+    def penalty():
+        p = 0
+        for grid in (mod, [list(c) for c in zip(*mod)]):
+            for row in grid:
+                run = 1
+                for k2 in range(1, size + 1):
+                    if k2 < size and row[k2] == row[k2 - 1]:
+                        run += 1
+                    else:
+                        if run >= 5:
+                            p += run - 2
+                        run = 1
+                s = "".join("1" if c else "0" for c in row)
+                for pat in ("10111010000", "00001011101"):
+                    p += 40 * s.count(pat)
+        for y in range(size - 1):
+            for x in range(size - 1):
+                c = mod[y][x]
+                if c == mod[y][x + 1] == mod[y + 1][x] == mod[y + 1][x + 1]:
+                    p += 3
+        dark = sum(sum(1 for c in r if c) for r in mod)
+        tot = size * size
+        p += ((abs(dark * 20 - tot * 10) + tot - 1) // tot - 1) * 10
+        return p
+    best, bm = None, 0
+    for m in range(8):
+        apply_mask(m)
+        draw_format(m)
+        pn = penalty()
+        if best is None or pn < best:
+            best, bm = pn, m
+        apply_mask(m)
+    apply_mask(bm)
+    draw_format(bm)
+    return mod
+
+
+def qr_png(text, scale=10, border=4):
+    m = qr_matrix(text)
+    n = len(m)
+    W = (n + border * 2) * scale
+    rows = []
+    for y in range(n + border * 2):
+        my = y - border
+        line = bytearray()
+        for x in range(n + border * 2):
+            mx = x - border
+            dark = 0 <= mx < n and 0 <= my < n and m[my][mx]
+            line += (b"\x00" if dark else b"\xff") * scale
+        r = b"\x00" + bytes(line)
+        rows.append(r * scale)
+    raw = b"".join(rows)
+
+    def chunk(t, d):
+        c = _qst.pack(">I", len(d)) + t + d
+        return c + _qst.pack(">I", zlib_crc(t + d))
+    zlib_crc = lambda b: _qz.crc32(b) & 0xFFFFFFFF
+    ihdr = _qst.pack(">IIBBBBB", W, W, 8, 0, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", _qz.compress(raw, 9)) + chunk(b"IEND", b"")
+
+
+_QR_CACHE = {}
+
+
+def _qr_serve(h, path):
+    mm = _wre.match(r"^/qr/([A-Za-z0-9_-]{1,60})\.png$", path)
+    data = None
+    if mm:
+        slug = mm.group(1)
+        s = _tp.by_slug(slug)
+        if s and s.get("slug"):
+            url = "https://%s/d/%s" % (os.environ.get("SITE_HOST", "tapmeni.up.railway.app"), s["slug"])
+            data = _QR_CACHE.get(url)
+            if not data:
+                try:
+                    data = qr_png(url)
+                    _QR_CACHE[url] = data
+                except Exception as e:
+                    print("qr:", e, flush=True)
+    if not data:
+        h.send_response(404)
+        h.send_header("Content-Length", "0")
+        h.end_headers()
+        return
+    h.send_response(200)
+    h.send_header("Content-Type", "image/png")
+    h.send_header("Content-Length", str(len(data)))
+    h.send_header("Cache-Control", "public, max-age=3600")
+    h.send_header("Content-Disposition", 'inline; filename="tap-qr-%s.png"' % mm.group(1))
+    h.end_headers()
+    h.wfile.write(data)
+
+
+_tp_store_qr_base = _tp_store
+
+
+def _tp_store(slug, lang):
+    h = _tp_store_qr_base(slug, lang)
+    try:
+        s = _tp.by_slug(slug)
+        if h and s and s.get("slug"):
+            src = "/qr/%s.png" % urllib.parse.quote(str(s["slug"]))
+            js = ('<script>function tpQr(){var m=document.getElementById("tpqr");m.classList.add("on");'
+                  'var c=document.getElementById("tpqrc");if(!c.dataset.ok){c.dataset.ok=1;'
+                  'c.innerHTML=\'<img src="%s" alt="QR" style="width:240px;height:240px;image-rendering:pixelated;display:block;margin:0 auto;border-radius:8px">\';}'
+                  'var d=document.getElementById("tpqrd");if(d){d.href="%s";d.setAttribute("download","tap-qr-%s.png");}}</script>'
+                  % (src, src, esc(str(s["slug"]))))
+            h = h.replace("</body>", js + "</body>", 1)
+            h = h.replace('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>', "", 1)
+    except Exception as e:
+        print("qrfix:", e, flush=True)
     return h
 
 if __name__ == "__main__":
