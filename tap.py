@@ -9932,7 +9932,7 @@ def me_page(lang="ky"):
                           'document.getElementById("vkn").textContent=j.pfn?("· "+j.pfn):"";}'
                           'else{var p=String(j.title).split(" ");document.getElementById("vkic").textContent=p.shift();document.getElementById("vktx").textContent=p.join(" ");'
                           'document.getElementById("vkn").textContent="· "+j.n+"/"+j.lim;}'
-                          'r.style.display="";}).catch(function(){});})();</script></body>', 1)
+                          'if(/Меню/.test(String(j.title||"")))return;/* MENUROW */r.style.display="";}).catch(function(){});})();</script></body>', 1)
     except Exception:
         pass
     return h
