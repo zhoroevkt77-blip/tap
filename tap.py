@@ -11952,6 +11952,103 @@ def _core_find_pk(*a, **k):
 
 core.find = _core_find_pk
 
+
+# ── WAVERIFY: номерди WhatsApp аркылуу ырастоо (Telegram'га кошумча) ──
+def _wa_num():
+    return "".join(c for c in os.environ.get("WA_NUMBER", "") if c.isdigit())
+
+
+def _wa_api_start(qs, lang):
+    num = _wa_num()
+    if not num:
+        return {"ok": False, "err": "off"}
+    tok = core.web_verify_start(qs.get("phone", [""])[0])
+    if not tok:
+        return {"ok": False}
+    txt = "ТАП! номер ырастоо: v_%s" % tok
+    return {"ok": True, "token": tok, "link": "https://wa.me/%s?text=%s" % (num, urllib.parse.quote(txt))}
+
+
+_EXT_GET["/api/verify/wa"] = _wa_api_start
+
+
+def _wa_tg_for(d9):
+    """Бул номер мурун Telegram менен ырасталган болсо — ошол аккаунт, болбосо 996XXXXXXXXX."""
+    try:
+        r = core.query("SELECT tg_id FROM web_verify WHERE phone=? AND verified=1 AND tg_id IS NOT NULL "
+                       "AND tg_id NOT LIKE '996%' ORDER BY created DESC LIMIT 1", (d9,), fetch="one")
+        if r:
+            t = dict(r).get("tg_id") if isinstance(r, dict) else r[0]
+            if t:
+                return str(t)
+    except Exception:
+        pass
+    return "996" + d9
+
+
+try:
+    import whatsapp as _waw
+    _wa_handle_base = _waw.handle
+
+    def _wa_handle(body):
+        try:
+            if body.get("typeWebhook") == "incomingMessageReceived":
+                chat = ((body.get("senderData") or {}).get("chatId") or "")
+                md = body.get("messageData") or {}
+                txt = ((md.get("textMessageData") or {}).get("textMessage")
+                       or (md.get("extendedTextMessageData") or {}).get("text") or "")
+                m = _wre.search(r"v_([A-Za-z0-9]{10,40})", txt or "")
+                if m and chat.endswith("@c.us"):
+                    digits = chat.split("@")[0]
+                    d9 = digits[-9:]
+                    if not digits.startswith("996") or len(digits) != 12:
+                        _waw.send(chat, "⚠️ Кыргызстандын номери (+996) гана ырасталат.")
+                        return
+                    res = core.web_verify_confirm(m.group(1), d9, _wa_tg_for(d9))
+                    _waw.send(chat, {
+                        "ok": "✅ Номериңиз ырасталды! Сайтка кайтыңыз — баары даяр.\n\n✅ Номер подтверждён! Вернитесь на сайт.",
+                        "mismatch": "⚠️ Бул WhatsApp номери сайтта жазылган номерге дал келбейт. Сайтта ушул номерди жазып, кайра аракет кылыңыз.",
+                        "expired": "⌛ Коддун мөөнөтү бүттү. Сайтта «WhatsApp аркылуу ырастоо» баскычын кайра басыңыз.",
+                    }.get(res, "⚠️ Ката. Кайра аракет кылыңыз."))
+                    return
+        except Exception as e:
+            print("waverify:", e, flush=True)
+        return _wa_handle_base(body)
+
+    _waw.handle = _wa_handle
+except Exception as _e:
+    print("waverify import:", _e, flush=True)
+
+
+_verify_page_wa_base = verify_page
+
+
+def verify_page(lang="ky"):
+    h = _verify_page_wa_base(lang)
+    if not _wa_num():
+        return h
+    ru = (lang == "ru")
+    h = h.replace("номериңиз Telegram аркылуу ырасталат", "номериңиз Telegram же WhatsApp аркылуу ырасталат", 1)
+    h = h.replace("номер подтверждается через Telegram", "номер подтверждается через Telegram или WhatsApp", 1)
+    btn = ('<button id="vwa" type="button" style="margin-top:10px;width:100%%;height:56px;border:0;border-radius:14px;'
+           'background:#1FAF5A;color:#fff;font-size:16px;font-weight:800">🟢 %s</button>'
+           % ("Подтвердить через WhatsApp" if ru else "WhatsApp аркылуу ырастоо"))
+    h = h.replace('<p id="verr"', btn + '<p id="verr"', 1)
+    js = r"""<script>(function(){var L=%s;function T(k,r){return L==='ru'?r:k;}
+function $(i){return document.getElementById(i);}
+function wamode(){var v=$('vf2');if(!v)return;var c=v.childNodes[0];
+ if(c&&c.nodeType===3)c.textContent=T('WhatsApp ачылды. Даяр турган билдирүүнү өзгөртпөй «Жөнөтүү» басыңыз, анан ушул бетке кайтыңыз.','Откройте WhatsApp, отправьте готовое сообщение без изменений и вернитесь на эту страницу.');
+ var a=$('vlink');if(a)a.textContent=T('WhatsApp ачылбаса, бул жерди басыңыз','Если WhatsApp не открылся — нажмите здесь');}
+try{var s=JSON.parse(localStorage.getItem('tap_vtok')||'null');if(s&&s.wa)setTimeout(wamode,0);}catch(e){}
+var b=$('vwa');if(!b)return;b.onclick=function(){var d=($('vph').value||'').replace(/[^0-9]/g,'');
+ if(d.length<9){$('verr').textContent=T('Номерди толук жазыңыз (9 сан).','Введите номер полностью (9 цифр).');return;}
+ $('verr').textContent='';fetch('/api/verify/wa?phone='+d).then(function(r){return r.json();}).then(function(j){
+  if(!j.ok){$('verr').textContent=T('Ката. Кайра аракет кылыңыз.','Ошибка. Попробуйте снова.');return;}
+  try{localStorage.setItem('tap_vtok',JSON.stringify({tok:j.token,link:j.link,at:Date.now(),wa:1}));}catch(e){}
+  location.href=j.link;setTimeout(function(){location.reload();},1500);}).catch(function(){$('verr').textContent=T('Байланыш катасы.','Ошибка связи.');});};
+})();</script>""" % json.dumps(lang)
+    return h.replace("</body>", js + "</body>", 1)
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
