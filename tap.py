@@ -11831,6 +11831,127 @@ def _tp_store(slug, lang):
     return h
 
 
+
+# ── PLUSKIND: ТАП+ белгиси жана үстүдө туруу — бизнестин түрүнө туура келген бөлүмдөрдө гана ──
+import threading as _pkth
+
+_PK_SEC = {
+    "store": ("trade", "wholesale", "markets", "malls", "delivery", "job"),
+    "factory": ("trade", "wholesale", "markets", "malls", "delivery", "job"),
+    "farm": ("trade", "wholesale", "markets", "delivery", "job"),
+    "brigade": ("service", "job"),
+    "builder": ("property", "service", "job"),
+    "realtor": ("property", "rental", "job"),
+    "auto": ("vehicle", "rental", "job"),
+    "transport": ("cargo", "delivery", "taxi", "job"),
+    "salon": ("service", "trade", "job"),
+    "edu": ("service", "job"),
+    "cafe": ("service", "delivery", "trade", "job"),
+    "toy": ("service", "rental", "job"),
+    "autosvc": ("service", "trade", "job"),
+    "hotel": ("rental", "service", "job"),
+    "clean": ("service", "job"),
+    "photo": ("service", "rental", "job"),
+    "vet": ("service", "trade", "job"),
+    "legal": ("service", "job"),
+    "fitness": ("service", "job"),
+    "travel": ("service", "job"),
+}
+_PK = _pkth.local()
+
+
+def _pk_allowed(tg, ad_type):
+    """Бул жарыя ТАП+ катары эсептелеби (сатуучунун түрү × жарыянын бөлүмү)."""
+    if not ad_type:
+        return True
+    s = _tp.get(tg)
+    if not s:
+        return True
+    secs = _PK_SEC.get(_tp.kind(s))
+    return (not secs) or (str(ad_type) in secs)
+
+
+_pk_tier_base = _tp.tier
+
+
+def _pk_tier(tg_id):
+    t = _pk_tier_base(tg_id)
+    ad = getattr(_PK, "ad", None)
+    if t and ad and not _pk_allowed(tg_id, ad):
+        return None
+    return t
+
+
+_tp.tier = _pk_tier   # tap_plus ичиндеги rank() да ушуну колдонот
+
+
+def _pk_wrap_row(fn):
+    def w(r, *a, **k):
+        old = getattr(_PK, "ad", None)
+        try:
+            _PK.ad = (r.get("ad_type") if isinstance(r, dict) else None) or None
+        except Exception:
+            _PK.ad = None
+        try:
+            return fn(r, *a, **k)
+        finally:
+            _PK.ad = old
+    return w
+
+
+card = _pk_wrap_row(card)
+detail = _pk_wrap_row(detail)
+
+
+# Тизмелердин тартиби: SQL'де сатуучу × бөлүм боюнча
+def _pt_case():
+    try:
+        _tp._load()
+        grp = {}
+        for k in list(_tp._C.get("tg", {}).keys()):
+            t = _pk_tier_base(k)
+            if t and _wre.match(r"^[A-Za-z0-9_-]{1,40}$", k):
+                kd = _tp.kind(_tp.get(k))
+                grp.setdefault((_tp.TIER[t][3], kd), []).append("'%s'" % k)
+        if not grp:
+            return ""
+        w = []
+        for (r, kd), ids in sorted(grp.items()):
+            secs = _PK_SEC.get(kd)
+            cond = "tg_id IN (%s)" % ",".join(ids)
+            if secs:
+                cond += " AND ad_type IN (%s)" % ",".join("'%s'" % x for x in secs)
+            w.append("WHEN %s THEN %d" % (cond, r))
+        return "(CASE %s ELSE 9 END)" % " ".join(w)
+    except Exception as e:
+        print("pluskind:", e, flush=True)
+        return ""
+
+
+_core_find_pk_base = core.find
+
+
+def _core_find_pk(*a, **k):
+    rows = _core_find_pk_base(*a, **k)
+    try:
+        kw = dict(zip(_PS_ARGS, a))
+        kw.update(k)
+        if (kw.get("sort") or "new") == "new" and rows:
+            blim = (_sdt.utcnow() - _std(hours=BUMP_HOURS)).strftime("%Y-%m-%d %H:%M:%S")
+
+            def key(x):
+                x = dict(x)
+                t = _pk_tier_base(x.get("tg_id"))
+                rk = _tp.TIER[t][3] if (t and _pk_allowed(x.get("tg_id"), x.get("ad_type"))) else 9
+                return (rk, 0 if str(x.get("bumped_at") or "") >= blim else 1, -int(x.get("id") or 0))
+            rows = sorted(rows, key=key)
+    except Exception as e:
+        print("pluskind sort:", e, flush=True)
+    return rows
+
+
+core.find = _core_find_pk
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
