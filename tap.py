@@ -13142,6 +13142,55 @@ def shops_page(qs, lang="ky"):
          % (_SH_CSS, css, top, srch, _pin_btn(ob, lang, cnt(ob, "", "", "", base) if ob else len(base)), rows_html, note, ch, body))
     return page(header("", None, None, lang) + h, title=("Магазины ТАП+" if ru else "ТАП+ дүкөндөр") + " — ТАП!", lang=lang)
 
+
+# ── SHOPPLACE: дүкөндүн карточкасында чыныгы жери (жарыяларынан: айыл / район / облус) ──
+def _sp_place(s, ru):
+    locs = [x for x in _sg_locs().get(str(s["tg_id"]), set()) if x[0]]
+    if not locs:
+        return "Весь Кыргызстан" if ru else "Бүт Кыргызстан"
+    obs = sorted({x[0] for x in locs})
+    if len(obs) > 1:
+        a = [_short_place(_place_name(o, "ru" if ru else "ky")) for o in obs[:2]]
+        return " · ".join(a) + (" +%d" % (len(obs) - 2) if len(obs) > 2 else "")
+    ob = obs[0]
+    dis = {x[1] for x in locs if x[1]}
+    if len(dis) != 1 or ob == list(dis)[0]:
+        return _short_place(_place_name(ob, "ru" if ru else "ky"))
+    di = list(dis)[0]
+    vgs = {x[3] for x in locs if x[3]}
+    parts = [_short_place(_place_name(di, "ru" if ru else "ky"))]
+    if len(vgs) == 1:
+        parts.insert(0, list(vgs)[0])
+    return ", ".join(parts)
+
+
+def _sh_meta(s, ru):
+    m = []
+    if s.get("_rn"):
+        m.append('⭐ %s' % s["_ra"])
+    try:
+        m.append("📍 " + esc(_sp_place(s, ru)))
+    except Exception:
+        if s.get("_city"):
+            m.append(esc(s["_city"]))
+    m.append(("%d объявл." if ru else "%d жарыя") % s["_n"])
+    return " · ".join(m)
+
+
+_sh_row_sp_base = _sh_row
+
+
+def _sh_row(s, ru, btn=True):
+    """Алтын/Күмүш дүкөндө да түстүү белги (жөн «ТАП+» жазуусунун ордуна)."""
+    h = _sh_row_sp_base(s, ru, btn)
+    try:
+        t = s["_tr"][0]
+        if '<em class="tcb' not in h and t in _TC_LBL:
+            h = h.replace(" · ТАП+</small>", ' · <em class="tcb t-%s">ТАП+ · %s</em></small>' % (t, _TC_LBL[t][1 if ru else 0]), 1)
+    except Exception:
+        pass
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
