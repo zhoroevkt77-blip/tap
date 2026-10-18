@@ -833,7 +833,7 @@ def admin(h, uid, q, p, msg, page, k):
 
 # ── PLUSSELF: сатуучу ТАП+'ты өзү ачат (7 күн акысыз), төлөмдү чек менен өзү узартат ──
 _PP = {"ready": False}
-PAY_MONTHS = {1: 1, 3: 3, 12: 10}   # канча айга → канча айдын баасы (12 ай = 10 айдын баасы)
+PAY_MONTHS = {1: 1, 2: 2, 3: 2.4}   # PAYMON: 3 ай алса −20% (3 × 0.8 = 2.4 айдын баасы)
 
 
 def pp_init():
@@ -850,7 +850,7 @@ def pp_init():
 
 
 def pp_amount(tier, months):
-    return TIER[tier][2] * PAY_MONTHS.get(int(months), int(months))
+    return int(round(TIER[tier][2] * PAY_MONTHS.get(int(months), int(months)) / 10.0)) * 10
 
 
 def pp_extend(tg_id, tier, days):

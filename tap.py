@@ -10380,9 +10380,9 @@ function draw(){var h='';
  h+='<div class="msf"><label>1. Тарифти тандаңыз</label><div class="mpt">';
  D.tiers.forEach(function(t){h+='<button type="button" data-t="'+t[0]+'" class="'+(TR===t[0]?'on':'')+'"><b>'+e(t[1])+'</b><small>'+nf(t[2])+' сом/ай</small></button>';});
  h+='</div><label>2. Мөөнөтү</label><div class="mpt">';
- D.months.forEach(function(m){h+='<button type="button" data-m="'+m[0]+'" class="'+(MO===m[0]?'on':'')+'"><b>'+m[0]+' ай</b><small>'+(m[0]!==m[1]?('🎁 '+(m[0]-m[1])+' ай бекер'):'&nbsp;')+'</small></button>';});
+ D.months.forEach(function(m){h+='<button type="button" data-m="'+m[0]+'" class="'+(MO===m[0]?'on':'')+'"><b>'+m[0]+' ай</b><small>'+(m[0]!==m[1]?('🔥 '+Math.round((1-m[1]/m[0])*100)+'% арзан'):'&nbsp;')+'</small></button>';});
  var pr=0;D.tiers.forEach(function(t){if(t[0]===TR)pr=t[2];});var mm=1;D.months.forEach(function(m){if(m[0]===MO)mm=m[1];});
- h+='</div><div class="mpsum">Төлөө: <b>'+nf(pr*mm)+' сом</b></div>'
+ var tot=Math.round(pr*mm/10)*10;h+='</div><div class="mpsum">Төлөө: '+(mm<MO?'<s style="color:#8A97AB;font-size:.75em">'+nf(pr*MO)+'</s> ':'')+'<b>'+nf(tot)+' сом</b>'+(mm<MO?'<div style="font-size:13.5px;color:#0E7A54;font-weight:800;margin-top:4px">🎉 '+nf(pr*MO-tot)+' сом үнөмдөйсүз</div>':'')+'</div>'
   +'<label>3. MBank аркылуу которуңуз</label><div class="mpph">📱 '+(D.phone?('<b>'+e(D.phone)+'</b>'):'админдин номери')+' <small>MBank → Которуу → номер боюнча</small></div>'
   +'<label>4. Чектин сүрөтүн жүктөңүз</label><label class="mpup" id="mpup">🧾 Чектин сүрөтүн тандоо<input type="file" accept="image/*" id="mpin" style="display:none"></label>'
   +'<button type="button" class="mpgo" id="mpgo">✅ Жөнөтүү</button><div style="font-size:12.5px;color:#7A889C;margin-top:8px;line-height:1.45">Чек текшерилгенден кийин (адатта бир нече саатта) мөөнөтүңүз өзү узарат.</div></div>';
