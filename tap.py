@@ -10981,6 +10981,148 @@ def _pr_data(lang):
             v["f"] = [x.replace(" — иштердин сүрөттөрү", "").replace(" — фото работ", "") for x in v["f"]]
     return d
 
+
+# ── BOOKCAL: брондоо календары (тойкана, мейманкана, фото/видео) ──
+CAL_KINDS = ("toy", "hotel", "photo")
+_BC = {"ready": False}
+
+
+def _bc_init():
+    if _BC["ready"]:
+        return
+    core.query("CREATE TABLE IF NOT EXISTS seller_busy (tg_id TEXT, day TEXT, at TEXT)")
+    _BC["ready"] = True
+
+
+def _bc_days(tg):
+    _bc_init()
+    today = (_sdt.utcnow() + _std(hours=6)).strftime("%Y-%m-%d")
+    return sorted({str(dict(r)["day"]) for r in (core.query("SELECT day FROM seller_busy WHERE tg_id=? AND day>=?",
+                                                              (str(tg), today), fetch="all") or [])})
+
+
+def _bc_api_get(qs, lang):
+    slug = qs.get("slug", [""])[0]
+    if slug:
+        s = _tp.by_slug(slug)
+        if not s or _tp.kind(s) not in CAL_KINDS:
+            return {"ok": False}
+        return {"ok": True, "busy": _bc_days(s["tg_id"])}
+    s, err = _ms_seller(qs.get("t", [""])[0])
+    if err:
+        return err
+    if _tp.kind(s) not in CAL_KINDS:
+        return {"ok": True, "off": True}
+    return {"ok": True, "busy": _bc_days(s["tg_id"]), "kind": _tp.kind(s)}
+
+
+def _bc_api_post(b):
+    s, err = _ms_seller(b.get("token"))
+    if err:
+        return err
+    if _tp.kind(s) not in CAL_KINDS:
+        return {"ok": False, "err": "kind"}
+    d = str(b.get("day") or "")
+    if not _wre.match(r"^\d{4}-\d{2}-\d{2}$", d):
+        return {"ok": False, "err": "day"}
+    _bc_init()
+    tg = str(s["tg_id"])
+    core.query("DELETE FROM seller_busy WHERE tg_id=? AND day=?", (tg, d))
+    if b.get("busy"):
+        core.query("INSERT INTO seller_busy (tg_id, day, at) VALUES (?,?,?)", (tg, d, core.now_str()))
+    return {"ok": True, "busy": _bc_days(tg)}
+
+
+_EXT_GET["/api/busy"] = _bc_api_get
+_EXT_POST["/api/busy"] = _bc_api_post
+
+_BC_CSS = """<style>
+.bcw{background:#fff;border-radius:18px;padding:12px 12px 14px;box-shadow:0 1px 6px rgba(11,27,48,.07);margin:0 0 12px}
+.bch{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px}.bch b{font-size:16px}
+.bch button{border:0;background:#EEF4FF;color:#163C8C;border-radius:10px;width:38px;height:34px;font-size:18px;font-weight:800}
+.bch button:disabled{opacity:.35}
+.bcg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.bcg i{font-style:normal;text-align:center;font-size:11.5px;color:#7A889C;font-weight:700;padding:2px 0}
+.bcg button{border:0;border-radius:10px;aspect-ratio:1/1;font:inherit;font-size:14px;font-weight:800;background:#E3F6EA;color:#155C33;padding:0}
+.bcg button.bz{background:#FDECEC;color:#C24141;text-decoration:line-through}
+.bcg button.past{background:#F3F6FB;color:#B5C0CF}.bcg button.td{box-shadow:0 0 0 2px #163C8C inset}
+.bcg button.sel{background:#163C8C;color:#fff}
+.bcl{display:flex;gap:12px;font-size:12px;color:#5A6B82;margin-top:8px;flex-wrap:wrap}.bcl span:before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.bcl .bcf:before{background:#E3F6EA}.bcl .bcb:before{background:#FDECEC}
+.bcgo{display:none;width:100%;margin-top:10px;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:900;font-size:15px;color:#3A2A00;background:#FFD666}
+</style>"""
+
+_BC_JS = r"""<script>window.tpCal=function(el,opt){var M=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],
+W=['Дш','Шш','Шр','Бш','Жм','Иш','Жк'],now=new Date(Date.now()+(new Date().getTimezoneOffset()+360)*6e4),
+td=now.getFullYear()+'-'+('0'+(now.getMonth()+1)).slice(-2)+'-'+('0'+now.getDate()).slice(-2),off=0,B={},sel=null;
+(opt.busy||[]).forEach(function(d){B[d]=1;});
+function p2(n){return ('0'+n).slice(-2);}
+function draw(){var y=now.getFullYear(),m=now.getMonth()+off;y+=Math.floor(m/12);m=((m%12)+12)%12;
+ var f=new Date(y,m,1),sh=(f.getDay()+6)%7,n=new Date(y,m+1,0).getDate();
+ var h='<div class="bch"><button type="button" data-o="-1"'+(off<=0?' disabled':'')+'>‹</button><b>'+M[m]+' '+y+'</b><button type="button" data-o="1"'+(off>=5?' disabled':'')+'>›</button></div><div class="bcg">';
+ W.forEach(function(w){h+='<i>'+w+'</i>';});for(var i=0;i<sh;i++)h+='<span></span>';
+ for(var d=1;d<=n;d++){var k=y+'-'+p2(m+1)+'-'+p2(d),c=k<td?'past':(B[k]?'bz':'');if(k===td)c+=' td';if(k===sel)c+=' sel';
+  h+='<button type="button" class="'+c+'" data-d="'+k+'"'+(k<td?' disabled':'')+'>'+d+'</button>';}
+ h+='</div><div class="bcl"><span class="bcf">'+(opt.edit?'Бош':'Бош — басыңыз')+'</span><span class="bcb">'+(opt.edit?'Бош эмес (басып алмаштырыңыз)':'Бош эмес')+'</span></div>'
+  +(opt.edit?'':'<button type="button" class="bcgo" id="bcgo"></button>');
+ el.innerHTML=h;
+ el.querySelectorAll('[data-o]').forEach(function(b){b.onclick=function(){off+=+b.getAttribute('data-o');draw();};});
+ el.querySelectorAll('[data-d]').forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-d');
+  if(opt.edit){var nb=!B[k];if(nb)B[k]=1;else delete B[k];draw();opt.edit(k,nb,function(list){B={};(list||[]).forEach(function(x){B[x]=1;});draw();});return;}
+  if(B[k])return;sel=k;draw();var g=document.getElementById('bcgo');var pp=k.split('-');g.style.display='block';
+  g.textContent='📅 '+(+pp[2])+'-'+M[+pp[1]-1].toLowerCase()+' — '+(opt.btn||'Брондоо');g.onclick=function(){if(window.tpReq){window.tpReq();
+   setTimeout(function(){var t=document.getElementById('rqt');if(t)t.value='📅 '+(+pp[2])+'-'+M[+pp[1]-1].toLowerCase()+' '+pp[0]+' — ';},60);}};};});}
+draw();};</script>"""
+
+_tp_store_bc_base = _tp_store
+
+
+def _tp_store(slug, lang):
+    h = _tp_store_bc_base(slug, lang)
+    try:
+        s = _tp.by_slug(slug)
+        if h and s and _tp.kind(s) in CAL_KINDS:
+            ru = (lang == "ru")
+            K = _tp.KIND[_tp.kind(s)]
+            sec = ('%s%s<div class="tpsec">📅 %s</div><div class="bcw" id="bcw"></div>'
+                   '<script>tpCal(document.getElementById("bcw"),{busy:%s,btn:%s});</script>'
+                   % (_BC_CSS, _BC_JS, "Свободные даты" if ru else "Бош күндөр", json.dumps(_bc_days(s["tg_id"])),
+                      json.dumps(K[5].split(" ", 1)[-1])))
+            a = h.find("<!--TP:AFTERHEAD-->")
+            j = h.find('<div class="tpsec">', a if a >= 0 else 0)
+            if j < 0:
+                j = h.find("<!--TP:BEFORELIST-->")
+            if j >= 0:
+                h = h[:j] + sec + h[j:]
+    except Exception as e:
+        print("bookcal:", e, flush=True)
+    return h
+
+
+_myshop_page_bc_base = myshop_page
+
+
+def myshop_page(lang="ky"):
+    h = _myshop_page_bc_base(lang)
+    js = ('<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}if(!t)return;'
+          'fetch("/api/busy?t="+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){if(!j.ok||j.off)return;'
+          'var w=document.createElement("div");w.className="msf";w.innerHTML=\'<label>📅 Брондоо календары</label><div style="font-size:12.5px;color:#5A6B82;margin:-2px 0 8px;line-height:1.4">'
+          'Бош эмес күндөрдү басып белгилеңиз — кардарлар дүкөн барагыңызда бош күндөрдү гана тандай алат. Өзү сакталат.</div><div id="bcme"></div>\';'
+          'var box=document.getElementById("vtlk")||document.getElementById("msbox");box.parentNode.insertBefore(w,box.nextSibling);'
+          'tpCal(document.getElementById("bcme"),{busy:j.busy,edit:function(d,b,cb){fetch("/api/busy",{method:"POST",headers:{"Content-Type":"application/json"},'
+          'body:JSON.stringify({token:t,day:d,busy:b})}).then(function(r){return r.json();}).then(function(x){if(x.ok)cb(x.busy);}).catch(function(){});}});'
+          '}).catch(function(){});})();</script>')
+    return h.replace("</body>", _BC_CSS + _BC_JS + js + "</body>", 1)
+
+
+try:
+    for _k in ("tai", "tulpar"):
+        pass
+    _TP_FEAT["kulun"] = _TP_FEAT["kulun"] + ("📅 Брондоо календары (тойкана, мейманкана, фотограф)",)
+    _TP_FEAT_RU["kulun"] = _TP_FEAT_RU["kulun"] + ("📅 Календарь брони (банкетный зал, гостиница, фотограф)",)
+except Exception:
+    pass
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
