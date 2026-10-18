@@ -12949,6 +12949,199 @@ def _tp_store(slug, lang):
         print("pagelist:", ex, flush=True)
     return h
 
+
+# ── SHOPGEO: ТАП+ дүкөндөр — облус › район › айыл аймагы › айыл, жана издөө ──
+import time as _sgt
+_SG = {"t": 0.0, "loc": {}}
+
+
+def _sg_locs():
+    """Ар бир сатуучунун жарыялары турган жерлер: {tg: set((ob, di, lo, vg))} (1 мүнөт кэш)."""
+    if _sgt.time() - _SG["t"] < 60 and _SG["loc"]:
+        return _SG["loc"]
+    out = {}
+    try:
+        for r in core.query("SELECT DISTINCT tg_id, oblast, district, locality, village FROM listings WHERE is_active=1 "
+                            "AND tg_id IN (SELECT tg_id FROM sellers)", fetch="all") or []:
+            r = dict(r)
+            ob = _sr_norm(r.get("oblast"))
+            out.setdefault(str(r["tg_id"]), set()).add((ob or "", str(r.get("district") or ""), str(r.get("locality") or ""),
+                                                        str(r.get("village") or "")))
+    except Exception as e:
+        print("shopgeo locs:", e, flush=True)
+    _SG.update(t=_sgt.time(), loc=out)
+    return out
+
+
+def _sg_match(locs, ob, di, lo, vg):
+    """Дүкөн бул жерде иштейби. Аймагы жок (Бүт Кыргызстан/бүт облус) жарыялар жогору жактагы бардык жерге кирет."""
+    if not ob:
+        return True
+    for (o, d, l, v) in locs:
+        if not o:
+            return True
+        if o != ob:
+            continue
+        if not di or not d:
+            return True
+        if d != di:
+            continue
+        if not lo or not l:
+            return True
+        if l != lo:
+            continue
+        if not vg or not v or v == vg:
+            return True
+    return False
+
+
+def _sg_text(s):
+    try:
+        ex = _tp.extra(s)
+    except Exception:
+        ex = {}
+    bits = [s.get("name"), s.get("about"), s.get("address"), _tp.KIND[_tp.kind(s)][2], _tp.KIND_RU.get(_tp.kind(s), ""),
+            ex.get("services"), ex.get("facts"), ex.get("prices")]
+    try:
+        for r in core.query("SELECT name, sec FROM seller_vit WHERE tg_id=?", (str(s["tg_id"]),), fetch="all") or []:
+            r = dict(r)
+            bits += [r.get("name"), r.get("sec")]
+    except Exception:
+        pass
+    return " ".join(str(b or "") for b in bits).lower()
+
+
+def _sg_q(rows, q):
+    words = [w for w in _wre.split(r"\s+", q.lower().strip()) if len(w) >= 2]
+    if not words:
+        return rows
+    out = []
+    for s in rows:
+        t = _sg_text(s)
+        if all(w[:5] in t for w in words):
+            out.append(s)
+    return out
+
+
+_sh_row_sg_base = _sh_row
+
+
+def _sh_row(s, ru, btn=True):
+    """Тарифтин аты эки жолу жазылып калбасын («ТАП+ · АЛМАЗ · АЛМАЗ»)."""
+    h = _sh_row_sg_base(s, ru, btn)
+    return _wre.sub(r'(<em class="tcb[^"]*">[^<]*</em>)(?: · (?:АЛМАЗ|АЛТЫН|КҮМҮШ|ЗОЛОТО|СЕРЕБРО))+', r"\1", h)
+
+
+def shops_page(qs, lang="ky"):
+    ru = (lang == "ru")
+    g = lambda k: (qs.get(k, [""])[0] or "").strip()
+    ob = getattr(_RS, "cob", None)
+    di, lo, vg, kd, q = g("di"), g("lo"), g("vg"), g("k"), g("q")
+    if not ob:
+        di = lo = vg = ""
+    allrows = _sh_all()
+    locs = _sg_locs()
+
+    def link(**kw):
+        p = {"di": di, "lo": lo, "vg": vg, "k": kd, "q": q}
+        p.update(kw)
+        s = "&".join("%s=%s" % (k, urllib.parse.quote(v)) for k, v in p.items() if v)
+        return "/d" + ("?" + s if s else "")
+
+    def cnt(o, d, l, v, base):
+        return sum(1 for s in base if _sg_match(locs.get(str(s["tg_id"]), set()), o, d, l, v))
+
+    base = _sg_q(allrows, q) if q else allrows
+    # тандалган жерде дүкөн жок болсо — бир кадам жогору
+    levels = [(ob, di, lo, vg), (ob, di, lo, ""), (ob, di, "", ""), (ob, "", "", "")]
+    here = [s for s in base if _sg_match(locs.get(str(s["tg_id"]), set()), ob, di, lo, vg)]
+    fell = None
+    if not here and ob:
+        for lv in levels[1:]:
+            h2 = [s for s in base if _sg_match(locs.get(str(s["tg_id"]), set()), *lv)]
+            if h2:
+                fell = lv
+                here = h2
+                break
+    cntk = {}
+    for s in here:
+        cntk[s["_kd"][0]] = cntk.get(s["_kd"][0], 0) + 1
+    lst = [s for s in here if not kd or s["_kd"][0] == kd]
+    # аймак катарлары
+    rows_html = ""
+    if ob:
+        try:
+            ds = list(get_districts(ob))
+        except Exception:
+            ds = []
+        if ds:
+            c2 = {d: cnt(ob, d, "", "", base) for d in ds}
+            _o = str(ob).lower()
+            whole = ("Весь город" if ru else "Бүт шаар") if ("шаар" in _o or "город" in _o) else T("all_oblast", lang)
+            r = _chip(link(di="", lo="", vg=""), whole, not di, cnt(ob, "", "", "", base), lang, short=False)
+            for d in _by_count(ds, c2):
+                r += _chip(link(di=d, lo="", vg=""), d, di == d, c2[d], lang)
+            rows_html += '<div class="rglb" style="margin:8px 2px 0">%s</div><nav class="regbar sgbar">%s</nav>' % ("Район", r)
+        if di:
+            try:
+                ls = list(get_localities(ob, di))
+            except Exception:
+                ls = []
+            if ls:
+                c3 = {x: cnt(ob, di, x, "", base) for x in ls}
+                r = _chip(link(lo="", vg=""), "Весь район" if ru else "Бүт район", not lo, cnt(ob, di, "", "", base), lang, short=False)
+                for x in _by_count(ls, c3):
+                    r += _chip(link(lo=x, vg=""), x.split(" / ")[0], lo == x, c3[x], lang, short=False)
+                rows_html += '<div class="rglb" style="margin:6px 2px 0">%s</div><nav class="regbar sgbar">%s</nav>' % ("Айыл аймагы", r)
+        if di and lo:
+            try:
+                vs = list(get_villages(ob, di, lo))
+            except Exception:
+                vs = []
+            if vs:
+                c4 = {x: cnt(ob, di, lo, x, base) for x in vs}
+                r = _chip(link(vg=""), "Все сёла" if ru else "Бүт айылдар", not vg, cnt(ob, di, lo, "", base), lang, short=False)
+                for x in _by_count(vs, c4):
+                    r += _chip(link(vg=x), x, vg == x, c4[x], lang)
+                rows_html += '<div class="rglb" style="margin:6px 2px 0">%s</div><nav class="regbar sgbar">%s</nav>' % ("Айыл", r)
+    # түр чиптери
+    ch = '<a class="%s" href="%s">%s <b>%d</b></a>' % ("on" if not kd else "", link(k=""), "Все" if ru else "Баары", len(here))
+    for k in _tp.KINDS:
+        if cntk.get(k[0]):
+            ch += '<a class="%s" href="%s">%s %s <b>%d</b></a>' % ("on" if kd == k[0] else "", link(k=k[0]), k[1],
+                                                                  esc(_tp.KIND_RU.get(k[0], k[2]) if ru else k[2]), cntk[k[0]])
+    # жер аты
+    place = vg or (lo.split(" / ")[0] if lo else "") or di or (_place_name(ob, lang) if ob else T("all_kg", lang))
+    note = ""
+    if fell:
+        up = fell[2].split(" / ")[0] if fell[2] else (fell[1] or _place_name(fell[0], lang))
+        note = ('<div class="sgnote">📍 %s</div>'
+                % esc(("В «%s» магазинов нет — показаны магазины: %s" if ru else "«%s» жеринде дүкөн жок — %s боюнча көрсөтүлдү")
+                      % (place, up)))
+    body = "".join(_sh_row(s, ru) for s in lst)
+    if not body:
+        body = ('<div class="srno">%s<a href="/plus">⭐ %s ›</a></div>'
+                % (esc(("Ничего не найдено по «%s»." % q) if (q and ru) else ("«%s» боюнча эч нерсе табылган жок." % q) if q else
+                       ("Здесь пока нет магазинов ТАП+. Станьте первым!" if ru else "Бул жерде азырынча ТАП+ дүкөн жок. Биринчи болуңуз!")),
+                   "Открыть магазин" if ru else "Дүкөн ачуу"))
+    srch = ('<form class="sgq" action="/d" method="get">%s<input name="q" value="%s" placeholder="%s"><button>%s</button></form>'
+            % ("".join('<input type="hidden" name="%s" value="%s">' % (k, esc(v)) for k, v in (("di", di), ("lo", lo), ("vg", vg)) if v),
+               esc(q), "Мис: тамада, плитка, кафе" if not ru else "Напр.: тамада, плитка, кафе", "🔍"))
+    top = ('<div class="shtop"><h1>🏪 %s</h1><p>%s</p><a href="/plus">⭐ %s</a></div>'
+           % ("Магазины ТАП+" if ru else "ТАП+ дүкөндөр",
+              esc(("%s · %d магазинов" if ru else "%s · %d дүкөн") % (place, len(here))),
+              "Открыть свой магазин" if ru else "Өз дүкөнүңүздү ачуу"))
+    css = ('<style>.shk a b{font-weight:800;opacity:.7;margin-left:3px}.srno{background:#fff;border-radius:16px;padding:18px;'
+           'text-align:center;color:#3A4A60;line-height:1.5;margin:4px 0 10px}.srno a{display:block;margin-top:10px;background:#163C8C;'
+           'color:#fff;border-radius:12px;padding:11px;font-weight:800;text-decoration:none}'
+           '.sgq{display:flex;gap:6px;margin:10px 0 4px}.sgq input{flex:1;min-width:0;border:1.5px solid #C9D4E3;border-radius:12px;padding:11px 12px;font:inherit;font-size:15px;background:#fff}'
+           '.sgq button{border:0;border-radius:12px;padding:0 16px;background:#163C8C;color:#fff;font-size:17px}'
+           '.sgbar{flex-wrap:wrap;overflow:visible;gap:6px;padding:4px 0 6px}.sgbar .rg{flex:0 1 auto;padding:7px 11px;font-size:13px}'
+           '.sgnote{background:#FFF6DC;color:#5B4300;border-radius:12px;padding:10px 12px;font-size:13.5px;font-weight:700;margin:8px 0}</style>')
+    h = ('%s%s<div class="wrap" style="padding-top:8px">%s%s%s%s%s<div class="shk">%s</div>%s</div>'
+         % (_SH_CSS, css, top, srch, _pin_btn(ob, lang, cnt(ob, "", "", "", base) if ob else len(base)), rows_html, note, ch, body))
+    return page(header("", None, None, lang) + h, title=("Магазины ТАП+" if ru else "ТАП+ дүкөндөр") + " — ТАП!", lang=lang)
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
