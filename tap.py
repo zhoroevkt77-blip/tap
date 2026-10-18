@@ -8747,7 +8747,7 @@ function save(){var b=document.getElementById('mssv');b.disabled=true;b.textCont
   else alert(x.err==='words'?('Тыюу салынган сөз бар ('+(x.field||'')+') — сакталган жок.'):x.err==='verify'?'Номериңизди кайра ырастаңыз.':'Ката чыкты.');})
  .catch(function(){b.disabled=false;b.textContent='💾 Сактоо';alert('Байланыш катасы.');});}
 function load(msg){fetch('/api/myshop?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){
- if(!j.ok){box.innerHTML=j.err==='noplus'?'<div class="msno">🏪 «Менин дүкөнүм» — ТАП+ сатуучулары үчүн. Дүкөнүңүздүн барагын ачып, өзүңүз толтуруңуз.<a href="/plus">⭐ ТАП+ жөнүндө</a></div>'
+ if(!j.ok){box.innerHTML=j.err==='noplus'?'<div class="msno">🏪 «Барагымды башкаруу» — ТАП+ сатуучулары үчүн. Дүкөнүңүздүн барагын ачып, өзүңүз толтуруңуз.<a href="/plus">⭐ ТАП+ жөнүндө</a></div>'
    :'<div class="msno">Номериңизди ырастаңыз.<a href="/verify">🔐 Номерди ырастоо</a></div>';return;}
  D=j;LOGO='';BAN='';ADD=[];DEL={};draw();if(msg){document.getElementById('msmsg').innerHTML=msg;window.scrollTo(0,0);}}).catch(function(){box.innerHTML='<p>Байланыш катасы.</p>';});}
 load('');})();
@@ -10438,7 +10438,7 @@ window.tpOpen=function(k){m.classList.add('on');
  b.innerHTML='<p class=sb>…</p>';
  fetch('/api/plusopen?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){
   if(!j.ok){b.innerHTML='<h3>⭐ ТАП+ ачуу</h3><p class=sb>Номериңизди кайра ырастаңыз.</p><a class=go style="text-align:center;text-decoration:none" href="/verify">🔐 Номерди ырастоо</a>'+X;return;}
-  if(j.state==='has'){b.innerHTML='<h3>⭐ Сизде ТАП+ бар</h3><p class=sb>Барагыңызды «Менин дүкөнүм» бөлүмүнөн толтуруңуз.</p><a class=go style="text-align:center;text-decoration:none" href="/my/shop">🏪 Менин дүкөнүм ›</a>'+X;return;}
+  if(j.state==='has'){b.innerHTML='<h3>⭐ Сизде ТАП+ бар</h3><p class=sb>Барагыңызды «Барагымды башкаруу» бөлүмүнөн толтуруңуз.</p><a class=go style="text-align:center;text-decoration:none" href="/my/shop">🏪 Менин дүкөнүм ›</a>'+X;return;}
   var fr=j.state==='new';
   b.innerHTML='<h3>⭐ ТАП+ ачуу</h3><p class=sb>'+(fr?'🎁 Алгачкы 7 күн акысыз. Барагыңыз дароо ачылат — андан кийин өзүңүз толтурасыз.':'Акысыз сыноо колдонулган. Барагыңызды ачып, андан кийин төлөйсүз.')+'</p>'
    +'<select id=prk>'+document.getElementById('poko').innerHTML+'</select><input id=prn maxlength=60 placeholder="Дүкөндүн / иштин аты: Армана мебель">'
@@ -10477,7 +10477,7 @@ def _tp_page(lang):
         # «Кантип туташуу керек» кадамдары жаңы тартипке
         h = _wre.sub(r'<div class="tpstep">.*?</div></div>',
                      '<div class="tpstep"><div>1. «🎁 ТАП+ ачуу» баскычын басып, барагыңыздын түрүн жана атын жазыңыз — барагыңыз дароо ачылат, 7 күн акысыз.</div>'
-                     '<div>2. «Менин дүкөнүм» бөлүмүнөн логотип, сүрөттөр, витрина, бааларды өзүңүз толтурасыз.</div>'
+                     '<div>2. «Барагымды башкаруу» бөлүмүнөн логотип, сүрөттөр, витрина, бааларды өзүңүз толтурасыз.</div>'
                      '<div>3. 7 күндөн кийин «⭐ ТАП+ тарифим» бөлүмүнөн MBank аркылуу төлөп, чектин сүрөтүн жүктөйсүз — мөөнөт өзү узарат.</div></div>',
                      h, count=1, flags=_wre.S)
     except Exception as e:
@@ -11708,6 +11708,65 @@ _myshop_page_mn_base = myshop_page
 def myshop_page(lang="ky"):
     h = _myshop_page_mn_base(lang)
     return h.replace('<div id="msbox">…</div><div id="vtlk"></div>', '<div id="vtlk"></div><div id="msbox">…</div>', 1)
+
+
+# ── BIZNAME: «Менин дүкөнүм» → ишкананын өз аты + түрүнүн белгиси, астында «Барагымды башкаруу» ──
+_ms_api_get_bz_base = _ms_api_get
+
+
+def _ms_api_get(qs, lang):
+    j = _ms_api_get_bz_base(qs, lang)
+    try:
+        if isinstance(j, dict) and j.get("ok") and qs.get("peek", [""])[0] == "1":
+            s, err = _ms_seller(qs.get("t", [""])[0])
+            if s and not err:
+                j["name"] = str(s.get("name") or "")[:60]
+                j["icon"] = _tp.KIND[_tp.kind(s)][1]
+    except Exception as e:
+        print("bizname:", e, flush=True)
+    return j
+
+
+_EXT_GET["/api/myshop"] = _ms_api_get
+
+_BZ_JS = ('<script>(function(){var t=null;try{t=localStorage.getItem("tap_vok");}catch(e){}if(!t)return;'
+          'fetch("/api/myshop?peek=1&t="+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){if(!j.ok)return;'
+          'var i=document.getElementById("bzic"),n=document.getElementById("bzn");if(i&&j.icon)i.textContent=j.icon;if(n&&j.name)n.textContent=j.name;'
+          '}).catch(function(){});})();</script>')
+
+_me_page_bz_base = me_page
+
+
+def me_page(lang="ky"):
+    h = _me_page_bz_base(lang)
+    try:
+        ru = (lang == "ru")
+        old = ('<span style="font-size:20px;width:24px;text-align:center;flex:none">🏪</span><span>%s '
+               '<span class="tpb">ТАП+</span></span>' % ("Мой магазин" if ru else "Менин дүкөнүм"))
+        new = ('<span style="font-size:20px;width:24px;text-align:center;flex:none" id="bzic">🏪</span>'
+               '<span style="min-width:0;flex:1"><span style="display:flex;align-items:center;gap:6px;min-width:0">'
+               '<b id="bzn" style="font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">%s</b>'
+               '<span class="tpb" style="flex:none">ТАП+</span></span>'
+               '<small style="display:block;color:#7A6A3A;font-size:12.5px;font-weight:600;margin-top:1px">%s</small></span>'
+               % ("Моя страница" if ru else "Менин барагым", "Управление страницей" if ru else "Барагымды башкаруу"))
+        if old in h:
+            h = h.replace(old, new, 1).replace("</body>", _BZ_JS + "</body>", 1)
+    except Exception as e:
+        print("bizname me:", e, flush=True)
+    return h
+
+
+_myshop_page_bz_base = myshop_page
+
+
+def myshop_page(lang="ky"):
+    h = _myshop_page_bz_base(lang)
+    old = '<h1 style="font-size:24px;margin:0 0 10px">🏪 Менин дүкөнүм</h1>'
+    new = ('<h1 style="font-size:23px;margin:0 0 12px;line-height:1.25"><span id="bzic">🏪</span> <span id="bzn">Менин барагым</span>'
+           '<small style="display:block;font-size:13px;color:#5A6B82;font-weight:700;margin-top:3px">⚙️ Барагымды башкаруу</small></h1>')
+    if old in h:
+        h = h.replace(old, new, 1).replace("</body>", _BZ_JS + "</body>", 1)
+    return h.replace("<title>Менин дүкөнүм", "<title>Барагымды башкаруу", 1)
 
 if __name__ == "__main__":
     core.init_db()
