@@ -11663,6 +11663,43 @@ _STATS_PAGE_JS = _STATS_PAGE_JS.replace(
     "+(S.slug?'<a class=\"sbtn\" style=\"margin-top:10px\" href=\"/qr/'+encodeURIComponent(S.slug)+'.png\" download>⬇️ '+T('QR-кодду жүктөп алуу','Скачать QR-код')+'</a>':'')+'</div>';}"
     " var mx=1;j.days.forEach(", 1)
 
+
+# ── PLUSTOP: ТАП+ жарыялары ар бир тизменин эң үстүндө (Алмаз → Алтын → Күмүш, анан кадимки жарыялар) ──
+def _pt_case():
+    try:
+        _tp._load()
+        grp = {}
+        for k in list(_tp._C.get("tg", {}).keys()):
+            t = _tp.tier(k)
+            if t and _wre.match(r"^[A-Za-z0-9_-]{1,40}$", k):
+                grp.setdefault(_tp.TIER[t][3], []).append("'%s'" % k)
+        if not grp:
+            return ""
+        w = " ".join("WHEN tg_id IN (%s) THEN %d" % (",".join(v), r) for r, v in sorted(grp.items()))
+        return "(CASE %s ELSE 9 END)" % w
+    except Exception as e:
+        print("plustop:", e, flush=True)
+        return ""
+
+
+class _PtSorts(dict):
+    def get(self, k, d=None):
+        v = dict.get(self, k, d)
+        if k == "new" and v:
+            c = _pt_case()
+            if c:
+                return c + ", " + v
+        return v
+
+    def __getitem__(self, k):
+        return self.get(k) if k == "new" else dict.__getitem__(self, k)
+
+
+core.SORTS = _PtSorts(core.SORTS)
+
+# Мурунку «4 орун кезек менен» (PLUSSLOT) эми керек эмес — баары үстүндө
+_ps_pick = lambda pool, n: []
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
