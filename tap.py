@@ -4759,7 +4759,7 @@ class H(BaseHTTPRequestHandler):
             _ksr = _ks_redirect(urllib.parse.unquote(u.path[3:]).strip("/"))
             if _ksr and not _tp.by_slug(urllib.parse.unquote(u.path[3:]).strip("/")):
                 self.send_response(301)
-                self.send_header("Location", _ksr)
+                self.send_header("Location", _ksr + (("?" + u.query) if u.query else ""))
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
@@ -11554,6 +11554,114 @@ def _tp_store(slug, lang):
     except Exception as e:
         print("qrfix:", e, flush=True)
     return h
+
+
+# ── QRSTAT: QR аркылуу кирүүлөрдү жана дүкөн барагынын ачылышын эсептөө (📊 Статистикада) ──
+_QS = {"ready": False}
+
+
+def _qs_init():
+    if _QS["ready"]:
+        return
+    core.query("CREATE TABLE IF NOT EXISTS shop_events (tg_id TEXT, kind TEXT, day TEXT, n INTEGER)")
+    _QS["ready"] = True
+
+
+def _qs_hit(tg, kind):
+    try:
+        _qs_init()
+        day = _st_day()
+        r = core.query("SELECT n FROM shop_events WHERE tg_id=? AND kind=? AND day=?", (str(tg), kind, day), fetch="one")
+        if r:
+            core.query("UPDATE shop_events SET n=n+1 WHERE tg_id=? AND kind=? AND day=?", (str(tg), kind, day))
+        else:
+            core.query("INSERT INTO shop_events (tg_id, kind, day, n) VALUES (?,?,?,1)", (str(tg), kind, day))
+    except Exception as e:
+        print("qs_hit:", e, flush=True)
+
+
+def _qs_api_ev(b):
+    s = _tp.by_slug(str(b.get("slug") or ""))
+    k = str(b.get("k") or "")
+    if not s or k not in ("qr", "view"):
+        return {"ok": False}
+    _qs_hit(s["tg_id"], k)
+    return {"ok": True}
+
+
+_EXT_POST["/api/sev"] = _qs_api_ev
+
+_QS_JS = r"""<script>(function(){var m=location.pathname.match(/^\/d\/([^\/?#]+)/);if(!m)return;var sl=decodeURIComponent(m[1]);
+var qr=/[?&]qr=1(&|$)/.test(location.search);if(qr){try{history.replaceState(null,'',location.pathname+location.hash);}catch(e){}}
+function s(k){try{var key='tap_sev_'+sl+'_'+k+'_'+new Date().toISOString().slice(0,10);if(localStorage.getItem(key))return;localStorage.setItem(key,'1');}catch(e){}
+var d=JSON.stringify({slug:sl,k:k});if(navigator.sendBeacon){navigator.sendBeacon('/api/sev',d);}else{fetch('/api/sev',{method:'POST',body:d,keepalive:true});}}
+s('view');if(qr)s('qr');})();</script>"""
+
+_tp_store_qs_base = _tp_store
+
+
+def _tp_store(slug, lang):
+    h = _tp_store_qs_base(slug, lang)
+    if h and "</body>" in h:
+        h = h.replace("</body>", _QS_JS + "</body>", 1)
+    return h
+
+
+# QR'дун ичиндеги шилтемеге ?qr=1 белгиси
+_qr_png_qs_base = qr_png
+
+
+def qr_png(text, scale=10, border=4):
+    if "/d/" in text and "?" not in text:
+        text = text + "?qr=1"
+    return _qr_png_qs_base(text, scale, border)
+
+
+_QR_CACHE.clear()
+
+_st_api_stats_qs_base = _st_api_stats
+
+
+def _st_api_stats(qs, lang):
+    j = _st_api_stats_qs_base(qs, lang)
+    try:
+        if j.get("ok") and j.get("plus"):
+            st = _wverified(qs.get("t", [""])[0])
+            tg = str(st["tg_id"])
+            _qs_init()
+            days = [_st_day(i) for i in range(6, -1, -1)]
+            cur = {"qr": 0, "view": 0}
+            prev = {"qr": 0, "view": 0}
+            allq = 0
+            for e in core.query("SELECT kind, day, n FROM shop_events WHERE tg_id=?", (tg,), fetch="all") or []:
+                e = dict(e)
+                k, d, n = e["kind"], str(e["day"]), int(e["n"] or 0)
+                if k not in cur:
+                    continue
+                if k == "qr":
+                    allq += n
+                if d >= days[0]:
+                    cur[k] += n
+                elif d >= _st_day(13):
+                    prev[k] += n
+            s = _tp.get(tg) or {}
+            j["shop"] = {"cur": cur, "prev": prev, "qr_all": allq, "slug": s.get("slug") or ""}
+    except Exception as e:
+        print("qrstat:", e, flush=True)
+    return j
+
+
+_EXT_GET["/api/mystats"] = _st_api_stats
+
+_STATS_PAGE_JS = _STATS_PAGE_JS.replace(
+    " var mx=1;j.days.forEach(",
+    " if(j.shop){var S=j.shop;h+='<div class=\"sh\">🏪 '+T('Дүкөн барагы','Страница магазина')+'</div><div class=\"sk\">'"
+    "+'<div><small>▦ '+T('QR аркылуу кирди','Зашли по QR')+'</small><b>'+S.cur.qr+'</b>'+ch(S.cur.qr,S.prev.qr)+'</div>'"
+    "+'<div><small>👁 '+T('Барак ачылды','Открыли страницу')+'</small><b>'+S.cur.view+'</b>'+ch(S.cur.view,S.prev.view)+'</div></div>'"
+    "+'<div class=\"sbox snote\" style=\"margin-top:10px\">▦ '+T('QR аркылуу бардыгы: ','Всего по QR: ')+'<b>'+S.qr_all+'</b><br>'"
+    "+'<span style=\"color:#5A6B82;font-size:13px\">'+T('Эшикке, кассага, визиткага чапталган QR канча адамды алып келгенин ушул жерден көрөсүз. Бир телефон күнүнө бир жолу эсептелет.','Сколько людей привёл QR на двери, кассе, визитке. Один телефон считается раз в день.')+'</span>'"
+    "+(S.slug?'<a class=\"sbtn\" style=\"margin-top:10px\" href=\"/qr/'+encodeURIComponent(S.slug)+'.png\" download>⬇️ '+T('QR-кодду жүктөп алуу','Скачать QR-код')+'</a>':'')+'</div>';}"
+    " var mx=1;j.days.forEach(", 1)
 
 if __name__ == "__main__":
     core.init_db()
