@@ -9820,15 +9820,15 @@ function post(o){o.token=tok;return fetch('/api/vit',{method:'POST',headers:{'Co
 function err(x){alert(x.err==='limit'?'Витрина толду. Көбүрөөк товар үчүн тарифти жогорулатыңыз.':x.err==='name'?'Товардын атын жазыңыз.':x.err==='img'?'Сүрөт тандаңыз.':x.err==='words'?'Тыюу салынган сөз бар.':'Ката чыкты.');}
 function load(){fetch('/api/vit?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(D){
  if(!D.ok||D.off){box.innerHTML='';return;}
- var full=D.items.length>=D.lim;
- var h='<div class="msf vte"><label>'+e(D.title)+' · '+D.items.length+'/'+D.lim+'</label><div style="font-size:12px;color:#7A889C;margin:-2px 0 6px">Витрина өзү сакталат — «Сактоо» баскычы керек эмес.</div>';
- if(!D.items.length)h+='<div style="font-size:13.5px;color:#5A6B82;line-height:1.45">Товарларыңызды сүрөтү, аты жана баасы менен коюңуз — кардарлар дүкөнүңүздүн барагында витрина катары көрөт.</div>';
+ var full=D.items.length>=D.lim;var MN=/Меню/.test(D.title||'');/* MENUFIX */
+ var h='<div class="msf vte"><label>'+e(D.title)+' · '+D.items.length+'/'+D.lim+'</label><div style="font-size:12px;color:#7A889C;margin:-2px 0 6px">'+(MN?'Меню':'Витрина')+' өзү сакталат — «Сактоо» баскычы керек эмес.</div>';
+ if(!D.items.length)h+='<div style="font-size:13.5px;color:#5A6B82;line-height:1.45">'+(MN?'Тамактарыңызды сүрөтү, аты жана баасы менен коюңуз — кардарлар менюну барагыңызда көрөт.':'Товарларыңызды сүрөтү, аты жана баасы менен коюңуз')+'<span style="display:none"> — кардарлар дүкөнүңүздүн барагында витрина катары көрөт.</div>';
  D.items.forEach(function(it,k){h+='<div class="vr"><i style="background-image:url('+e(it.src)+')"></i><span><b>'+e(it.name)+'</b><small>'+e(it.price||'')+'</small>'+(it.lid?' · 📄 жарыя':'')+'</span>'+(k?'<button data-up="'+it.id+'">⬆</button>':'')+'<button data-del="'+it.id+'">✕</button></div>';});
  if(full){h+='<div class="lim">Витрина толду ('+D.lim+' товар, '+e(D.tier)+'). Көбүрөөк коюу үчүн <a href="/plus">тарифти жогорулатыңыз ›</a></div>';}
- else{h+='<div class="hd">＋ Жаңы товар</div><div class="add"><label class="pv" id="vtpv">📷<input type="file" accept="image/*" id="vtin" style="display:none"></label>'
-  +'<input id="vtn" maxlength="60" placeholder="Аты: Диван «Комфорт»"><input id="vtp" maxlength="24" placeholder="Баасы: 45000" inputmode="text">'
+ else{h+='<div class="hd">＋ '+(MN?'Жаңы тамак':'Жаңы товар')+'</div><div class="add"><label class="pv" id="vtpv">📷<input type="file" accept="image/*" id="vtin" style="display:none"></label>'
+  +'<input id="vtn" maxlength="60" placeholder="'+(MN?'Аты: Бешбармак':'Аты: Диван «Комфорт»')+'"><input id="vtp" maxlength="24" placeholder="'+(MN?'Баасы: 450':'Баасы: 45000')+'" inputmode="text">'
   +'<select id="vtt"><option value="">Белгисиз</option><option value="stock">✅ Бар</option><option value="order">⏳ Заказ менен</option><option value="promo">🔥 Акция</option></select></div>'
-  +'<button type="button" class="go" id="vtgo">＋ Витринага кошуу</button>';
+  +'<button type="button" class="go" id="vtgo">＋ '+(MN?'Менюга кошуу':'Витринага кошуу')+'</button>';
   if(D.mine.length){h+='<div class="hd">📌 Жарыяларыңыздан кошуу</div>';D.mine.slice(0,20).forEach(function(m){h+='<div class="vr"><i style="background-image:url('+e(m.s)+')"></i><span><b>'+e(m.t)+'</b><small>'+e(m.p)+'</small></span><button data-lid="'+m.id+'">＋</button></div>';});}}
  h+='</div>';box.innerHTML=h;IMG='';
  box.querySelectorAll('[data-del]').forEach(function(b){b.onclick=function(){if(confirm('Витринадан алып салынсынбы?'))post({op:'del',id:+b.getAttribute('data-del')}).then(load);};});
@@ -9839,7 +9839,7 @@ function load(){fetch('/api/vit?t='+encodeURIComponent(tok)).then(function(r){re
   IMG=c.toDataURL('image/jpeg',0.84);var p=document.getElementById('vtpv');p.style.backgroundImage='url('+IMG+')';p.firstChild.textContent='';};im.src=rd.result;};rd.readAsDataURL(f);};
  var go=document.getElementById('vtgo');if(go)go.onclick=function(){go.disabled=true;go.textContent='…';
   post({op:'add',img:IMG,name:document.getElementById('vtn').value,price:document.getElementById('vtp').value,tag:document.getElementById('vtt').value})
-  .then(function(x){if(!x.ok){err(x);go.disabled=false;go.textContent='＋ Витринага кошуу';return;}load();}).catch(function(){go.disabled=false;alert('Байланыш катасы.');});};
+  .then(function(x){if(!x.ok){err(x);go.disabled=false;go.textContent=(/Меню/.test(D.title||'')?'＋ Менюга кошуу':'＋ Витринага кошуу');return;}load();}).catch(function(){go.disabled=false;alert('Байланыш катасы.');});};
 });}
 load();})();
 """
@@ -9909,7 +9909,7 @@ def myshop_page(lang="ky"):
                      'fetch("/api/vit?t="+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){if(!j.ok||j.off)return;'
                      'document.getElementById("vtlk").innerHTML=\'<a href="/my/vitrina" style="display:flex;align-items:center;gap:10px;background:#fff;border:2px solid #E2B33C;'
                      'border-radius:16px;padding:14px;margin:0 0 12px;text-decoration:none;color:#0B1B30;font-weight:800"><span style="font-size:22px">🛍</span>'
-                     '<span style="flex:1">\'+j.title.replace(/^\\S+\\s/,"")+\' · \'+j.n+\'/\'+j.lim+\'<small style="display:block;font-weight:600;color:#5A6B82;font-size:12.5px">Товар кошуу, өчүрүү, тартибин өзгөртүү</small></span>'
+                     '<span style="flex:1">\'+j.title.replace(/^\\S+\\s/,"")+\' · \'+j.n+\'/\'+j.lim+\'<small style="display:block;font-weight:600;color:#5A6B82;font-size:12.5px">\'+(/Меню/.test(j.title)?"Тамак":"Товар")+\' кошуу, өчүрүү, тартибин өзгөртүү</small></span>'
                      '<span style="color:#9AA9BE;font-size:22px">›</span></a>\';}).catch(function(){});})();</script>', 1)
 
 
@@ -11699,6 +11699,15 @@ core.SORTS = _PtSorts(core.SORTS)
 
 # Мурунку «4 орун кезек менен» (PLUSSLOT) эми керек эмес — баары үстүндө
 _ps_pick = lambda pool, n: []
+
+
+# ── MENUFIX: «Менин дүкөнүм» — Меню/Витрина баскычы барактын эң башында ──
+_myshop_page_mn_base = myshop_page
+
+
+def myshop_page(lang="ky"):
+    h = _myshop_page_mn_base(lang)
+    return h.replace('<div id="msbox">…</div><div id="vtlk"></div>', '<div id="vtlk"></div><div id="msbox">…</div>', 1)
 
 if __name__ == "__main__":
     core.init_db()

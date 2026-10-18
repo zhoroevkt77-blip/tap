@@ -1145,3 +1145,17 @@ def admin(h, uid, q, p, msg, page, k):
             del h._send
         except Exception:
             pass
+
+
+# ── MENUFIX: кафеде «Меню» — сүрөттүү тизме (витрина); тексттик талаа эми «Ашкана түрү» ──
+try:
+    _mk = KIND.get("cafe")
+    if _mk:
+        _nk = (_mk[0], _mk[1], _mk[2], "Ашкана түрү") + tuple(_mk[4:])
+        KIND["cafe"] = _nk
+        for _i, _x in enumerate(KINDS):
+            if _x[0] == "cafe":
+                KINDS[_i] = _nk
+    ADM_EX["cafe"]["services"] = "Улуттук, Европа, Түрк, Пицца, Фаст-фуд"
+except Exception as _e:
+    print("menufix:", _e, flush=True)
