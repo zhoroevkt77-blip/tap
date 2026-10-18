@@ -12049,6 +12049,329 @@ var b=$('vwa');if(!b)return;b.onclick=function(){var d=($('vph').value||'').repl
 })();</script>""" % json.dumps(lang)
     return h.replace("</body>", js + "</body>", 1)
 
+
+# ── VITPRO: витрина түрүнө жараша — бөлүмдөр, өлчөм/түс, эски баа, бир нече сүрөт, түрүнө жараша талаалар ──
+_VP_SZ = ["XS", "S", "M", "L", "XL", "XXL"]
+_VP_SH = ["36", "37", "38", "39", "40", "41", "42", "43", "44", "45"]
+_VP_CL = ["Ак", "Кара", "Боз", "Көк", "Кызыл", "Жашыл", "Сары", "Күрөң", "Кызгылт", "Бежевый"]
+_VP_TIME = [("dur", "⏱ Убактысы", "text", "Мис: 60 мүнөт")]
+# талаа: (ачкыч, аталыш, түрү, мисал же тандоолор)
+_VP_F = {
+    "store": [("sz", "📏 Өлчөмдөр", "multi", _VP_SZ + _VP_SH), ("cl", "🎨 Түстөр", "multi", _VP_CL)],
+    "factory": [("sz", "📏 Өлчөмдөр", "multi", _VP_SZ + _VP_SH), ("cl", "🎨 Түстөр", "multi", _VP_CL),
+                ("moq", "📦 Минималдуу заказ", "text", "Мис: 50 даана")],
+    "farm": [("unit", "⚖️ Бирдиги", "one", ["кг", "л", "даана", "баш", "кап"])],
+    "cafe": [("por", "🍽 Порция", "text", "Мис: 350 г"), ("cmp", "🥗 Курамы", "text", "Мис: эт, камыр, пияз")],
+    "auto": [("yr", "📅 Жылы", "text", "Мис: 2019"), ("km", "🛣 Пробеги", "text", "Мис: 85 000 км"),
+             ("eng", "⚙️ Мотору", "text", "Мис: 2.5 бензин"), ("gb", "🕹 Коробка", "one", ["Автомат", "Механика"])],
+    "realtor": [("rm", "🚪 Бөлмө", "one", ["1", "2", "3", "4", "5+"]), ("ar", "📐 Аянты", "text", "Мис: 65 м²"),
+                ("fl", "🏢 Кабаты", "text", "Мис: 5/9"), ("ds", "📍 Району", "text", "Мис: Ала-Арча")],
+    "builder": [("rm", "🚪 Бөлмө", "one", ["1", "2", "3", "4", "5+"]), ("ar", "📐 Аянты", "text", "Мис: 65 м²"),
+                ("dl", "🏗 Тапшыруу", "text", "Мис: 2027-ж. 2-чейрек")],
+    "hotel": [("pl", "🛏 Орун", "one", ["1", "2", "3", "4", "5+"]), ("ml", "🍳 Тамак", "one", ["Эртең мененки тамак", "Тамаксыз", "3 маал"])],
+    "toy": [("cap", "👥 Канча кишилик", "text", "Мис: 150 киши")],
+    "transport": [("cap", "🚚 Көтөрүмдүүлүгү", "text", "Мис: 2 тонна")],
+}
+for _k in ("salon", "autosvc", "clean", "vet", "legal", "fitness", "photo", "edu", "brigade", "travel"):
+    _VP_F[_k] = list(_VP_TIME)
+_VP_SUF = {"hotel": " / түн", "toy": " / киши"}
+_VP_SECS = {
+    "store": ["Көйнөк", "Шым", "Куртка", "Бут кийим", "Балдар үчүн"],
+    "cafe": ["Ысык тамак", "Салат", "Шорпо", "Суусундук", "Десерт"],
+    "auto": ["Седан", "Кроссовер", "Минивэн", "Жүк унаа"],
+    "realtor": ["Батир", "Үй", "Жер", "Коммерциялык"],
+    "hotel": ["Стандарт", "Люкс", "Үй-бүлөлүк"],
+    "salon": ["Чач", "Маникюр", "Косметология"],
+    "farm": ["Сүт азыктары", "Эт", "Бал", "Жашылча"],
+}
+_VP = {"ready": False}
+
+
+def _vp_init():
+    if _VP["ready"]:
+        return
+    _vt_init()
+    for col in ("sec", "attrs", "oldp", "imgs"):
+        try:
+            if getattr(core, "IS_PG", False):
+                core.query("ALTER TABLE seller_vit ADD COLUMN IF NOT EXISTS %s TEXT" % col)
+            else:
+                core.query("ALTER TABLE seller_vit ADD COLUMN %s TEXT" % col)
+        except Exception:
+            pass
+    _VP["ready"] = True
+
+
+def _vp_attrs(r):
+    try:
+        d = json.loads(r.get("attrs") or "{}")
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+_vt_items_vp_base = _vt_items
+
+
+def _vt_items(tg, lang="ky"):
+    _vp_init()
+    items = _vt_items_vp_base(tg, lang)
+    try:
+        ext = {int(dict(r)["id"]): dict(r) for r in (core.query(
+            "SELECT id, sec, attrs, oldp, imgs FROM seller_vit WHERE tg_id=?", (str(tg),), fetch="all") or [])}
+        for it in items:
+            x = ext.get(int(it["id"])) or {}
+            it["sec"] = str(x.get("sec") or "")
+            it["attrs"] = _vp_attrs(x)
+            it["oldp"] = _vt_price(x.get("oldp"), lang) if x.get("oldp") else ""
+            try:
+                extra = [int(i) for i in json.loads(x.get("imgs") or "[]")][:4]
+            except Exception:
+                extra = []
+            it["gal"] = ([it["src"]] if it["src"] else []) + ["/pi/%d.jpg" % i for i in extra]
+    except Exception as e:
+        print("vitpro items:", e, flush=True)
+    return items
+
+
+_vt_api_get_vp_base = _vt_api_get
+
+
+def _vt_api_get(qs, lang):
+    j = _vt_api_get_vp_base(qs, lang)
+    try:
+        if j.get("ok") and not j.get("off"):
+            s, err = _ms_seller(qs.get("t", [""])[0])
+            kd = _tp.kind(s)
+            j["kind"] = kd
+            j["fields"] = [list(f) for f in _VP_F.get(kd, [])]
+            have = [i.get("sec") for i in j.get("items", []) if i.get("sec")]
+            j["secs"] = list(dict.fromkeys(have + _VP_SECS.get(kd, [])))[:12]
+            j["suf"] = _VP_SUF.get(kd, "")
+    except Exception as e:
+        print("vitpro get:", e, flush=True)
+    return j
+
+
+_EXT_GET["/api/vit"] = _vt_api_get
+
+_vt_api_post_vp_base = _vt_api_post
+
+
+def _vt_api_post(b):
+    r = _vt_api_post_vp_base(b)
+    try:
+        if r.get("ok") and b.get("op") == "add":
+            s, err = _ms_seller(b.get("token"))
+            tg = str(s["tg_id"])
+            _vp_init()
+            row = core.query("SELECT MAX(id) AS i FROM seller_vit WHERE tg_id=?", (tg,), fetch="one") or {}
+            vid = int(dict(row).get("i") or 0)
+            kd = _tp.kind(s)
+            keys = {f[0]: f for f in _VP_F.get(kd, [])}
+            at = {}
+            for k, v in (b.get("attrs") or {}).items():
+                if k not in keys:
+                    continue
+                if isinstance(v, list):
+                    ok = [str(x)[:20] for x in v if str(x) in keys[k][3]][:20]
+                    if ok:
+                        at[k] = ok
+                else:
+                    v = " ".join(str(v or "").split())[:40]
+                    if v:
+                        at[k] = v
+            extra = []
+            for du in (b.get("imgs") or [])[:4]:
+                iid = _tp.img_put(tg, "vt", du)
+                if iid:
+                    extra.append(int(iid))
+            sec = " ".join(str(b.get("sec") or "").split())[:30]
+            oldp = " ".join(str(b.get("oldp") or "").split())[:24]
+            core.query("UPDATE seller_vit SET sec=?, attrs=?, oldp=?, imgs=? WHERE id=? AND tg_id=?",
+                       (sec, json.dumps(at, ensure_ascii=False), oldp, json.dumps(extra), vid, tg))
+    except Exception as e:
+        print("vitpro post:", e, flush=True)
+    return r
+
+
+# ── Кардар көргөн витрина ──
+_VP_CSS = """<style>
+.vtc .im s{position:absolute;right:7px;bottom:7px;background:#E5484D;color:#fff;font-size:11px;font-weight:900;border-radius:7px;padding:3px 6px;text-decoration:none}
+.vtc .nm small{display:block;color:#5A6B82;font-weight:600;font-size:12px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vtc .op{display:block;padding:0 10px 9px;margin-top:-6px;font-size:12px;color:#9AA9BE;text-decoration:line-through}
+.vtsz{display:flex;gap:6px;overflow-x:auto;padding:0 2px 10px;scrollbar-width:none;align-items:center}.vtsz::-webkit-scrollbar{display:none}
+.vtsz span{flex:none;font-size:12.5px;font-weight:800;color:#5A6B82}
+.vtsz button{flex:none;min-width:38px;border:1.5px solid #D5DEEA;background:#fff;border-radius:10px;padding:5px 8px;font:inherit;font-size:13px;font-weight:800;color:#17304F}
+.vtsz button.on{background:#0E7A54;border-color:#0E7A54;color:#fff}
+.vtm .gal{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:20px 20px 0 0;scrollbar-width:none}.vtm .gal::-webkit-scrollbar{display:none}
+.vtm .gal i{flex:none;width:100%;aspect-ratio:1/1;background:#EEF3FA center/contain no-repeat;scroll-snap-align:start}
+.vtm .dots{text-align:center;margin-top:-22px;position:relative;font-size:10px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);letter-spacing:3px}
+.vtm .pr s{font-size:15px;color:#9AA9BE;font-weight:700;margin-left:8px}
+.vtm .ch{margin-top:12px}.vtm .ch label{display:block;font-size:12.5px;font-weight:800;color:#5A6B82;margin-bottom:6px}
+.vtm .ch div{display:flex;flex-wrap:wrap;gap:6px}.vtm .ch button{border:1.5px solid #D5DEEA;background:#fff;border-radius:10px;padding:7px 11px;font:inherit;font-size:14px;font-weight:800;color:#17304F}
+.vtm .ch button.on{background:#163C8C;border-color:#163C8C;color:#fff}
+.vtm .at{margin-top:12px;background:#F6F8FB;border-radius:12px;padding:4px 12px}.vtm .at div{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #E7ECF3;font-size:14px}
+.vtm .at div:last-child{border:0}.vtm .at span{color:#5A6B82}.vtm .at b{text-align:right}
+</style>"""
+
+
+def _vt_html(items, s, lang, tel):
+    ru = (lang == "ru")
+    kd = _tp.kind(s)
+    ttl = VIT_KINDS.get(kd, VIT_KINDS["store"])[1 if ru else 0]
+    T = (lambda a, b: b if ru else a)
+    flds = {f[0]: f for f in _VP_F.get(kd, [])}
+    suf = _VP_SUF.get(kd, "")
+    secs = list(dict.fromkeys(i.get("sec") for i in items if i.get("sec")))
+    if not secs:   # мурунку жол: аттан алынган сөздөр
+        ex = _tp.extra(s)
+        words = [x.strip() for x in str(ex.get("services") or "").replace("\n", ",").split(",") if x.strip()]
+        low = [str(i["name"]).lower() for i in items]
+        chips = [(w.lower()[:5], w) for w in words if any(w.lower()[:5] in n for n in low)][:12]
+        mode = "n"
+    else:
+        chips = [(w, w) for w in secs]
+        mode = "s"
+    sizes = []
+    for i in items:
+        for z in (i.get("attrs") or {}).get("sz", []):
+            if z not in sizes:
+                sizes.append(z)
+    order = _VP_SZ + _VP_SH
+    sizes.sort(key=lambda z: order.index(z) if z in order else 99)
+
+    def short(it):
+        a = it.get("attrs") or {}
+        if kd in ("store", "factory") and a.get("sz"):
+            return " ".join(a["sz"][:6])
+        bits = []
+        for k in flds:
+            v = a.get(k)
+            if v:
+                bits.append(" ".join(v[:3]) if isinstance(v, list) else str(v))
+        return " · ".join(bits[:3])
+    cards = ""
+    for k, it in enumerate(items):
+        tg = VIT_TAGS.get(it["tag"])
+        disc = ""
+        try:
+            p1 = int(_wre.sub(r"\D", "", it.get("price") or "") or 0)
+            p0 = int(_wre.sub(r"\D", "", it.get("oldp") or "") or 0)
+            if p0 > p1 > 0:
+                disc = "−%d%%" % round((p0 - p1) * 100 / p0)
+        except Exception:
+            pass
+        sh = short(it)
+        cards += ('<button type="button" class="vtc%s" data-i="%d" data-n="%s" data-s="%s" data-z="%s"><span class="im" style="background-image:url(%s)">%s%s%s</span>'
+                  '<span class="nm">%s%s</span>%s</button>'
+                  % (" vth" if k >= 6 else "", k, esc(str(it["name"]).lower()), esc(it.get("sec") or ""),
+                     esc(" ".join((it.get("attrs") or {}).get("sz", []))), esc(it["src"]),
+                     ('<em class="%s">%s</em>' % (it["tag"], tg[1 if ru else 0])) if tg else "",
+                     ('<b>%s%s</b>' % (esc(it["price"]), esc(suf))) if it["price"] else "",
+                     ('<s>%s</s>' % disc) if disc else "", esc(it["name"]),
+                     ('<small>%s</small>' % esc(sh)) if sh else "",
+                     ('<span class="op">%s</span>' % esc(it["oldp"])) if (disc and it.get("oldp")) else ""))
+    data = []
+    for it in items:
+        a = it.get("attrs") or {}
+        sel, tab = [], []
+        for k, f in flds.items():
+            v = a.get(k)
+            if not v:
+                continue
+            if f[2] == "multi":
+                sel.append([f[1], v])
+            else:
+                tab.append([f[1], v if not isinstance(v, list) else ", ".join(v)])
+        data.append({"n": it["name"], "p": (it["price"] + suf) if it["price"] else "", "o": it.get("oldp") or "",
+                     "g": it.get("gal") or ([it["src"]] if it["src"] else []), "l": it["lid"] or 0,
+                     "t": (VIT_TAGS.get(it["tag"]) or ("", ""))[1 if ru else 0], "c": sel, "a": tab, "sc": it.get("sec") or ""})
+    chip_html = ""
+    if chips:
+        chip_html = ('<div class="vtf"><button type="button" class="on" data-w="">%s</button>%s</div>'
+                     % (T("Баары", "Все"), "".join('<button type="button" data-w="%s">%s</button>' % (esc(w), esc(lb)) for w, lb in chips)))
+    size_html = ""
+    if len(sizes) > 1:
+        size_html = ('<div class="vtsz"><span>📏 %s:</span>%s</div>'
+                     % (T("Өлчөм", "Размер"), "".join('<button type="button" data-z="%s">%s</button>' % (esc(z), esc(z)) for z in sizes)))
+    js = r"""<script>(function(){var V=%s,TEL=%s,MODE=%s,g=document.getElementById("vtg"),m=document.getElementById("vtm");document.body.appendChild(m);
+var W="",Z="";function e(x){return String(x==null?"":x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
+function flt(){var any=!!(W||Z);if(any){g.classList.add("all");var mo=document.getElementById("vtmo");if(mo)mo.style.display="none";}
+ g.querySelectorAll(".vtc").forEach(function(b){var ok=true;if(W){ok=MODE==="s"?b.getAttribute("data-s")===W:b.getAttribute("data-n").indexOf(W)>=0;}
+  if(ok&&Z){ok=(" "+b.getAttribute("data-z")+" ").indexOf(" "+Z+" ")>=0;}b.classList.toggle("vtx",!ok);});}
+document.querySelectorAll(".vtf button").forEach(function(c){c.onclick=function(){W=c.getAttribute("data-w");document.querySelectorAll(".vtf button").forEach(function(x){x.classList.toggle("on",x===c);});flt();};});
+document.querySelectorAll(".vtsz button").forEach(function(c){c.onclick=function(){var z=c.getAttribute("data-z");Z=(Z===z)?"":z;document.querySelectorAll(".vtsz button").forEach(function(x){x.classList.toggle("on",x.getAttribute("data-z")===Z);});flt();};});
+var mo=document.getElementById("vtmo");if(mo)mo.onclick=function(){g.classList.add("all");mo.style.display="none";};
+g.querySelectorAll(".vtc").forEach(function(b){b.onclick=function(){var v=V[+b.getAttribute("data-i")],d=m.firstElementChild,P={};
+ var h='<div class="gal">'+v.g.map(function(s){return '<i style="background-image:url('+e(s)+')"></i>';}).join("")+'</div>'+(v.g.length>1?'<div class="dots">'+v.g.map(function(){return "●";}).join("")+'</div>':"")
+  +'<div class="bd">'+(v.sc?'<div style="font-size:12px;font-weight:800;color:#5A6B82;margin-bottom:2px">'+e(v.sc)+'</div>':"")+'<h3>'+e(v.n)+'</h3>'
+  +(v.p?'<div class="pr">'+e(v.p)+(v.o?'<s>'+e(v.o)+'</s>':"")+'</div>':"")+(v.t?'<span class="tg">'+e(v.t)+'</span>':"");
+ v.c.forEach(function(c,ci){h+='<div class="ch"><label>'+e(c[0])+' — %s</label><div>'+c[1].map(function(x){return '<button type="button" data-c="'+ci+'" data-v="'+e(x)+'">'+e(x)+'</button>';}).join("")+'</div></div>';});
+ if(v.a.length)h+='<div class="at">'+v.a.map(function(a){return '<div><span>'+e(a[0])+'</span><b>'+e(a[1])+'</b></div>';}).join("")+'</div>';
+ h+='<div class="bt">'+(TEL?'<a class="b1" href="tel:+'+TEL+'">📞 %s</a>':"")+(window.tpReq?'<button class="b2" id="vtq">📝 %s</button>':"")+(v.l?'<a class="b3" href="/e/'+v.l+'">📄 %s ›</a>':"")
+  +'</div><button class="x" onclick="document.getElementById(\'vtm\').classList.remove(\'on\')">%s</button></div>';
+ d.innerHTML=h;d.scrollTop=0;m.classList.add("on");
+ d.querySelectorAll(".ch button").forEach(function(x){x.onclick=function(){var ci=x.getAttribute("data-c");P[ci]=(P[ci]===x.getAttribute("data-v"))?"":x.getAttribute("data-v");
+  d.querySelectorAll('.ch button[data-c="'+ci+'"]').forEach(function(y){y.classList.toggle("on",y.getAttribute("data-v")===P[ci]);});};});
+ var q=document.getElementById("vtq");if(q)q.onclick=function(){var ex=Object.keys(P).map(function(k){return P[k];}).filter(Boolean).join(", ");m.classList.remove("on");window.tpReq();
+  setTimeout(function(){var t=document.getElementById("rqt");if(t)t.value=v.n+(ex?", "+ex:"")+(v.p?" — "+v.p:"")+". ";},60);};};});
+})();</script>""" % (json.dumps(data, ensure_ascii=False).replace("</", "<\\/"), json.dumps(tel or ""), json.dumps(mode),
+                     T("тандаңыз", "выберите"), T("Чалуу", "Позвонить"), T("Буйрутма берүү", "Заказать"),
+                     T("Толук маалымат", "Подробнее"), T("Жабуу", "Закрыть"))
+    return ('%s%s<div class="tpsec">%s <small style="color:#9AA9BE">%d</small></div>%s%s<div class="vtg" id="vtg">%s</div>%s'
+            '<div class="vtm" id="vtm" onclick="if(event.target===this)this.classList.remove(\'on\')"><div></div></div>%s'
+            % (_VT_CSS, _VP_CSS, esc(ttl), len(items), chip_html, size_html, cards,
+               ('<button type="button" class="vtmore" id="vtmo">%s (%d) ›</button>' % (T("Баарын көрүү", "Показать все"), len(items)))
+               if len(items) > 6 else "", js))
+
+
+# ── Сатуучунун редактору: кошумча талаалар ──
+_VPE_JS = r"""<script>(function(){var D=null,X={},EX=[];
+function e(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var of=window.fetch;window.fetch=function(u,o){try{if(typeof u==='string'&&u.indexOf('/api/vit?t=')===0){return of(u,o).then(function(r){return r.clone().json().then(function(j){D=j;setTimeout(build,0);return r;});});}
+ if(u==='/api/vit'&&o&&o.method==='POST'){var b=JSON.parse(o.body);if(b.op==='add'){var at={};Object.keys(X).forEach(function(k){var v=X[k];if(Array.isArray(v)?v.length:v)at[k]=v;});
+  b.attrs=at;b.sec=(document.getElementById('vpsec')||{}).value||'';b.oldp=(document.getElementById('vpold')||{}).value||'';b.imgs=EX.slice(0,4);o=Object.assign({},o,{body:JSON.stringify(b)});X={};EX=[];}}}catch(err){}
+ return of(u,o);};
+var PD=0;function build(){var go=document.getElementById('vtgo');if(!go||document.getElementById('vpx'))return;
+ if(!D){if(!PD){PD=1;var tk=null;try{tk=localStorage.getItem('tap_vok');}catch(err){}if(tk)of('/api/vit?t='+encodeURIComponent(tk)).then(function(r){return r.json();}).then(function(j){D=j;build();});}return;}var suf=D.suf||'';
+ var h='<div id="vpx" style="margin-top:8px">';
+ h+='<label style="display:block;font-size:12.5px;font-weight:800;color:#5A6B82;margin:6px 0 4px">🗂 Бөлүм</label><input id="vpsec" list="vpsl" maxlength="30" placeholder="Мис: '+e((D.secs||[])[0]||'Негизги')+'" style="width:100%;box-sizing:border-box;border:1.5px solid #D5DDE9;border-radius:10px;padding:8px 10px;font:inherit;font-size:14.5px">'
+  +'<datalist id="vpsl">'+(D.secs||[]).map(function(s){return '<option value="'+e(s)+'">';}).join('')+'</datalist>'
+  +'<div id="vpsc" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">'+(D.secs||[]).slice(0,6).map(function(s){return '<button type="button" data-s="'+e(s)+'" style="border:1.5px solid #D5DEEA;background:#fff;border-radius:99px;padding:4px 10px;font:inherit;font-size:12.5px;font-weight:700">'+e(s)+'</button>';}).join('')+'</div>';
+ (D.fields||[]).forEach(function(f){h+='<label style="display:block;font-size:12.5px;font-weight:800;color:#5A6B82;margin:10px 0 4px">'+e(f[1])+'</label>';
+  if(f[2]==='text'){h+='<input data-f="'+f[0]+'" maxlength="40" placeholder="'+e(f[3])+'" style="width:100%;box-sizing:border-box;border:1.5px solid #D5DDE9;border-radius:10px;padding:8px 10px;font:inherit;font-size:14.5px">';}
+  else{h+='<div style="display:flex;flex-wrap:wrap;gap:6px">'+f[3].map(function(o){return '<button type="button" data-k="'+f[0]+'" data-m="'+(f[2]==='multi'?1:0)+'" data-v="'+e(o)+'" style="min-width:40px;border:1.5px solid #D5DEEA;background:#fff;border-radius:10px;padding:6px 9px;font:inherit;font-size:13.5px;font-weight:800;color:#17304F">'+e(o)+'</button>';}).join('')+'</div>';}});
+ h+='<label style="display:block;font-size:12.5px;font-weight:800;color:#5A6B82;margin:10px 0 4px">🏷 Эски баа (арзандатуу болсо)</label><input id="vpold" maxlength="24" placeholder="Мис: 3500" style="width:100%;box-sizing:border-box;border:1.5px solid #D5DDE9;border-radius:10px;padding:8px 10px;font:inherit;font-size:14.5px">'
+  +'<label style="display:block;font-size:12.5px;font-weight:800;color:#5A6B82;margin:10px 0 4px">📷 Кошумча сүрөттөр (4кө чейин)</label><div id="vpim" style="display:flex;gap:6px;flex-wrap:wrap"><label style="width:56px;height:56px;border-radius:10px;border:2px dashed #2458C6;display:grid;place-items:center;color:#2458C6;font-size:22px;cursor:pointer">＋<input type="file" accept="image/*" multiple id="vpin" style="display:none"></label></div>'
+  +(suf?'<div style="font-size:12px;color:#7A889C;margin-top:6px">Баа «'+e(suf.trim())+'» деп көрсөтүлөт.</div>':'')+'</div>';
+ go.insertAdjacentHTML('beforebegin',h);
+ var sc=document.getElementById('vpsec');document.querySelectorAll('#vpsc button').forEach(function(b){b.onclick=function(){sc.value=b.getAttribute('data-s');};});
+ document.querySelectorAll('#vpx [data-f]').forEach(function(i){i.oninput=function(){X[i.getAttribute('data-f')]=i.value;};});
+ document.querySelectorAll('#vpx [data-k]').forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-k'),v=b.getAttribute('data-v');
+  if(b.getAttribute('data-m')==='1'){var a=X[k]||[];var i=a.indexOf(v);if(i>=0)a.splice(i,1);else a.push(v);X[k]=a;}else{X[k]=(X[k]===v)?'':v;}
+  document.querySelectorAll('#vpx [data-k="'+k+'"]').forEach(function(y){var on=Array.isArray(X[k])?X[k].indexOf(y.getAttribute('data-v'))>=0:X[k]===y.getAttribute('data-v');
+   y.style.background=on?'#163C8C':'#fff';y.style.color=on?'#fff':'#17304F';y.style.borderColor=on?'#163C8C':'#D5DEEA';});};});
+ var fi=document.getElementById('vpin');fi.onchange=function(){Array.prototype.slice.call(this.files,0,4-EX.length).forEach(function(f){var rd=new FileReader();rd.onload=function(){var im=new Image();im.onload=function(){
+  var c=document.createElement('canvas'),s=Math.min(im.width,im.height);c.width=c.height=720;c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,720,720);
+  var u=c.toDataURL('image/jpeg',0.8);EX.push(u);var t=document.createElement('i');t.style.cssText='width:56px;height:56px;border-radius:10px;background:url('+u+') center/cover';document.getElementById('vpim').insertBefore(t,document.getElementById('vpim').lastChild);};im.src=rd.result;};rd.readAsDataURL(f);});};}
+new MutationObserver(function(){build();}).observe(document.body,{childList:true,subtree:true});})();</script>"""
+
+_myshop_page_vp_base = myshop_page
+
+
+def myshop_page(lang="ky"):
+    return _myshop_page_vp_base(lang).replace("</body>", _VPE_JS + "</body>", 1)
+
+
+try:
+    _vitrina_page_vp_base = vitrina_page
+
+    def vitrina_page(lang="ky"):
+        return _vitrina_page_vp_base(lang).replace("</body>", _VPE_JS + "</body>", 1)
+except NameError:
+    pass
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
