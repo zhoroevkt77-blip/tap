@@ -12577,6 +12577,159 @@ function bind(){box.querySelectorAll('.mrtabs button').forEach(function(b){b.onc
 load();})();
 """
 
+
+# ── CHATDEL: билдирүүлөр — «⋯ → 🗑 Өчүрүү» (өзүмдөн гана), 🔒 жабылган жарыя, өзү тазалануу ──
+_CD = {"ready": False, "clean": 0.0}
+
+
+def _cd_init():
+    if _CD["ready"]:
+        return
+    _ch_init()
+    core.query("CREATE TABLE IF NOT EXISTS chat_hide (uid TEXT, lid INTEGER, buyer TEXT, at TEXT)")
+    _CD["ready"] = True
+
+
+def _cd_clean():
+    """90 күн жазылбаган жазышуулар жана жарыясы жабылып, 30 күн жазылбагандар өчөт (саатына бир жолу)."""
+    import time as _tm
+    if _tm.time() - _CD["clean"] < 3600:
+        return
+    _CD["clean"] = _tm.time()
+    try:
+        l90 = (_sdt.utcnow() - _std(days=90)).strftime("%Y-%m-%d %H:%M:%S")
+        l30 = (_sdt.utcnow() - _std(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+        th = core.query("SELECT lid, buyer, MAX(at) AS last FROM chat_msgs GROUP BY lid, buyer", fetch="all") or []
+        for r in th:
+            r = dict(r)
+            last = str(r.get("last") or "")
+            dead = last < l90
+            if not dead and last < l30:
+                x = core.query("SELECT is_active FROM listings WHERE id=?", (int(r["lid"]),), fetch="one")
+                dead = (not x) or not int(dict(x).get("is_active") or 0)
+            if dead:
+                core.query("DELETE FROM chat_msgs WHERE lid=? AND buyer=?", (int(r["lid"]), str(r["buyer"])))
+                core.query("DELETE FROM chat_hide WHERE lid=? AND buyer=?", (int(r["lid"]), str(r["buyer"])))
+    except Exception as e:
+        print("chatdel clean:", e, flush=True)
+
+
+def _cd_closed(lid):
+    try:
+        x = core.query("SELECT is_active FROM listings WHERE id=?", (int(lid),), fetch="one")
+        return (not x) or not int(dict(x).get("is_active") or 0)
+    except Exception:
+        return False
+
+
+_ch_list_cd_base = _ch_list
+
+
+def _ch_list(tok):
+    _cd_init()
+    _cd_clean()
+    j = _ch_list_cd_base(tok)
+    try:
+        if not j.get("ok"):
+            return j
+        st = _wverified(tok)
+        me = str(st["tg_id"])
+        hid = {}
+        for r in core.query("SELECT lid, buyer, MAX(at) AS at FROM chat_hide WHERE uid=? GROUP BY lid, buyer", (me,), fetch="all") or []:
+            r = dict(r)
+            hid[(int(r["lid"]), str(r["buyer"]))] = str(r["at"] or "")
+        out = []
+        for it in j["items"]:
+            buyer = it["b"] if it["role"] == "o" else me
+            h = hid.get((int(it["lid"]), str(buyer)))
+            if h:
+                lr = core.query("SELECT MAX(at) AS m FROM chat_msgs WHERE lid=? AND buyer=?", (int(it["lid"]), str(buyer)), fetch="one") or {}
+                if str(dict(lr).get("m") or "") <= h:
+                    continue
+            it["closed"] = _cd_closed(it["lid"])
+            out.append(it)
+        out.sort(key=lambda x: 0 if x.get("un") else 1)   # окулбагандар үстүндө (калганы мурунку тартипте)
+        j["items"] = out
+    except Exception as e:
+        print("chatdel list:", e, flush=True)
+    return j
+
+
+def _cd_hide(b):
+    _cd_init()
+    st = _wverified(b.get("token"))
+    if not st:
+        return {"ok": False, "err": "verify"}
+    me = str(st["tg_id"])
+    try:
+        lid = int(b.get("lid"))
+    except Exception:
+        return {"ok": False}
+    buyer = "".join(c for c in str(b.get("b") or "") if c.isdigit() or c == "-") or me
+    x = core.query("SELECT 1 AS k FROM chat_msgs WHERE lid=? AND buyer=? AND (buyer=? OR owner=?) LIMIT 1",
+                   (lid, buyer, me, me), fetch="one")
+    if not x:
+        return {"ok": False}
+    core.query("INSERT INTO chat_hide (uid, lid, buyer, at) VALUES (?,?,?,?)", (me, lid, buyer, _ch_now()))
+    core.query("UPDATE chat_msgs SET seen=1 WHERE lid=? AND buyer=? AND sender<>?", (lid, buyer, "o" if buyer != me else "b"))
+    return {"ok": True}
+
+
+_EXT_POST["/api/chathide"] = _cd_hide
+
+_ch_get_cd_base = _ch_get
+
+
+def _ch_get(tok, lid, b, lang="ky"):
+    j = _ch_get_cd_base(tok, lid, b, lang)
+    try:
+        if isinstance(j, dict) and j.get("ok"):
+            j["closed"] = _cd_closed(lid)
+    except Exception:
+        pass
+    return j
+
+
+_ch_send_cd_base = _ch_send
+
+
+def _ch_send(b):
+    if _cd_closed(b.get("lid")):
+        return {"ok": False, "err": "closed"}
+    return _ch_send_cd_base(b)
+
+
+_CH_JS = _CH_JS.replace("document.getElementById('chs').onclick=send;",
+                        "document.getElementById('chs').onclick=send;if(j.closed){var _f=document.querySelector('.chf');"
+                        "if(_f)_f.outerHTML='<div class=\"chcl\">🔒 '+T('Жарыя жабылган — жаңы билдирүү жазууга болбойт.','Объявление закрыто — новые сообщения недоступны.')+'</div>';}", 1)
+
+_CH_CSS += """<style>
+.chi{position:relative;padding-right:44px!important}
+.chi .cdm{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:10px;background:#F3F6FB;color:#5A6B82;font-size:18px;font-weight:900;line-height:1;cursor:pointer}
+.chi .un{margin-right:6px}
+.chi .cl{display:inline-block;margin-left:6px;background:#EEF1F5;color:#5A6B82;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:800}
+.chi.gone{transition:opacity .25s,transform .25s;opacity:0;transform:translateX(30px)}
+.cdpop{position:fixed;inset:0;z-index:400;background:rgba(11,27,48,.45);display:flex;align-items:flex-end;justify-content:center}
+.cdpop>div{background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:16px 16px 22px}
+.cdpop b{display:block;font-size:16px;margin-bottom:4px}.cdpop small{display:block;color:#5A6B82;font-size:13px;line-height:1.45;margin-bottom:12px}
+.cdpop button{display:block;width:100%;border:0;border-radius:12px;padding:13px;font:inherit;font-weight:800;font-size:15px;margin-top:8px}
+.cdpop .del{background:#FDECEC;color:#B3261E}.cdpop .no{background:#F3F6FB;color:#17304F}
+.chcl{position:fixed;left:0;right:0;bottom:70px;margin:0 auto;max-width:560px;background:#EEF1F5;color:#5A6B82;text-align:center;font-weight:800;font-size:14px;padding:14px;border-radius:14px}
+</style>"""
+
+_CHS_JS = _CHS_JS.replace(
+    "+(it.un?'<span class=\"un\">'+it.un+'</span>':'')+'</a>';});",
+    "+(it.un?'<span class=\"un\">'+it.un+'</span>':'')+'<button type=\"button\" class=\"cdm\" data-l=\"'+it.lid+'\" data-b=\"'+esc(it.b||'')+'\">⋯</button></a>';});", 1).replace(
+    "<b>'+esc(it.title)+'</b>", "<b>'+esc(it.title)+(it.closed?'<span class=\"cl\">🔒 '+T('Жабылган','Закрыто')+'</span>':'')+'</b>", 1).replace(
+    "  box.innerHTML=h;}).catch(", """  box.innerHTML=h;
+  box.querySelectorAll('.cdm').forEach(function(btn){btn.onclick=function(ev){ev.preventDefault();ev.stopPropagation();var a=btn.closest('.chi');
+   var p=document.createElement('div');p.className='cdpop';p.innerHTML='<div><b>🗑 '+T('Жазышууну өчүрүү','Удалить переписку')+'</b><small>'+T('Жазышуу сиздин тизмеңизден гана өчөт. Экинчи адам жаңы билдирүү жазса, кайра чыгат.','Переписка удалится только у вас. Если собеседник напишет снова — она появится.')+'</small>'
+    +'<button class="del" type="button">🗑 '+T('Өчүрүү','Удалить')+'</button><button class="no" type="button">'+T('Жокко чыгаруу','Отмена')+'</button></div>';
+   document.body.appendChild(p);p.onclick=function(e){if(e.target===p)p.remove();};p.querySelector('.no').onclick=function(){p.remove();};
+   p.querySelector('.del').onclick=function(){fetch('/api/chathide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,lid:+btn.getAttribute('data-l'),b:btn.getAttribute('data-b')})})
+    .then(function(r){return r.json();}).then(function(x){p.remove();if(x.ok){a.classList.add('gone');setTimeout(function(){a.remove();if(!box.querySelector('.chi'))box.innerHTML='<p class="che">'+T('Азырынча билдирүү жок.','Сообщений пока нет.')+'</p>';},260);}else alert(T('Ката чыкты.','Ошибка.'));});};};});
+  }).catch(""", 1)
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
