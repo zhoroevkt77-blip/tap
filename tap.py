@@ -4787,6 +4787,8 @@ class H(BaseHTTPRequestHandler):
                 keep = {k: kq[k][0] for k in ("at", "cid", "sid", "q", "sort", "rl") if k in kq}
                 if keep and pr.path == "/":
                     back = "/?" + urllib.parse.urlencode(keep)
+                elif pr.path in ("/d", "/d/"):   # SHOPREG
+                    back = "/d" + (("?" + pr.query) if pr.query else "")
             except Exception:
                 pass
             if nv in OBLASTS:
@@ -10647,6 +10649,244 @@ try:
     _tp.KS_NOTE = True
 except Exception:
     pass
+
+
+# ── SHOPTILE: Башкы беттеги чоң плиткада ТАП+ дүкөнү (Алмаз 2×, Алтын 1×), «ТАП+ ачуу» — жарыя берүүдө ──
+_ST_W = {"tulpar": 2, "tai": 1}
+_ST_CSS = ('<style>nav.cats a.cpshop{display:block;position:relative;overflow:hidden;text-decoration:none;color:#fff;'
+           'background:#163C8C center/cover no-repeat!important;border-color:#E2B33C!important;border-width:2px!important}'
+           'nav.cats a.cpshop:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,27,48,.05) 20%,rgba(11,27,48,.82) 100%)}'
+           'nav.cats a.cpshop .tg{position:absolute;left:8px;top:8px;background:linear-gradient(135deg,#E9B949,#C98F16);color:#fff;'
+           'font-size:10.5px;font-weight:900;border-radius:7px;padding:3px 7px;z-index:1}'
+           'nav.cats a.cpshop .pr{position:absolute;right:8px;top:8px;background:#E5484D;color:#fff;font-size:11px;font-weight:900;border-radius:7px;padding:3px 7px;z-index:1}'
+           'nav.cats a.cpshop .bt{position:absolute;left:10px;right:10px;bottom:9px;z-index:1;display:flex;gap:8px;align-items:center}'
+           'nav.cats a.cpshop .lg{width:40px;height:40px;border-radius:11px;background:#fff center/cover;flex:none;display:grid;place-items:center;font-size:20px;border:2px solid #fff}'
+           'nav.cats a.cpshop b{display:block;font-size:14.5px;line-height:1.2;text-shadow:0 1px 3px rgba(0,0,0,.5)}'
+           'nav.cats a.cpshop small{display:block;font-size:11.5px;opacity:.92;margin-top:1px}'
+           'nav.cats a.cpshop .go{margin-left:auto;background:#FFD666;color:#3A2A00;font-size:11px;font-weight:900;border-radius:99px;padding:5px 8px;white-space:nowrap}</style>')
+
+
+def _st_pick():
+    pool = []
+    try:
+        for s in _sh_all():
+            w = _ST_W.get(s["_tr"][0], 0)
+            pool += [s] * w
+    except Exception:
+        pass
+    return _psr.choice(pool) if pool else None
+
+
+def _st_tile(s, lang):
+    ru = (lang == "ru")
+    tl = s["_tr"][0] == "tulpar"
+    bg = ("background-image:url(/pi/%s.jpg)" % esc(str(s["banner"]))) if s.get("banner") else ""
+    lg = ('<i class="lg" style="background-image:url(/pi/%s.jpg)"></i>' % esc(str(s["logo"]))) if s.get("logo") \
+        else '<i class="lg">%s</i>' % s["_kd"][1]
+    pr = _tp.promo(s)
+    return ('<a class="catpromo pb cpshop" href="/d/%s" style="%s"><span class="tg">%s</span>%s'
+            '<span class="bt">%s<span><b>%s</b><small>%s %s</small></span><span class="go">%s ›</span></span></a>'
+            % (urllib.parse.quote(str(s.get("slug") or "")), bg, "ТАП+ · АЛМАЗ" if tl else "ТАП+",
+               ('<span class="pr">🏷 %s</span>' % esc(pr[:14])) if pr else "", lg,
+               esc(str(s.get("name") or "")), s["_kd"][1], esc(_sh_kind(s, ru)), "Перейти" if ru else "Кирүү")) + _ST_CSS
+
+
+_home_st_base = home
+
+
+def home(q, *a, **k):
+    h = _home_st_base(q, *a, **k)
+    try:
+        i = h.find('<a class="catpromo pb cptp"')
+        if i >= 0:
+            s = _st_pick()
+            if s:
+                j = h.find("</a>", i) + 4
+                lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
+                h = h[:i] + _st_tile(s, lang) + h[j:]
+    except Exception as e:
+        print("shoptile:", e, flush=True)
+    return h
+
+
+# «Жарыя берүү»: бөлүмдөрдүн астында ТАП+ ачуу плиткасы (ТАП+ жоктор үчүн, ✕ менен 7 күнгө жашырылат)
+_post_page_st_base = post_page
+
+
+def post_page(lang="ky"):
+    h = _post_page_st_base(lang)
+    try:
+        ru = (lang == "ru")
+        tile = _cptp_tile(lang).replace('<a class="catpromo pb cptp" href="/plus">',
+                                        '<a class="catpromo pb cptp" href="/plus" id="ppcp" style="display:none">'
+                                        '<b class="x" onclick="event.preventDefault();event.stopPropagation();try{localStorage.setItem(\'tap_ppx\',Date.now())}catch(e){};'
+                                        'this.parentNode.style.display=\'none\'">✕</b>', 1)
+        tile = tile.replace("Дүкөнүңүздү ачыңыз", "Көп сатасызбы? Дүкөн ачыңыз").replace("Откройте свой магазин", "Много продаёте? Откройте магазин")
+        css = ('<style>.pwrap nav.cats .catpromo{grid-column:span 2;border-radius:14px;min-height:100%}'
+               '.pwrap nav.cats a.cptp.on{display:flex!important}'
+               '.pwrap nav.cats a.cptp .x{position:absolute;right:8px;top:6px;z-index:2;color:#fff;opacity:.75;font-size:15px;cursor:pointer;padding:2px 5px}</style>')
+        js = ('<script>(function(){var t=null,x=0;try{t=localStorage.getItem("tap_vok");x=+localStorage.getItem("tap_ppx")||0;}catch(e){}'
+              'if(Date.now()-x<7*864e5)return;function show(){var e=document.getElementById("ppcp");if(e){e.style.display="";e.classList.add("on");}}'
+              'if(!t){show();return;}fetch("/api/plusopen?t="+encodeURIComponent(t)).then(function(r){return r.json();})'
+              '.then(function(j){if(!(j.ok&&j.state==="has"))show();}).catch(show);'
+              'new MutationObserver(function(){var e=document.getElementById("ppcp");if(e&&e.style.display==="none"&&!e.dataset.c){e.dataset.c=1;'
+              'fetch("/api/plusopen?t="+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){if(!(j.ok&&j.state==="has")){e.style.display="";e.classList.add("on");}});}})'
+              '.observe(document.getElementById("pbox")||document.body,{childList:true,subtree:true});})();</script>')
+        i = h.find("</nav></template>")
+        if i >= 0:
+            h = h[:i] + tile + h[i:]
+            h = h.replace("</body>", css + js + "</body>", 1)
+    except Exception as e:
+        print("shoptile post:", e, flush=True)
+    return h
+
+
+try:
+    _TP_FEAT["tulpar"] = _TP_FEAT["tulpar"] + ("🏠 Башкы беттеги чоң плиткада дүкөнүңүз",)
+    _TP_FEAT_RU["tulpar"] = _TP_FEAT_RU["tulpar"] + ("🏠 Ваш магазин в большой плитке на главной",)
+    _TP_FEAT["tai"] = _TP_FEAT["tai"] + ("🏠 Башкы беттеги плиткада (кезек менен)",)
+    _TP_FEAT_RU["tai"] = _TP_FEAT_RU["tai"] + ("🏠 В плитке на главной (по очереди)",)
+except Exception:
+    pass
+
+
+# ── SHOPREG: ТАП+ дүкөндөр аймак боюнча (/d барагы, Башкы беттеги тилке жана плитка, издөө) ──
+def _sr_norm(v):
+    v = str(v or "").strip()
+    if not v or v.startswith("Бүт"):
+        return None
+    if v in OBLASTS:
+        return v
+    w = v.split()[0].rstrip(".,")
+    city = ("шаар" in v) or v.endswith("ш.") or (" ш." in v) or len(v.split()) == 1
+    for o in OBLASTS:
+        if o.split()[0] == w and (("шаары" in o) == city):
+            return o
+    for o in OBLASTS:
+        if o.split()[0] == w:
+            return o
+    return None
+
+
+_sh_all_sr_base = _sh_all
+
+
+def _sh_all():
+    rows = _sh_all_sr_base()
+    for s in rows:
+        if "_obs" in s:
+            continue
+        obs = set()
+        try:
+            for r in core.query("SELECT DISTINCT oblast FROM listings WHERE is_active=1 AND tg_id=?", (str(s["tg_id"]),),
+                                fetch="all") or []:
+                o = _sr_norm(dict(r).get("oblast"))
+                if o:
+                    obs.add(o)
+        except Exception:
+            pass
+        s["_obs"] = obs
+    return rows
+
+
+def _sh_for(ob):
+    """(аймактагылар, башка аймактагылар). Бүт Кыргызстан боюнча иштегендер — аймактагыларга кирет."""
+    rows = _sh_all()
+    if not ob:
+        return rows, []
+    loc = [s for s in rows if ob in s["_obs"]] + [s for s in rows if not s["_obs"]]
+    ids = {id(s) for s in loc}
+    return loc, [s for s in rows if id(s) not in ids]
+
+
+def _sr_place(ob, lang):
+    return _place_name(ob, lang) if ob else T("all_kg", lang)
+
+
+def shops_page(qs, lang="ky"):
+    ru = (lang == "ru")
+    ob = getattr(_RS, "cob", None)
+    kd = (qs.get("k", [""])[0] or "").strip()
+    loc, oth = _sh_for(ob)
+    cnt = {}
+    for s in loc:
+        cnt[s["_kd"][0]] = cnt.get(s["_kd"][0], 0) + 1
+    ch = '<a class="%s" href="/d">%s <b>%d</b></a>' % ("on" if not kd else "", "Все" if ru else "Баары", len(loc))
+    for k in _tp.KINDS:
+        if cnt.get(k[0]):
+            ch += '<a class="%s" href="/d?k=%s">%s %s <b>%d</b></a>' % ("on" if kd == k[0] else "", k[0], k[1],
+                                                                        esc(_tp.KIND_RU.get(k[0], k[2]) if ru else k[2]), cnt[k[0]])
+    lst = [s for s in loc if not kd or s["_kd"][0] == kd]
+    pl = _sr_place(ob, lang)
+    body = "".join(_sh_row(s, ru) for s in lst)
+    if not body:
+        body = ('<div class="srno">📍 %s<a href="/plus">⭐ %s ›</a></div>'
+                % (esc(("В регионе «%s» пока нет магазинов ТАП+. Станьте первым!" if ru else
+                        "%s аймагында азырынча ТАП+ дүкөн жок. Биринчи болуңуз!") % pl),
+                   "Открыть магазин" if ru else "Дүкөн ачуу"))
+    oth = [s for s in oth if not kd or s["_kd"][0] == kd]
+    if oth:
+        body += ('<div class="tpsec" style="margin-top:18px">🌍 %s</div>%s'
+                 % ("Магазины в других регионах" if ru else "Башка аймактардагы дүкөндөр", "".join(_sh_row(s, ru) for s in oth[:20])))
+    top = ('<div class="shtop"><h1>🏪 %s</h1><p>%s</p><a href="/plus">⭐ %s</a></div>'
+           % ("Магазины ТАП+" if ru else "ТАП+ дүкөндөр",
+              esc(("%s · %d магазинов" if ru else "%s · %d дүкөн") % (pl, len(loc))),
+              "Открыть свой магазин" if ru else "Өз дүкөнүңүздү ачуу"))
+    css = ('<style>.shk a b{font-weight:800;opacity:.7;margin-left:3px}.srno{background:#fff;border-radius:16px;padding:18px;'
+           'text-align:center;color:#3A4A60;line-height:1.5;margin:4px 0 10px}.srno a{display:block;margin-top:10px;background:#163C8C;'
+           'color:#fff;border-radius:12px;padding:11px;font-weight:800;text-decoration:none}</style>')
+    h = ('%s%s<div class="wrap" style="padding-top:8px">%s%s<div class="shk">%s</div>%s</div>'
+         % (_SH_CSS, css, top, _pin_btn(ob, lang, len(loc) or None), ch, body))
+    return page(header("", None, None, lang) + h, title=("Магазины ТАП+" if ru else "ТАП+ дүкөндөр") + " — ТАП!", lang=lang)
+
+
+# Башкы беттеги тилке — тандалган аймак биринчи
+_sh_strip_sr_base = _sh_strip
+
+
+def _sh_strip(lang):
+    ob = getattr(_RS, "cob", None)
+    if not ob:
+        return _sh_strip_sr_base(lang)
+    ru = (lang == "ru")
+    loc, oth = _sh_for(ob)
+    rows = loc + oth
+    if not rows:
+        return ""
+    t = "".join(_sh_tile(s, ru) for s in rows[:10])
+    t += '<a class="shall" href="/d">%s<br>›</a>' % ("Все магазины" if ru else "Бардык дүкөндөр")
+    ttl = (("Магазины ТАП+ · %s" if ru else "ТАП+ дүкөндөр · %s") % _short_place(_place_name(ob, lang))) if loc else \
+        ("Магазины ТАП+" if ru else "ТАП+ дүкөндөр")
+    return ('%s<section class="shelf hsec shsec"><div class="shead"><h2>🏪 %s</h2><a href="/d" class="more">%s ›</a></div>'
+            '<div class="shrow">%s</div></section>' % (_SH_CSS, esc(ttl), "Все" if ru else "Баарын көрүү", t))
+
+
+# Издөөдөгү дүкөн карточкасы — аймактагылар алдыда
+_sh_match_sr_base = _sh_match
+
+
+def _sh_match(q):
+    m = _sh_match_sr_base(q)
+    ob = getattr(_RS, "cob", None)
+    if ob and m:
+        m.sort(key=lambda s: 0 if (ob in s.get("_obs", ()) or not s.get("_obs")) else 1)
+    return m
+
+
+# Башкы беттеги чоң плитка — адегенде аймактагылардан
+_st_pick_sr_base = _st_pick
+
+
+def _st_pick():
+    ob = getattr(_RS, "cob", None)
+    if ob:
+        loc, _o = _sh_for(ob)
+        pool = []
+        for s in loc:
+            pool += [s] * _ST_W.get(s["_tr"][0], 0)
+        if pool:
+            return _psr.choice(pool)
+    return _st_pick_sr_base()
 
 if __name__ == "__main__":
     core.init_db()
