@@ -1015,3 +1015,133 @@ try:
                    "fitness": ("Залдын сүрөттөрү", "Фото зала"), "travel": ("Турлардан сүрөттөр", "Фото с туров")})
 except Exception:
     pass
+
+
+# ══ ADMDEL: админ — сатуучуну өчүрүү, логотип/баннерди алып салуу, витринаны тазалоо ══
+import io as _adio
+from urllib.parse import unquote as _ad_unq
+
+
+def _ad_try(sql, args):
+    try:
+        core.query(sql, args)
+    except Exception as e:
+        print("admdel:", e, flush=True)
+
+
+def _ad_del_seller(tg):
+    tg = str(tg)
+    _ad_try("DELETE FROM seller_imgs WHERE tg_id=?", (tg,))
+    _ad_try("DELETE FROM seller_vit WHERE tg_id=?", (tg,))
+    _ad_try("DELETE FROM seller_busy WHERE tg_id=?", (tg,))
+    _ad_try("DELETE FROM seller_slugs WHERE tg_id=?", (tg,))
+    _ad_try("DELETE FROM shop_events WHERE tg_id=?", (tg,))
+    _ad_try("DELETE FROM sellers WHERE tg_id=?", (tg,))
+
+
+def _ad_vit(tg):
+    try:
+        return [dict(r) for r in (core.query("SELECT id, img, name, price FROM seller_vit WHERE tg_id=? ORDER BY pos, id",
+                                             (str(tg),), fetch="all") or [])]
+    except Exception:
+        return []
+
+
+_admin_ad_base = admin
+
+
+def admin(h, uid, q, p, msg, page, k):
+    post = getattr(h, "command", "GET") == "POST"
+    if p == "/admin/plus/del" and post:
+        try:
+            n = int(h.headers.get("Content-Length") or 0)
+            d = parse_qs(h.rfile.read(n).decode("utf-8")) if 0 < n < 100000 else {}
+        except Exception:
+            d = {}
+        g = lambda x: (d.get(x) or [""])[0].strip()
+        if not hmac.compare_digest(g("k"), k):
+            return h._go("/admin/plus?m=" + quote("Сессия бүттү, кайра кириңиз"))
+        tg = g("tg")
+        r = core.query("SELECT name FROM sellers WHERE tg_id=?", (tg,), fetch="one")
+        if not r:
+            return h._go("/admin/plus?m=" + quote("Сатуучу табылган жок"))
+        _ad_del_seller(tg)
+        _load(force=True)
+        try:
+            core.cache_clear()
+        except Exception:
+            pass
+        return h._go("/admin/plus?m=" + quote("🗑 Өчүрүлдү: %s (жарыяларына тийилген жок)" % (dict(r).get("name") or tg)))
+    if p == "/admin/plus/save" and post:
+        try:
+            n = int(h.headers.get("Content-Length") or 0)
+            raw = h.rfile.read(n) if 0 < n < 16_000_000 else b""
+        except Exception:
+            raw = b""
+        try:
+            d = parse_qs(raw.decode("utf-8"))
+            g = lambda x: (d.get(x) or [""])[0].strip()
+            tg = g("old")
+            if tg and hmac.compare_digest(g("k"), k):
+                if g("logo_del"):
+                    _ad_try("UPDATE sellers SET logo=NULL WHERE tg_id=?", (tg,))
+                if g("banner_del"):
+                    _ad_try("UPDATE sellers SET banner=NULL WHERE tg_id=?", (tg,))
+                for vid in d.get("vit_del") or []:
+                    if str(vid).isdigit():
+                        r = core.query("SELECT img FROM seller_vit WHERE id=? AND tg_id=?", (int(vid), tg), fetch="one")
+                        if r and dict(r).get("img"):
+                            _ad_try("DELETE FROM seller_imgs WHERE id=? AND tg_id=?", (int(dict(r)["img"]), tg))
+                        _ad_try("DELETE FROM seller_vit WHERE id=? AND tg_id=?", (int(vid), tg))
+        except Exception as e:
+            print("admdel save:", e, flush=True)
+        h.rfile = _adio.BytesIO(raw)
+        return _admin_ad_base(h, uid, q, p, msg, page, k)
+    if p != "/admin/plus":
+        return _admin_ad_base(h, uid, q, p, msg, page, k)
+    orig = h._send
+    ed = (q.get("edit") or [""])[0]
+
+    def _send2(body, *a, **kw):
+        try:
+            # 🗑 ар бир сатуучунун жанында
+            import re as _re
+
+            def rep(m):
+                tgq = m.group(1)
+                tgv = _ad_unq(tgq)
+                return (m.group(0) + "<form method='post' action='/admin/plus/del' style='display:inline;margin-left:10px' "
+                        "onsubmit=\"return confirm('Бул сатуучунун ТАП+ барагы, сүрөттөрү жана витринасы толук өчөт. "
+                        "Жарыяларына тийилбейт.\\n\\nЧын эле өчүрөсүзбү?')\">"
+                        "<input type='hidden' name='k' value='%s'><input type='hidden' name='tg' value='%s'>"
+                        "<button style='border:0;background:none;font-size:18px;cursor:pointer;padding:0'>🗑</button></form>"
+                        % (E(k), E(tgv)))
+            body = _re.sub(r"<a href='/admin/plus\?edit=([^']*)'>✏️</a>", rep, body)
+            if ed:
+                cur = _C["tg"].get(ed) or {}
+                if cur.get("logo"):
+                    body = body.replace("<img id='logo_data_p' class='im'>",
+                                        "<img id='logo_data_p' class='im'><label class='ck'><input type='checkbox' name='logo_del' value='1'> 🗑 Логотипти алып салуу</label>", 1)
+                if cur.get("banner"):
+                    body = body.replace("<img id='banner_data_p' class='im' style='max-width:100%'>",
+                                        "<img id='banner_data_p' class='im' style='max-width:100%'><label class='ck'><input type='checkbox' name='banner_del' value='1'> 🗑 Баннерди алып салуу</label>", 1)
+                vit = _ad_vit(ed)
+                if vit:
+                    cells = "".join("<label><img src='/pi/%d.jpg'><input type='checkbox' name='vit_del' value='%d'> өчүрүү<br>%s%s</label>"
+                                    % (int(v.get("img") or 0), int(v["id"]), E(str(v.get("name") or "")),
+                                       (" · " + E(str(v.get("price")))) if v.get("price") else "") for v in vit)
+                    fs = ("<fieldset><legend>🛍 Витрина (%d товар)</legend><div class='pfg'>%s</div>"
+                          "<p style='font-size:12.5px;color:#5A6982;margin:6px 0 0'>Белгилеп, «💾 Сактоо» басыңыз.</p></fieldset>"
+                          % (len(vit), cells))
+                    body = body.replace("<fieldset><legend>🏷 Акция</legend>", fs + "<fieldset><legend>🏷 Акция</legend>", 1)
+        except Exception as e:
+            print("admdel page:", e, flush=True)
+        return orig(body, *a, **kw)
+    h._send = _send2
+    try:
+        return _admin_ad_base(h, uid, q, p, msg, page, k)
+    finally:
+        try:
+            del h._send
+        except Exception:
+            pass
