@@ -11123,6 +11123,120 @@ try:
 except Exception:
     pass
 
+
+# ── TIERCOL: ар тарифке өз түсү — 🥈 Күмүш (күмүш), 🥇 Алтын (алтын), 💎 Алмаз (көгүлтүр-кристалл); «Изде» — көк ──
+_TC_LBL = {"kulun": ("КҮМҮШ", "СЕРЕБРО"), "tai": ("АЛТЫН", "ЗОЛОТО"), "tulpar": ("АЛМАЗ", "АЛМАЗ")}
+_TC_CSS = """<style>
+.tcb{display:inline-block;color:#fff;font-weight:900;font-size:10.5px;letter-spacing:.05em;border-radius:7px;padding:3px 7px;white-space:nowrap;vertical-align:middle;position:relative;overflow:hidden}
+.tcb.t-kulun,.bdg .tcb.t-kulun,em.tcb.t-kulun{background:linear-gradient(135deg,#C3CCD8,#7E8B9E)!important;color:#fff;text-shadow:0 1px 1px rgba(40,52,70,.35)}
+.tcb.t-tai,.bdg .tcb.t-tai,em.tcb.t-tai{background:linear-gradient(135deg,#F2C94C,#C98F16)!important;color:#fff;text-shadow:0 1px 1px rgba(120,80,0,.35)}
+.tcb.t-tulpar,.bdg .tcb.t-tulpar,em.tcb.t-tulpar{background:linear-gradient(135deg,#3FE0F5,#2F6BFF 55%,#7A5CFF)!important;color:#fff;text-shadow:0 1px 1px rgba(20,30,90,.35)}
+.tcb.t-tulpar:after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.75),transparent);animation:tcsh 3.2s infinite}
+@keyframes tcsh{0%,60%{left:-60%}100%{left:130%}}
+.c.cplus.tc-kulun .ph{outline:2.5px solid #A9B4C2!important;outline-offset:-2.5px}
+.c.cplus.tc-tai .ph{outline:2.5px solid #E2B33C!important;outline-offset:-2.5px}
+.c.cplus.tc-tulpar .ph{outline:2.5px solid #4A8DFF!important;outline-offset:-2.5px;box-shadow:0 0 0 3px rgba(74,141,255,.18)}
+.shc.tc-kulun{border-color:#C3CCD8!important;background:linear-gradient(180deg,#F6F8FB,#fff)!important}
+.shc.tc-tai{border-color:#EBC86A!important;background:linear-gradient(180deg,#FFF8E6,#fff)!important}
+.shc.tc-tulpar{border-color:#7FB0FF!important;background:linear-gradient(180deg,#EAF3FF,#fff)!important}
+header.top form.s button{background:linear-gradient(180deg,#2457C5,#163C8C)!important;color:#fff!important;border-color:#163C8C!important}
+</style>"""
+
+
+def _tc_badge(t, lang="ky"):
+    if t not in _TC_LBL:
+        return ""
+    return '<span class="tcb t-%s">ТАП+ · %s</span>' % (t, _TC_LBL[t][1 if lang == "ru" else 0])
+
+
+_card_tc_base = card
+
+
+def card(r, lang="ky"):
+    h = _card_tc_base(r, lang)
+    try:
+        if "cplus" in h:
+            t = _tp.tier(r.get("tg_id"))
+            if t in _TC_LBL:
+                nb = _tc_badge(t, lang)
+                for old in ('<span class="btl">ТАП+ · АЛМАЗ</span>', '<span class="bpl">ТАП+</span><span class="btl">АЛМАЗ</span>',
+                            '<span class="bpl">ТАП+</span>'):
+                    if old in h:
+                        h = h.replace(old, nb, 1)
+                        break
+                h = h.replace('<a class="c cplus', '<a class="c cplus tc-' + t, 1)
+    except Exception:
+        pass
+    return h
+
+
+_tp_badges_tc_base = _tp_badges
+
+
+def _tp_badges(tg_id, lang, small=False):
+    h = _tp_badges_tc_base(tg_id, lang, small)
+    t = _tp.tier(tg_id)
+    if t in _TC_LBL:
+        h = h.replace('<span class="tpb">ТАП+</span> <span class="tpt">АЛМАЗ</span> ', _tc_badge(t, lang) + " ", 1)
+        h = h.replace('<span class="tpb">ТАП+</span> ', _tc_badge(t, lang) + " ", 1)
+    return h
+
+
+_sh_tile_tc_base = _sh_tile
+
+
+def _sh_tile(s, ru):
+    h = _sh_tile_tc_base(s, ru)
+    t = s["_tr"][0]
+    if t in _TC_LBL:
+        lb = _TC_LBL[t][1 if ru else 0]
+        h = h.replace('<em class="tp">ТАП+ · АЛМАЗ</em>', '<em class="tp tcb t-%s">ТАП+ · %s</em>' % (t, lb), 1)
+        h = h.replace('<em class="tp">ТАП+</em>', '<em class="tp tcb t-%s">ТАП+ · %s</em>' % (t, lb), 1)
+        h = h.replace('<a class="shc', '<a class="shc tc-' + t, 1)
+    return h
+
+
+_sh_row_tc_base = _sh_row
+
+
+def _sh_row(s, ru, btn=True):
+    h = _sh_row_tc_base(s, ru, btn)
+    t = s["_tr"][0]
+    if t in _TC_LBL:
+        nb = '<em class="tcb t-%s">ТАП+ · %s</em>' % (t, _TC_LBL[t][1 if ru else 0])
+        for old in (" · ТАП+ · АЛМАЗ · ", " · ТАП+ · "):
+            if old in h:
+                h = h.replace(old, " · " + nb + " · ", 1)
+                break
+    return h
+
+
+try:
+    _st_tile_tc_base = _st_tile
+
+    def _st_tile(s, lang):
+        h = _st_tile_tc_base(s, lang)
+        t = s["_tr"][0]
+        if t in _TC_LBL:
+            lb = _TC_LBL[t][1 if lang == "ru" else 0]
+            for old in ('<span class="tg">ТАП+ · АЛМАЗ</span>', '<span class="tg">ТАП+</span>'):
+                if old in h:
+                    h = h.replace(old, '<span class="tg tcb t-%s">ТАП+ · %s</span>' % (t, lb), 1)
+                    break
+        return h
+except NameError:
+    pass
+
+
+_page_tc_base = page
+
+
+def page(body, *a, **k):
+    h = _page_tc_base(body, *a, **k)
+    if isinstance(h, str) and "</head>" in h:
+        h = h.replace("</head>", _TC_CSS + "</head>", 1)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
