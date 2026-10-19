@@ -13770,6 +13770,130 @@ def _json_out(h, obj):
         print("rufix json:", e, flush=True)
     return _json_out_rux_base(h, obj)
 
+
+# ── SHELF2: башкы беттеги «ТАП+ дүкөндөр» тилкеси — баннер, логотип, витринадан 3 сүрөт, пикир; аягында «Дүкөн ачуу» ──
+import hashlib as _s2h
+
+_S2 = {"t": 0.0, "thumbs": {}}
+
+
+def _s2_thumbs(tg):
+    """Витринадан алгачкы 3 сүрөт (1 мүнөт кэш)."""
+    if _t.time() - _S2["t"] > 60:
+        _S2.update(t=_t.time(), thumbs={})
+    c = _S2["thumbs"]
+    if tg not in c:
+        out = []
+        try:
+            for r in core.query("SELECT img FROM seller_vit WHERE tg_id=? AND img IS NOT NULL ORDER BY pos, id LIMIT 3",
+                                (str(tg),), fetch="all") or []:
+                out.append(int(dict(r)["img"]))
+        except Exception:
+            pass
+        c[tg] = out
+    return c[tg]
+
+
+def _s2_place(s, ru, ob):
+    lang = "ru" if ru else "ky"
+    try:
+        obs = sorted({x[0] for x in _sg_locs().get(str(s["tg_id"]), set()) if x[0]})
+    except Exception:
+        obs = sorted(s.get("_obs") or [])
+    if not obs:
+        return "Весь Кыргызстан" if ru else "Бүт Кыргызстан"
+    first = ob if ob in obs else obs[0]
+    if len(obs) == 1:
+        try:
+            return _sp_place(s, ru)
+        except Exception:
+            pass
+    return _short_place(_place_name(first, lang)) + (" +%d" % (len(obs) - 1) if len(obs) > 1 else "")
+
+
+def _s2_card(s, ru, ob):
+    t = s["_tr"][0]
+    lb = _TC_LBL.get(t, ("", ""))[1 if ru else 0]
+    slug = urllib.parse.quote(str(s.get("slug") or ""))
+    cov = ('style="background-image:url(/pi/%s.jpg)"' % esc(str(s["banner"]))) if s.get("banner") else ""
+    logo = (('<i class="lg" style="background-image:url(/pi/%s.jpg)"></i>' % esc(str(s["logo"]))) if s.get("logo")
+            else '<i class="lg">%s</i>' % s["_kd"][1])
+    th = _s2_thumbs(s["tg_id"])
+    thumbs = ""
+    if th:
+        thumbs = '<span class="th">%s</span>' % "".join('<i style="background-image:url(/pi/%d.jpg)"></i>' % i for i in th)
+    if s.get("_rn"):
+        rv = '<span class="rv">★ %s <small>(%d)</small></span>' % (s["_ra"], s["_rn"])
+    else:
+        rv = '<span class="rv nw">%s</span>' % (("%d объявл." if ru else "%d жарыя") % s["_n"])
+    ok = ' <em class="ok">✅</em>' if _tp.ishenim(s["tg_id"]) else ""
+    return ('<a class="s2c tc-%s" href="/d/%s"><span class="cv %s" %s>%s<em class="tcb t-%s">ТАП+ · %s</em></span>'
+            '<span class="bd"><b>%s%s</b><small>%s %s</small>%s<span class="ft"><span class="pl">📍 %s</span>%s</span></span></a>'
+            % (t, slug, "has" if cov else "", cov, logo, t, lb, esc(str(s.get("name") or "")), ok,
+               s["_kd"][1], esc(_sh_kind(s, ru)), thumbs, esc(_s2_place(s, ru, ob)), rv))
+
+
+def _s2_cta(ru):
+    return ('<a class="s2c s2cta" href="/plus"><span class="ic">🏪</span><b>%s</b><small>%s</small><span class="go">🎁 %s ›</span></a>'
+            % ("Ваш магазин может быть здесь" if ru else "Сиздин дүкөнүңүз ушул жерде болушу мүмкүн",
+               "Своя страница, витрина, заявки от клиентов" if ru else "Өз барагыңыз, витрина, кардарлардан өтүнүчтөр",
+               "7 дней бесплатно" if ru else "7 күн акысыз"))
+
+
+_S2_CSS = """<style>
+.s2row{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.s2row::-webkit-scrollbar{display:none}
+.s2c{flex:none;width:208px;scroll-snap-align:start;background:#fff;border:1.5px solid #DCE4F0;border-radius:20px;overflow:hidden;text-decoration:none;color:#0B1B30;display:flex;flex-direction:column;box-shadow:0 3px 12px rgba(11,27,48,.06)}
+.s2c .cv{position:relative;height:84px;background:linear-gradient(135deg,#2458C6,#163C8C) center/cover;flex:none}
+.s2c.tc-kulun .cv{background-image:linear-gradient(135deg,#D7DEE8,#8E9AAC)}
+.s2c.tc-tai .cv{background-image:linear-gradient(135deg,#F6D776,#D79A1E)}
+.s2c.tc-tulpar .cv{background-image:linear-gradient(135deg,#3FE0F5,#2F6BFF 55%,#7A5CFF)}
+.s2c .cv.has{background-size:cover!important;background-position:center!important}
+.s2c.tc-kulun{border-color:#C3CCD8}.s2c.tc-tai{border-color:#EBC86A}.s2c.tc-tulpar{border-color:#7FB0FF}
+.s2c .cv .tcb{position:absolute;top:8px;right:8px;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+.s2c .lg{position:absolute;left:12px;bottom:-26px;width:56px;height:56px;border-radius:16px;background:#EEF4FF center/cover;border:3px solid #fff;
+ display:grid;place-items:center;font-size:28px;font-style:normal;box-shadow:0 3px 10px rgba(11,27,48,.15)}
+.s2c .bd{display:flex;flex-direction:column;gap:3px;padding:32px 12px 12px;flex:1}
+.s2c b{font-size:15px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.s2c b .ok{font-style:normal;font-size:12px}
+.s2c small{font-size:12.5px;color:#5A6B82;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s2c .th{display:flex;gap:5px;margin:6px 0 2px}.s2c .th i{flex:none;width:56px;height:56px;border-radius:10px;background:#EEF2F8 center/cover}
+.s2c .ft{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:auto;padding-top:6px;font-size:12px}
+.s2c .pl{color:#5A6B82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.s2c .rv{flex:none;font-weight:900;color:#B7791F}.s2c .rv small{color:#8A97AB;font-weight:700}.s2c .rv.nw{color:#163C8C}
+.s2cta{border:2px dashed #9DB6E8;background:linear-gradient(160deg,#F2F7FF,#fff 70%);padding:18px 14px;align-items:flex-start;gap:6px;justify-content:center}
+.s2cta .ic{font-size:34px}.s2cta b{font-size:15.5px;color:#163C8C;-webkit-line-clamp:3}
+.s2cta small{white-space:normal;font-weight:600;line-height:1.35}
+.s2cta .go{margin-top:8px;background:linear-gradient(180deg,#2458C6,#163C8C);color:#fff;border-radius:12px;padding:9px 12px;font-weight:800;font-size:13.5px;align-self:stretch;text-align:center}
+</style>"""
+
+
+def _sh_strip(lang):
+    ru = (lang == "ru")
+    ob = getattr(_RS, "cob", None)
+    try:
+        loc, oth = _sh_for(ob)
+    except Exception:
+        loc, oth = _sh_all(), []
+    rows = list(loc) + list(oth)
+    day = _t.strftime("%Y-%m-%d")
+
+    def key(s):   # тариф боюнча, бир тарифтегилер күн сайын алмашат
+        return (_tp.rank(s["tg_id"]), 0 if s in loc else 1,
+                _s2h.md5((day + str(s["tg_id"])).encode()).hexdigest())
+    try:
+        rows.sort(key=key)
+    except Exception:
+        pass
+    cards = "".join(_s2_card(s, ru, ob) for s in rows[:10])
+    cards += _s2_cta(ru)
+    ttl = "Магазины ТАП+" if ru else "ТАП+ дүкөндөр"
+    if ob and loc:
+        ttl += " · " + _short_place(_place_name(ob, lang))
+    return ('%s%s%s<section class="shelf hsec shsec"><div class="shead"><h2>🏪 %s</h2><a href="/d" class="more">%s ›</a></div>'
+            '<div class="s2row">%s</div></section>'
+            % (_SH_CSS, _TC_CSS, _S2_CSS, esc(ttl), "Все" if ru else "Баарын көрүү", cards))
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
