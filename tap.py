@@ -14258,6 +14258,29 @@ def myshop_page(lang="ky"):
         print("kindvit page:", e, flush=True)
     return h
 
+
+# ── BIZFIRST: башкы бетте «ТАП!+ Бизнес» тилкеси бөлүмдөрдүн жарыяларынан мурун (эң үстүндө) ──
+_home_bf_base = home
+
+
+def home(q, *a, **k):
+    h = _home_bf_base(q, *a, **k)
+    try:
+        i = h.find('<section class="shelf hsec shsec">')
+        if i < 0:
+            return h
+        css = h.rfind(_SH_CSS[:60], 0, i)
+        st = css if 0 <= css and i - css < len(_SH_CSS) + len(_TC_CSS) + 20000 else i
+        e = h.find("</section>", i) + len("</section>")
+        blk = h[st:e]
+        rest = h[:st] + h[e:]
+        j = rest.find('<section class="shelf hsec" id="sh-')
+        if 0 <= j < st:
+            h = rest[:j] + blk + rest[j:]
+    except Exception as ex:
+        print("bizfirst:", ex, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
