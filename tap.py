@@ -14305,6 +14305,37 @@ def home(q, *a, **k):
         print("biztile:", e, flush=True)
     return h
 
+
+# ── BIZPOST: «Жарыя берүүдөгү» ТАП!+ Бизнес да башка бөлүмдөрдөй кадимки плитка ──
+_BP_JS = r"""<script>(function(){function fx(){var t=document.getElementById('ppcp');if(!t)return;
+ if(t.classList.contains('on'))t.classList.remove('on');var x=t.querySelector('.x');if(x)x.remove();
+ if(t.querySelector('.picw'))return;var own=t.dataset.own==='1';
+ t.innerHTML='<span class="picw"><img class="pic" src="/si/bizsq.jpg?v=%s" alt=""></span>'+(own?'<span class="secn bpadd">＋</span>':'')+'<span class="pill">ТАП!+ Бизнес</span>';}
+new MutationObserver(fx).observe(document.body,{childList:true,subtree:true});fx();
+var t0=document.getElementById('ppcp');if(t0)new MutationObserver(function(){if(t0.classList.contains('on'))t0.classList.remove('on');}).observe(t0,{attributes:true,attributeFilter:['class']});})();</script>
+<style>.pwrap nav.cats a#ppcp .bpadd{background:#0E7A54!important;color:#fff!important;font-size:15px}</style>"""
+
+_post_page_bp_base = post_page
+
+
+def post_page(lang="ky"):
+    h = _post_page_bp_base(lang)
+    try:
+        try:
+            h = h.replace(_PPI_CSS % secimg.VERSION, "", 1)
+        except NameError:
+            pass
+        i = h.find('<a class="catpromo pb cptp" href="/plus" id="ppcp"')
+        if i >= 0:
+            j = h.find("</a>", i) + 4
+            h = h[:i] + ('<a class="cat pic s-biz" href="/plus" id="ppcp" style="display:none" aria-label="ТАП!+ Бизнес">'
+                         '<span class="picw"><img class="pic" src="/si/bizsq.jpg?v=%s" alt="" loading="lazy"></span>'
+                         '<span class="pill">ТАП!+ Бизнес</span></a>' % secimg.VERSION) + h[j:]
+        h = h.replace("</body>", (_BP_JS % secimg.VERSION) + "</body>", 1)
+    except Exception as e:
+        print("bizpost:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
