@@ -14281,6 +14281,30 @@ def home(q, *a, **k):
         print("bizfirst:", ex, flush=True)
     return h
 
+
+# ── BIZTILE: «ТАП!+ Бизнес» башкы беттеги бөлүмдөрдүн торчосунда башка бөлүмдөрдөй плитка ──
+_home_bt_base = home
+
+
+def home(q, *a, **k):
+    h = _home_bt_base(q, *a, **k)
+    try:
+        i = h.find('<a class="catpromo pb tpimg"')
+        if i >= 0:
+            j = h.find("</a>", i) + 4
+            try:
+                n = len(_sh_all())
+            except Exception:
+                n = 0
+            ttl = "ТАП!+ Бизнес"
+            tile = ('<a href="/d" class="cat pic s-biz"><span class="picw"><img class="pic" src="/si/bizsq.jpg?v=%s" alt="%s" loading="lazy">'
+                    '</span>%s<span class="pill">%s</span></a>'
+                    % (secimg.VERSION, ttl, ('<span class="secn">%d</span>' % n) if n else "", ttl))
+            h = h[:i] + tile + h[j:]
+    except Exception as e:
+        print("biztile:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
