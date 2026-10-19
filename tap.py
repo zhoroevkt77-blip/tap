@@ -13932,6 +13932,332 @@ def _H_send_biz(self, body, code=200, cookie=None):
 
 H._send = _H_send_biz
 
+
+# ── KINDVIT: ар бир барак түрүнө өз витрина редактору — белгилер, баа бирдиги, талаалар, ＋ кошумчалар ──
+VIT_TAGS.update({
+    "new": ("🆕 Жаңы", "🆕 Новинка"), "hit": ("⭐ Көп суралат", "⭐ Популярное"), "sold": ("✅ Сатылды", "✅ Продано"),
+    "road": ("🚢 Жолдо", "🚢 В пути"), "drop": ("📉 Баасы түштү", "📉 Цена снижена"), "build": ("🏗 Курулуп жатат", "🏗 Строится"),
+    "done": ("✅ Тапшырылды", "✅ Сдан"), "free": ("✅ Бош", "✅ Свободно"), "pre": ("⏳ Алдын ала", "⏳ Предзаказ"),
+    "spicy": ("🌶 Ачуу", "🌶 Острое"), "open": ("✅ Жазылуу ачык", "✅ Идёт набор"), "full": ("⛔ Орун жок", "⛔ Мест нет"),
+    "ngrp": ("🆕 Жаңы топ", "🆕 Новая группа"), "sale": ("✅ Сатыкта", "✅ В продаже"),
+})
+
+# баа бирдиги: код → (кыргызча, орусча); "tot"/"one" — бирдиксиз, "from" — «...дан баштап»
+_KV_U = {"pc": ("даана", "шт."), "kg": ("кг", "кг"), "set": ("комплект", "комплект"), "m2": ("м²", "м²"), "m": ("м", "м"),
+         "job": ("иш", "работа"), "from": ("...дан баштап", "от ..."), "tot": ("баары", "за всё"), "mon": ("ай", "мес."),
+         "h": ("саат", "час"), "trip": ("рейс", "рейс"), "km": ("км", "км"), "one": ("бир жолу", "разово"),
+         "crs": ("курс", "курс"), "les": ("сабак", "занятие"), "l": ("л", "л"), "head": ("баш", "гол."), "bag": ("кап", "мешок"),
+         "lot": ("партия", "партия"), "por": ("порция", "порция"), "pers": ("киши", "чел."), "hall": ("зал", "зал"),
+         "night": ("түн", "ночь"), "pak": ("пакет", "пакет"), "yr": ("жыл", "год"), "tour": ("тур", "тур")}
+_KV_NOSUF = ("tot", "one", "from")
+
+_KV_SVC_TAGS = ["promo", "hit", "new"]
+# түр: (зат атоочу ky/ru, интро ky/ru, «өзү сакталат» ky/ru, белгилер, бирдиктер, демейки бирдик, аты-мисал ky/ru, баа-мисал, кошумча-мисал ky/ru же None)
+_KV = {
+    "store": (("товар", "товар"), ("Товарларыңызды", "товары"), ("Витрина", "Витрина"), ["stock", "order", "promo", "new"],
+              ["pc", "kg", "set"], "", ("Диван «Комфорт»", "Диван «Комфорт»"), "45 000", None),
+    "brigade": (("кызмат", "услугу"), ("Кызматтарыңызды", "услуги"), ("Кызматтар", "Услуги"), _KV_SVC_TAGS,
+                ["m2", "m", "pc", "job", "from"], "", ("Плитка коюу", "Укладка плитки"), "800",
+                ("Материал жеткирүү", "Доставка материала")),
+    "realtor": (("объект", "объект"), ("Объектилериңизди", "объекты"), ("Объектилер", "Объекты"), ["new", "drop", "sold"],
+                ["tot", "m2", "mon"], "tot", ("2 бөлмөлүү батир", "2-комнатная квартира"), "65 000 $", None),
+    "auto": (("унаа", "авто"), ("Унааларыңызды", "автомобили"), ("Унаалар", "Автомобили"), ["sale", "road", "sold"],
+             ["tot"], "tot", ("Toyota Camry 70", "Toyota Camry 70"), "25 000 $", None),
+    "builder": (("объект", "объект"), ("Объектилериңизди", "объекты"), ("Объектилер", "Объекты"), ["build", "done", "promo"],
+                ["m2", "tot"], "m2", ("2 бөлмөлүү батир, 65 м²", "2-комнатная квартира, 65 м²"), "95 000", None),
+    "transport": (("унаа", "машину"), ("Унааларыңызды жана тарифтерди", "машины и тарифы"), ("Тарифтер", "Тарифы"), ["free", "pre"],
+                  ["h", "trip", "km"], "h", ("Портер, 1.5 тонна", "Портер, 1,5 т"), "800", ("Жүкчү", "Грузчик")),
+    "salon": (("кызмат", "услугу"), ("Кызматтарыңызды", "услуги"), ("Кызматтар", "Услуги"), _KV_SVC_TAGS,
+              ["one", "from"], "one", ("Чач кырктыруу", "Стрижка"), "800", ("Чач жуу", "Мытьё головы")),
+    "edu": (("курс", "курс"), ("Курстарыңызды", "курсы"), ("Курстар", "Курсы"), ["open", "ngrp", "full"],
+            ["mon", "crs", "les"], "mon", ("Англис тили, баштоочулар", "Английский, для начинающих"), "4 500", None),
+    "farm": (("продукт", "продукт"), ("Продукцияңызды", "продукцию"), ("Витрина", "Витрина"), ["stock", "pre"],
+             ["kg", "l", "pc", "head", "bag"], "kg", ("Кой эти", "Баранина"), "650", None),
+    "factory": (("буюм", "изделие"), ("Буюмдарыңызды", "изделия"), ("Витрина", "Витрина"), ["stock", "order"],
+                ["pc", "lot"], "pc", ("Футболка логотип менен", "Футболка с логотипом"), "350", ("Таңгак", "Упаковка")),
+    "cafe": (("тамак", "блюдо"), ("Тамактарыңызды", "блюда"), ("Меню", "Меню"), ["hit", "spicy", "new"],
+             ["por", "kg"], "por", ("Бешбармак", "Бешбармак"), "450", ("Кошумча эт", "Доп. мясо")),
+    "toy": (("зал же пакет", "зал или пакет"), ("Залдарыңызды жана пакеттериңизди", "залы и пакеты"), ("Залдар", "Залы"),
+            ["free", "promo"], ["pers", "hall"], "pers", ("Чоң зал, 300 киши", "Большой зал, 300 человек"), "1 500",
+            ("Тамада", "Тамада")),
+    "autosvc": (("кызмат", "услугу"), ("Кызматтарыңызды", "услуги"), ("Кызматтар", "Услуги"), _KV_SVC_TAGS,
+                ["one", "from"], "one", ("Май алмаштыруу", "Замена масла"), "500", ("Фильтр алмаштыруу", "Замена фильтра")),
+    "hotel": (("бөлмө", "номер"), ("Бөлмөлөрүңүздү", "номера"), ("Бөлмөлөр", "Номера"), ["free", "promo"],
+              ["night", "pers"], "night", ("Стандарт бөлмө", "Стандартный номер"), "3 500", ("Трансфер", "Трансфер")),
+    "clean": (("кызмат", "услугу"), ("Кызматтарыңызды", "услуги"), ("Кызматтар", "Услуги"), _KV_SVC_TAGS,
+              ["m2", "h", "one", "pc", "from"], "m2", ("Батир тазалоо", "Уборка квартиры"), "60",
+              ("Муздаткычты жуу", "Мойка холодильника")),
+    "photo": (("пакет", "пакет"), ("Пакеттериңизди", "пакеты"), ("Пакеттер", "Пакеты"), ["promo", "hit"],
+              ["pak", "h"], "pak", ("Той пакети", "Свадебный пакет"), "15 000", ("Дрон", "Дрон")),
+    "vet": (("кызмат же товар", "услугу или товар"), ("Кызматтарыңызды жана товарларыңызды", "услуги и товары"),
+            ("Витрина", "Витрина"), ["stock", "promo"], ["one", "pc", "kg"], "one", ("Эмдөө", "Вакцинация"), "900",
+            ("Үйгө чыгуу", "Выезд на дом")),
+    "legal": (("кызмат", "услугу"), ("Кызматтарыңызды", "услуги"), ("Кызматтар", "Услуги"), ["hit", "promo"],
+              ["one", "h", "from"], "one", ("ИП ачуу", "Открытие ИП"), "3 000", ("Шашылыш (1 күндө)", "Срочно (за 1 день)")),
+    "fitness": (("абонемент", "абонемент"), ("Абонементтериңизди", "абонементы"), ("Абонементтер", "Абонементы"), ["promo", "new"],
+                ["mon", "les", "yr"], "mon", ("Айлык абонемент", "Месячный абонемент"), "2 500",
+                ("Жеке машыктыруучу", "Персональный тренер")),
+    "travel": (("тур", "тур"), ("Турларыңызды", "туры"), ("Турлар", "Туры"), ["promo", "full"],
+               ["pers", "tour"], "pers", ("Ысык-Көл, 3 күн", "Иссык-Куль, 3 дня"), "9 000", ("Виза", "Виза")),
+}
+
+# Ар түргө ылайык талаалар (ачкыч, аталыш, түрү, мисал же тандоолор)
+_KV_YN = ["Бар", "Жок"]
+_VP_F.update({
+    "store": [("sz", "📏 Өлчөмдөр", "multi", _VP_SZ + _VP_SH), ("cl", "🎨 Түстөр", "multi", _VP_CL),
+              ("br", "🏷 Бренд", "text", "Мис: Zara"), ("wr", "🛡 Кепилдик", "text", "Мис: 1 жыл")],
+    "brigade": [("mat", "🧱 Материал", "one", ["Материал менен", "Материалсыз"]), ("dur", "⏱ Мөөнөтү", "text", "Мис: 3 күн"),
+                ("wr", "🛡 Кепилдик", "text", "Мис: 1 жыл")],
+    "realtor": [("rm", "🚪 Бөлмө", "one", ["1", "2", "3", "4", "5+"]), ("ar", "📐 Аянты", "text", "Мис: 65 м²"),
+                ("fl", "🏢 Кабаты", "text", "Мис: 5/9"), ("ds", "📍 Району", "text", "Мис: Ала-Арча"),
+                ("doc", "📄 Документ", "one", ["Кызыл китеп", "Келишим", "Ипотека болот"])],
+    "auto": [("yr", "📅 Жылы", "text", "Мис: 2019"), ("km", "🛣 Пробеги", "text", "Мис: 85 000 км"),
+             ("eng", "⚙️ Мотору", "text", "Мис: 2.5 бензин"), ("gb", "🕹 Коробка", "one", ["Автомат", "Механика"]),
+             ("wh", "🚘 Руль", "one", ["Сол", "Оң"])],
+    "builder": [("rm", "🚪 Бөлмө", "one", ["1", "2", "3", "4", "5+"]), ("ar", "📐 Аянты", "text", "Мис: 65 м²"),
+                ("fl", "🏢 Кабаты", "text", "Мис: 5/12"), ("dl", "🏗 Тапшыруу", "text", "Мис: 2027-ж. 2-чейрек"),
+                ("pay", "💳 Бөлүп төлөө", "one", _KV_YN)],
+    "transport": [("cap", "🚚 Көтөрүмдүүлүгү", "text", "Мис: 2 тонна"), ("vol", "📦 Көлөмү", "text", "Мис: 16 м³"),
+                  ("ld", "👷 Жүкчү", "one", _KV_YN)],
+    "salon": [("dur", "⏱ Узактыгы", "text", "Мис: 60 мүнөт"), ("who", "👩 Адис", "text", "Мис: Айзада")],
+    "edu": [("dur", "⏱ Узактыгы", "text", "Мис: 3 ай"), ("sch", "🗓 Графиги", "text", "Мис: Дш, Шр, Жм 18:00"),
+            ("age", "👤 Кимдер үчүн", "text", "Мис: 7–12 жаш"), ("fmt", "💻 Түрү", "one", ["Офлайн", "Онлайн"])],
+    "farm": [("moq", "📦 Эң аз заказ", "text", "Мис: 10 кг"), ("dlv", "🚚 Жеткирүү", "one", _KV_YN)],
+    "factory": [("sz", "📏 Өлчөмдөр", "multi", _VP_SZ + _VP_SH), ("cl", "🎨 Түстөр", "multi", _VP_CL),
+                ("moq", "📦 Эң аз заказ", "text", "Мис: 50 даана"), ("dur", "⏱ Мөөнөтү", "text", "Мис: 7–14 күн"),
+                ("lg", "🏷 Логотип басуу", "one", _KV_YN)],
+    "cafe": [("por", "🍽 Порция", "text", "Мис: 350 г"), ("cmp", "🥗 Курамы", "text", "Мис: эт, камыр, пияз")],
+    "toy": [("cap", "👥 Канча кишилик", "text", "Мис: 150 киши"), ("inc", "📋 Эмне кирет", "text", "Мис: тамак, декор, үн")],
+    "autosvc": [("car", "🚗 Унаа түрү", "multi", ["Жеңил", "Кроссовер", "Жүк"]), ("dur", "⏱ Убактысы", "text", "Мис: 40 мүнөт")],
+    "hotel": [("pl", "🛏 Орун", "one", ["1", "2", "3", "4", "5+"]), ("ml", "🍳 Тамак", "one", ["Эртең мененки тамак", "Тамаксыз", "3 маал"]),
+              ("ar", "📐 Аянты", "text", "Мис: 25 м²")],
+    "clean": [("dur", "⏱ Убактысы", "text", "Мис: 3 саат"), ("inc", "📋 Эмне кирет", "text", "Мис: пол, чаң, сантехника"),
+              ("ag", "🧴 Каражат", "one", ["Биздики", "Сиздики"])],
+    "photo": [("dur", "⏱ Узактыгы", "text", "Мис: 6 саат"), ("inc", "📋 Эмне кирет", "text", "Мис: 300 сүрөт, монтаж"),
+              ("rdy", "📅 Даяр болот", "text", "Мис: 14 күндө")],
+    "vet": [("an", "🐾 Жаныбар", "multi", ["Ит", "Мышык", "Мал", "Куш"]), ("dur", "⏱ Убактысы", "text", "Мис: 30 мүнөт")],
+    "legal": [("dur", "⏱ Мөөнөтү", "text", "Мис: 3 күн"), ("docs", "📄 Документтер", "text", "Мис: паспорт, ИНН")],
+    "fitness": [("dur", "⏱ Мөөнөтү", "text", "Мис: 1 ай"), ("tm", "🕐 Убактысы", "text", "Мис: 07:00–23:00"),
+                ("tr", "🧑‍🏫 Машыктыруучу", "text", "Мис: Мирлан")],
+    "travel": [("dt", "📅 Күнү", "text", "Мис: 15-июль"), ("dur", "⏱ Узактыгы", "text", "Мис: 3 күн"),
+               ("inc", "📋 Эмне кирет", "text", "Мис: жол, мейманкана, тамак")],
+})
+_VP_SECS.update({
+    "factory": ["Футболка", "Форма", "Жумушчу кийим", "Спорт кийим"], "toy": ["Залдар", "Пакеттер"],
+    "autosvc": ["Май", "Ходовой", "Кузов", "Электрика", "Диагностика"], "photo": ["Той", "Кыз узатуу", "Love story", "Видео"],
+    "vet": ["Кароо", "Эмдөө", "Тамак-аш", "Аксессуар"], "fitness": ["Тренажер зал", "Бокс", "Аэробика"],
+    "travel": ["Ысык-Көл", "Чет өлкө", "Умра"],
+})
+_VP_SUF.clear()   # эми ар бир товардын өз бирдиги бар
+
+# Орусча котормолор (RUFIX бар болсо)
+_KV_RU = {
+    "🏷 Бренд": "🏷 Бренд", "🛡 Кепилдик": "🛡 Гарантия", "Мис: 1 жыл": "Напр.: 1 год", "🧱 Материал": "🧱 Материал",
+    "Материал менен": "С материалом", "Материалсыз": "Без материала", "⏱ Мөөнөтү": "⏱ Срок", "Мис: 3 күн": "Напр.: 3 дня",
+    "📄 Документ": "📄 Документ", "Кызыл китеп": "Красная книга", "Келишим": "Договор", "Ипотека болот": "Возможна ипотека",
+    "🚘 Руль": "🚘 Руль", "Сол": "Левый", "Оң": "Правый", "Мис: 5/12": "Напр.: 5/12", "💳 Бөлүп төлөө": "💳 Рассрочка",
+    "Бар": "Есть", "Жок": "Нет", "📦 Көлөмү": "📦 Объём", "Мис: 16 м³": "Напр.: 16 м³", "👷 Жүкчү": "👷 Грузчик",
+    "⏱ Узактыгы": "⏱ Длительность", "👩 Адис": "👩 Мастер", "Мис: Айзада": "Напр.: Айзада", "Мис: 3 ай": "Напр.: 3 месяца",
+    "🗓 Графиги": "🗓 График", "Мис: Дш, Шр, Жм 18:00": "Напр.: Пн, Ср, Пт 18:00", "💻 Түрү": "💻 Формат",
+    "Офлайн": "Офлайн", "Онлайн": "Онлайн", "📦 Эң аз заказ": "📦 Мин. заказ", "Мис: 10 кг": "Напр.: 10 кг",
+    "🚚 Жеткирүү": "🚚 Доставка", "Мис: 7–14 күн": "Напр.: 7–14 дней", "🏷 Логотип басуу": "🏷 Нанесение логотипа",
+    "📋 Эмне кирет": "📋 Что входит", "Мис: тамак, декор, үн": "Напр.: еда, декор, звук", "🚗 Унаа түрү": "🚗 Тип авто",
+    "Жеңил": "Легковой", "Жүк": "Грузовой", "Мис: 40 мүнөт": "Напр.: 40 минут", "Мис: 25 м²": "Напр.: 25 м²",
+    "Мис: 3 саат": "Напр.: 3 часа", "Мис: пол, чаң, сантехника": "Напр.: пол, пыль, сантехника", "🧴 Каражат": "🧴 Средства",
+    "Биздики": "Наши", "Сиздики": "Ваши", "Мис: 6 саат": "Напр.: 6 часов", "Мис: 300 сүрөт, монтаж": "Напр.: 300 фото, монтаж",
+    "📅 Даяр болот": "📅 Готовность", "Мис: 14 күндө": "Напр.: за 14 дней", "🐾 Жаныбар": "🐾 Животное", "Ит": "Собака",
+    "Мышык": "Кошка", "Мал": "Скот", "Куш": "Птица", "Мис: 30 мүнөт": "Напр.: 30 минут", "📄 Документтер": "📄 Документы",
+    "Мис: паспорт, ИНН": "Напр.: паспорт, ИНН", "Мис: 1 ай": "Напр.: 1 месяц", "🕐 Убактысы": "🕐 Время",
+    "Мис: 07:00–23:00": "Напр.: 07:00–23:00", "🧑‍🏫 Машыктыруучу": "🧑‍🏫 Тренер", "Мис: Мирлан": "Напр.: Мирлан",
+    "📅 Күнү": "📅 Дата", "Мис: 15-июль": "Напр.: 15 июля", "Мис: жол, мейманкана, тамак": "Напр.: дорога, гостиница, питание",
+    "Мис: Zara": "Напр.: Zara", "Футболка": "Футболки", "Форма": "Форма", "Жумушчу кийим": "Спецодежда",
+    "Спорт кийим": "Спортивная одежда", "Залдар": "Залы", "Пакеттер": "Пакеты", "Май": "Масло", "Ходовой": "Ходовая",
+    "Кузов": "Кузов", "Диагностика": "Диагностика", "Той": "Свадьба", "Кыз узатуу": "Кыз узатуу", "Видео": "Видео",
+    "Кароо": "Осмотр", "Эмдөө": "Вакцинация", "Тамак-аш": "Корма", "Аксессуар": "Аксессуары", "Тренажер зал": "Тренажёрный зал",
+    "Бокс": "Бокс", "Аэробика": "Аэробика", "Ысык-Көл": "Иссык-Куль", "Чет өлкө": "Зарубеж", "Умра": "Умра",
+}
+try:
+    _RUX_EX.update(_KV_RU)
+    _RUX_EX_T.update(_KV_RU)
+except NameError:
+    pass
+
+
+def _kv_unit_txt(price, u, ru):
+    if not price or not u or u not in _KV_U or u in ("tot", "one"):
+        return price
+    if u == "from":
+        if ru:
+            return "от " + price
+        return (price[:-3] + "сомдон баштап") if price.endswith(" сом") else (price + "дан баштап")
+    return "%s / %s" % (price, _KV_U[u][1 if ru else 0])
+
+
+def _kv_num(p):
+    m = _wre.search(r"\d[\d\s]*", str(p or ""))
+    try:
+        return int(m.group(0).replace(" ", "")) if m else 0
+    except Exception:
+        return 0
+
+
+# Сатуучу кошкондо: бирдик жана кошумчалар attrs'ка сакталат
+_vt_api_post_kv_base = _vt_api_post
+
+
+def _vt_api_post(b):
+    r = _vt_api_post_kv_base(b)
+    try:
+        if r.get("ok") and b.get("op") == "add":
+            s, err = _ms_seller(b.get("token"))
+            kd = _tp.kind(s)
+            cfg = _KV.get(kd)
+            tg = str(s["tg_id"])
+            row = core.query("SELECT id, attrs FROM seller_vit WHERE tg_id=? ORDER BY id DESC LIMIT 1", (tg,), fetch="one")
+            if row and cfg:
+                row = dict(row)
+                at = _vp_attrs(row)
+                u = str(b.get("unit") or "")
+                if u in cfg[4]:
+                    at["u"] = u
+                ads = []
+                if cfg[8]:
+                    for a in (b.get("addons") or [])[:8]:
+                        n = " ".join(str((a or {}).get("n") or "").split())[:40]
+                        p = " ".join(str((a or {}).get("p") or "").split())[:16]
+                        if n:
+                            ads.append([n, p])
+                if ads:
+                    at["ad"] = ads
+                core.query("UPDATE seller_vit SET attrs=? WHERE id=? AND tg_id=?", (json.dumps(at, ensure_ascii=False), row["id"], tg))
+    except Exception as e:
+        print("kindvit post:", e, flush=True)
+    return r
+
+
+# Товарлар: баага бирдик, кошумчалар өзүнчө (бирдиги жок эски товарларга — мурунку « / түн» ж.б.)
+_KV_OLD_U = {"hotel": "night", "toy": "pers", "edu": "mon"}
+_vt_items_kv_base = _vt_items
+
+
+def _vt_items(tg, lang="ky"):
+    items = _vt_items_kv_base(tg, lang)
+    ru = (lang == "ru")
+    try:
+        s = _tp.get(str(tg)) or {}
+        cfg = _KV.get(_tp.kind(s))
+        for it in items:
+            a = it.get("attrs") if isinstance(it.get("attrs"), dict) else {}
+            u = a.pop("u", None) if a else None
+            if not u:
+                u = _KV_OLD_U.get(_tp.kind(s), "")
+            it["unit"] = u or ""
+            it["ad"] = a.pop("ad", []) if a else []
+            if it.get("price"):
+                it["price"] = _kv_unit_txt(it["price"], u, ru)
+            if it.get("oldp"):
+                it["oldp"] = _kv_unit_txt(it["oldp"], u, ru)
+    except Exception as e:
+        print("kindvit items:", e, flush=True)
+    return items
+
+
+# Кардардын барагы: кошумчаларды белгилеп, жалпы баа
+_vt_html_kv_base = _vt_html
+
+
+def _vt_html(items, s, lang, tel):
+    h = _vt_html_kv_base(items, s, lang, tel)
+    try:
+        ru = (lang == "ru")
+        ads = [[[a[0], _kv_num(a[1])] for a in (it.get("ad") or []) if a and a[0]] for it in items]
+        base = [_kv_num(it.get("price")) if (it.get("unit") or "") in ("", "tot", "one", "pak", "por", "tour", "pc", "set", "job", "hall", "crs") else 0
+                for it in items]
+        h += ('<style>.vtc .im em.hit,.vtc .im em.new,.vtc .im em.ngrp{background:#163C8C;color:#fff}.vtc .im em.spicy,.vtc .im em.drop{background:#E8590C;color:#fff}'
+              '.vtc .im em.sold,.vtc .im em.full{background:#5A6B82;color:#fff}.vtc .im em.free,.vtc .im em.open,.vtc .im em.sale,.vtc .im em.done{background:#0E7A54;color:#fff}'
+              '.vtc .im em.road,.vtc .im em.build,.vtc .im em.pre{background:#F2C94C;color:#3A2A00}</style>')
+        if not any(ads):
+            return h
+        T = (lambda a, b: b if ru else a)
+        h = h.replace('d=m.firstElementChild,P={};', 'd=m.firstElementChild,P={};var KI=+b.getAttribute("data-i"),KA=(window.KVAD||[])[KI]||[],KS={};', 1)
+        h = h.replace("h+='<div class=\"bt\">'",
+                      "if(KA.length){h+='<div class=\"kvad\"><label>＋ %s</label>'+KA.map(function(a,ai){return '<button type=\"button\" data-a=\"'+ai+'\"><span>'+e(a[0])+'</span><b>'+(a[1]?'+'+a[1].toLocaleString('ru-RU').replace(/,/g,' ')+' %s':'')+'</b></button>';}).join('')+'<div class=\"kvt\" id=\"kvt\"></div></div>';}"
+                      "h+='<div class=\"bt\">'" % (T("Кошумчалар", "Дополнительно"), "сом"), 1)
+        h = h.replace('d.innerHTML=h;d.scrollTop=0;m.classList.add("on");',
+                      'd.innerHTML=h;d.scrollTop=0;m.classList.add("on");'
+                      'function kvt(){var sum=0,n=0;Object.keys(KS).forEach(function(k){if(KS[k]){sum+=KA[k][1];n++;}});var bp=(window.KVBP||[])[KI]||0,t=document.getElementById("kvt");if(!t)return;'
+                      't.innerHTML=n?(bp?"%s: <b>"+(bp+sum).toLocaleString("ru-RU").replace(/,/g," ")+" сом</b>":"%s: <b>+"+sum.toLocaleString("ru-RU").replace(/,/g," ")+" сом</b>"):"";}'
+                      'd.querySelectorAll(".kvad button").forEach(function(x){x.onclick=function(){var k=x.getAttribute("data-a");KS[k]=!KS[k];x.classList.toggle("on",!!KS[k]);kvt();};});'
+                      % (T("Жалпы", "Итого"), T("Кошумчалар", "Доп. услуги")), 1)
+        h = h.replace('t.value=v.n+(ex?", "+ex:"")+(v.p?" — "+v.p:"")+". ";',
+                      'var kx=Object.keys(KS).filter(function(k){return KS[k];}).map(function(k){return KA[k][0]+(KA[k][1]?" (+"+KA[k][1]+")":"");});'
+                      'var kt=document.getElementById("kvt");t.value=v.n+(ex?", "+ex:"")+(v.p?" — "+v.p:"")+". "+(kx.length?"+ "+kx.join(", ")+". ":"")+(kt&&kt.textContent?kt.textContent+". ":"");', 1)
+        css = ('<style>.vtm .kvad{margin-top:12px}.vtm .kvad label{display:block;font-size:12.5px;font-weight:800;color:#5A6B82;margin-bottom:6px}'
+               '.vtm .kvad button{display:flex;justify-content:space-between;align-items:center;width:100%;border:1.5px solid #D5DEEA;background:#fff;'
+               'border-radius:12px;padding:10px 12px;margin-bottom:6px;font:inherit;font-size:14px;color:#17304F;text-align:left}'
+               '.vtm .kvad button span:before{content:"☐ ";color:#9AA9BE}.vtm .kvad button.on{border-color:#0E7A54;background:#E9F8F0}'
+               '.vtm .kvad button.on span:before{content:"☑ ";color:#0E7A54}.vtm .kvad b{color:#0E7A54;white-space:nowrap}'
+               '.vtm .kvt{font-size:15px;color:#17304F;margin:4px 2px 0}.vtm .kvt b{font-size:18px;color:#0E7A54}</style>')
+        h += css + '<script>window.KVAD=%s;window.KVBP=%s;</script>' % (json.dumps(ads, ensure_ascii=False).replace("</", "<\\/"), json.dumps(base))
+    except Exception as e:
+        print("kindvit html:", e, flush=True)
+    return h
+
+
+# Сатуучунун редактору: түрүнө жараша тексттер, белгилер, баа бирдиги, ＋ кошумчалар
+_KV_JS = r"""<script>(function(){var KV=%s,U=%s,TG=%s,RU=(document.documentElement.lang==='ru'),K=null,C=null,UN='',AD=[];
+function e(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function L(p){return p?p[RU?1:0]:'';}
+var tok=null;try{tok=localStorage.getItem('tap_vok');}catch(x){}
+if(tok)fetch('/api/vit?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){K=j.kind||null;C=KV[K]||null;if(C){UN=C[5]||'';}ap();});
+var of=window.fetch;window.fetch=function(u,o){try{if(u==='/api/vit'&&o&&o.method==='POST'&&C){var b=JSON.parse(o.body);if(b.op==='add'){b.unit=UN;
+ b.addons=AD.filter(function(a){return a.n;});o=Object.assign({},o,{body:JSON.stringify(b)});AD=[];UN=C[5]||'';}}}catch(x){}return of(u,o);};
+function st(el,v){if(el&&el.textContent!==v)el.textContent=v;}
+function ap(){var box=document.getElementById('vtbox');if(!box||!C)return;var v=box.querySelector('.vte');if(!v)return;
+ var ds=v.querySelectorAll(':scope>div');
+ ds.forEach(function(d){var t=d.textContent||'';
+  if(/өзү сакталат|сохраняется/.test(t)&&d.children.length===0)st(d,RU?(C[2][1]+' — сохраняется само, кнопка «Сохранить» не нужна.'):(C[2][0]+' өзү сакталат — «Сактоо» баскычы керек эмес.'));
+  if(/коюңуз|Добавьте/.test(t)&&!d.dataset.kv){d.dataset.kv=1;d.textContent=RU?('Добавьте '+C[1][1]+' с фото, названием и ценой — клиенты увидят их на вашей странице.'):(C[1][0]+' сүрөтү, аты жана баасы менен коюңуз — кардарлар барагыңызда көрөт.');}});
+ var hd=Array.prototype.filter.call(v.querySelectorAll('.hd'),function(h){return /＋/.test(h.textContent)&&!/📌/.test(h.textContent);})[0];
+ st(hd,RU?('＋ Добавить '+C[0][1]):('＋ Жаңы '+C[0][0]));
+ var n=document.getElementById('vtn');if(n){var ph=(RU?'Название: ':'Аты: ')+L(C[6]);if(n.placeholder!==ph)n.placeholder=ph;}
+ var p=document.getElementById('vtp');if(p){var pp=(RU?'Цена: ':'Баасы: ')+C[7];if(p.placeholder!==pp)p.placeholder=pp;}
+ var s=document.getElementById('vtt');if(s&&!s.dataset.kv){s.dataset.kv=1;s.innerHTML='<option value="">'+(RU?'Без отметки':'Белги жок')+'</option>'+C[3].map(function(t){return '<option value="'+t+'">'+e((TG[t]||['',''])[RU?1:0])+'</option>';}).join('');}
+ var go=document.getElementById('vtgo');if(!go)return;
+ if(C[4].length>1&&!document.getElementById('kvu')){var h='<div id="kvu" class="kvb"><label>💰 '+(RU?'Цена за':'Баа бирдиги')+'</label><div>'
+   +C[4].map(function(c){return '<button type="button" data-u="'+c+'">'+e((U[c]||[c,c])[RU?1:0])+'</button>';}).join('')+'</div></div>';
+  (document.getElementById('vpx')||go).insertAdjacentHTML(document.getElementById('vpx')?'afterbegin':'beforebegin',h);
+  document.querySelectorAll('#kvu button').forEach(function(b){b.onclick=function(){UN=(UN===b.getAttribute('data-u'))?'':b.getAttribute('data-u');paintU();};});paintU();}
+ if(C[8]&&!document.getElementById('kvad')){go.insertAdjacentHTML('beforebegin','<div id="kvad" class="kvb"><label>＋ '+(RU?'Доп. услуги (клиент отметит сам)':'Кошумчалар (кардар өзү белгилейт)')+'</label><div id="kvrows"></div>'
+   +'<button type="button" id="kvadd" class="kvadd">＋ '+(RU?'Добавить доп. услугу':'Кошумча кошуу')+'</button></div>');
+  document.getElementById('kvadd').onclick=function(){if(AD.length>=8)return;AD.push({n:'',p:''});rows();};rows();}}
+function paintU(){document.querySelectorAll('#kvu button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-u')===UN);});}
+function rows(){var r=document.getElementById('kvrows');if(!r)return;r.innerHTML=AD.map(function(a,i){return '<div class="kvr"><input data-i="'+i+'" data-k="n" maxlength="40" placeholder="'+e((RU?'Напр.: ':'Мис: ')+L(C[8]))+'" value="'+e(a.n)+'">'
+  +'<input data-i="'+i+'" data-k="p" maxlength="16" inputmode="numeric" placeholder="+500" value="'+e(a.p)+'"><button type="button" data-x="'+i+'">✕</button></div>';}).join('');
+ r.querySelectorAll('input').forEach(function(x){x.oninput=function(){AD[+x.getAttribute('data-i')][x.getAttribute('data-k')]=x.value;};});
+ r.querySelectorAll('[data-x]').forEach(function(x){x.onclick=function(){AD.splice(+x.getAttribute('data-x'),1);rows();};});}
+new MutationObserver(function(){ap();}).observe(document.body,{childList:true,subtree:true});})();</script>
+<style>.kvb{margin-top:10px}.kvb label{display:block;font-size:12.5px;font-weight:800;color:#5A6B82;margin:6px 0 4px}
+.kvb>div{display:flex;flex-wrap:wrap;gap:6px}#kvu button{border:1.5px solid #D5DEEA;background:#fff;border-radius:10px;padding:6px 10px;font:inherit;font-size:13.5px;font-weight:800;color:#17304F}
+#kvu button.on{background:#163C8C;border-color:#163C8C;color:#fff}
+#kvrows{display:block!important}.kvr{display:flex;gap:6px;margin-bottom:6px}.kvr input{flex:1;min-width:0;border:1.5px solid #D5DDE9;border-radius:10px;padding:8px 10px;font:inherit;font-size:14px}
+.kvr input[data-k=p]{flex:0 0 84px}.kvr button{flex:none;border:0;background:#FDECEC;color:#C03030;border-radius:10px;width:38px;font-size:15px}
+.kvadd{border:1.5px dashed #2458C6;background:#F2F7FF;color:#163C8C;border-radius:10px;padding:8px 12px;font:inherit;font-size:13.5px;font-weight:800;width:100%%}</style>"""
+
+_myshop_page_kv_base = myshop_page
+
+
+def myshop_page(lang="ky"):
+    h = _myshop_page_kv_base(lang)
+    try:
+        js = _KV_JS % (json.dumps({k: [list(v[0]), list(v[1]), list(v[2]), v[3], v[4], v[5], list(v[6]), v[7],
+                                       list(v[8]) if v[8] else None] for k, v in _KV.items()}, ensure_ascii=False),
+                       json.dumps(_KV_U, ensure_ascii=False), json.dumps(VIT_TAGS, ensure_ascii=False))
+        h = h.replace("</body>", js + "</body>", 1)
+    except Exception as e:
+        print("kindvit page:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
