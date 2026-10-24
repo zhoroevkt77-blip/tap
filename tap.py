@@ -14841,6 +14841,16 @@ def me_page(lang="ky"):
         print("about2:", e, flush=True)
     return h
 
+
+# ── JEKE: Кабинетте «Менин» бөлүмү → «Жеке» (орусча «Личное») ──
+_me_page_jk_base = me_page
+
+
+def me_page(lang="ky"):
+    h = _me_page_jk_base(lang)
+    return h.replace('<div class="megt">Менин</div>', '<div class="megt">Жеке</div>', 1) \
+            .replace('<div class="megt">Моё</div>', '<div class="megt">Личное</div>', 1)
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
