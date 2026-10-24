@@ -14375,6 +14375,168 @@ def shops_page(qs, lang="ky"):
         print("bizreg:", e, flush=True)
     return h
 
+
+# ── BIZGEO: бизнестин өз жайгашкан жери (облус/шаар › район › айыл аймагы › айыл) — каталог ушул боюнча издейт ──
+_BG = {"ready": False, "t": 0.0, "rows": {}}
+
+
+def _bg_init():
+    if _BG["ready"]:
+        return
+    core.query("CREATE TABLE IF NOT EXISTS seller_geo (tg_id TEXT PRIMARY KEY, ob TEXT, di TEXT, lo TEXT, vg TEXT, at TEXT)")
+    _BG["ready"] = True
+
+
+def _bg_all():
+    """{tg: (ob, di, lo, vg)} — 60 сек кэш."""
+    if _t.time() - _BG["t"] < 60:
+        return _BG["rows"]
+    out = {}
+    try:
+        _bg_init()
+        for r in core.query("SELECT tg_id, ob, di, lo, vg FROM seller_geo", fetch="all") or []:
+            r = dict(r)
+            if r.get("ob"):
+                out[str(r["tg_id"])] = (r["ob"] or "", r.get("di") or "", r.get("lo") or "", r.get("vg") or "")
+    except Exception as e:
+        print("bizgeo all:", e, flush=True)
+    _BG.update(t=_t.time(), rows=out)
+    return out
+
+
+def _bg_list(ob="", di="", lo=""):
+    try:
+        if not ob:
+            return list(OBLASTS)
+        if ob not in OBLASTS:
+            return []
+        if not di:
+            return list(get_districts(ob))
+        if not lo:
+            return list(get_localities(ob, di))
+        return list(get_villages(ob, di, lo))
+    except Exception:
+        return []
+
+
+# Каталогдо: жери көрсөтүлгөн бизнес — ошол жерде гана; көрсөтүлбөсө — мурункудай жарыяларынан
+_sg_locs_bg_base = _sg_locs
+
+
+def _sg_locs():
+    out = dict(_sg_locs_bg_base())
+    for tg, g in _bg_all().items():
+        out[tg] = {g}
+    return out
+
+
+_sh_all_bg_base = _sh_all
+
+
+def _sh_all():
+    rows = _sh_all_bg_base()
+    geo = _bg_all()
+    for s in rows:
+        g = geo.get(str(s["tg_id"]))
+        if g:
+            s["_obs"] = {g[0]}
+    return rows
+
+
+def _bg_api_get(qs, lang):
+    g = lambda k: (qs.get(k, [""])[0] or "").strip()
+    if g("list") == "1":
+        ru = (lang == "ru")
+        items = _bg_list(g("ob"), g("di"), g("lo"))
+        lab = []
+        for x in items:
+            if " / " in x:
+                a, b = x.split(" / ", 1)
+                lab.append(b if ru else a)
+            elif not g("ob"):
+                lab.append(_place_name(x, lang))
+            else:
+                lab.append(x)
+        return {"ok": True, "value": items, "labels": lab}   # «value» — котормого тийбейт
+    s, err = _ms_seller(g("t"))
+    if err:
+        return err
+    gg = _bg_all().get(str(s["tg_id"])) or ("", "", "", "")
+    return {"ok": True, "value": {"ob": gg[0], "di": gg[1], "lo": gg[2], "vg": gg[3]}}
+
+
+def _bg_api_post(b):
+    s, err = _ms_seller(b.get("token"))
+    if err:
+        return err
+    ob, di, lo, vg = [str(b.get(k) or "").strip() for k in ("ob", "di", "lo", "vg")]
+    if ob not in OBLASTS:
+        return {"ok": False, "err": "ob"}
+    if di and di not in _bg_list(ob):
+        di = lo = vg = ""
+    if lo and lo not in _bg_list(ob, di):
+        lo = vg = ""
+    if vg and vg not in _bg_list(ob, di, lo):
+        vg = ""
+    _bg_init()
+    tg = str(s["tg_id"])
+    core.query("DELETE FROM seller_geo WHERE tg_id=?", (tg,))
+    core.query("INSERT INTO seller_geo (tg_id, ob, di, lo, vg, at) VALUES (?,?,?,?,?,?)", (tg, ob, di, lo, vg, core.now_str()))
+    _BG["t"] = 0.0
+    try:
+        _SH["t"] = 0
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+_EXT_GET["/api/mygeo"] = _bg_api_get
+_EXT_POST["/api/mygeo"] = _bg_api_post
+
+# Барактын толтурулушунда «📍 Жайгашкан жери»
+try:
+    _pu_check_bg_base = _pu_check
+
+    def _pu_check(s):
+        it = _pu_check_bg_base(s)
+        it.insert(0, ("geo", "📍 Жайгашкан жери", bool(_bg_all().get(str(s["tg_id"]))), "/my/shop"))
+        return it
+except NameError:
+    pass
+
+_BG_JS = r"""<script>(function(){var RU=(document.documentElement.lang==='ru'),tok=null;try{tok=localStorage.getItem('tap_vok');}catch(x){}if(!tok)return;
+function T(a,b){return RU?b:a;}function e(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var V={ob:'',di:'',lo:'',vg:''},K=['ob','di','lo','vg'],LB={ob:T('Облус / шаар','Область / город'),di:T('Район / шаар','Район / город'),lo:T('Айыл аймагы','Айыльный округ'),vg:T('Айыл','Село')};
+function box(){var p=document.getElementById('mp-info');if(!p)return null;var b=document.getElementById('bgeo');if(!b){b=document.createElement('div');b.id='bgeo';b.className='msf bgeo';p.insertBefore(b,p.firstChild);}return b;}
+function opts(k,items,labels){return '<option value="">— '+T('тандаңыз','выберите')+' —</option>'+items.map(function(x,i){return '<option value="'+e(x)+'"'+(V[k]===x?' selected':'')+'>'+e(labels[i]||x)+'</option>';}).join('');}
+function lst(k){var q={ob:'',di:'',lo:''};var i=K.indexOf(k);if(i>0)q.ob=V.ob;if(i>1)q.di=V.di;if(i>2)q.lo=V.lo;
+ return fetch('/api/mygeo?list=1&ob='+encodeURIComponent(q.ob)+'&di='+encodeURIComponent(q.di)+'&lo='+encodeURIComponent(q.lo)).then(function(r){return r.json();});}
+function draw(msg){var b=box();if(!b)return;var set=!!V.ob;
+ b.innerHTML='<label>📍 '+T('Бизнесиңиз кайда жайгашкан?','Где находится ваш бизнес?')+'</label>'
+  +'<div class="bgh">'+(set?T('Кардарлар сизди ушул жер боюнча табат.','Клиенты найдут вас по этому месту.'):T('Тандаңыз — ТАП!+ Бизнес каталогунда сиз ушул жерде гана көрүнөсүз. Тандалбаса, жарыяларыңыздын жерлери боюнча чыгасыз.','Выберите — в каталоге ТАП!+ Бизнес вы будете показаны только здесь. Если не выбрать — по местам ваших объявлений.'))+'</div>'
+  +K.map(function(k){return '<div class="bgr" id="bgr-'+k+'"><span>'+LB[k]+'</span><select data-k="'+k+'" disabled><option>…</option></select></div>';}).join('')
+  +'<div class="bgm" id="bgm">'+(msg||'')+'</div>';
+ b.classList.toggle('need',!set);
+ var chain=Promise.resolve();K.forEach(function(k,i){chain=chain.then(function(){var row=document.getElementById('bgr-'+k);if(i>0&&!V[K[i-1]]){row.style.display='none';return;}
+  return lst(k).then(function(j){var s=row.querySelector('select');if(!j.value||!j.value.length){row.style.display='none';return;}s.innerHTML=opts(k,j.value,j.labels);s.disabled=false;});});});
+ chain.then(function(){b.querySelectorAll('select').forEach(function(s){s.onchange=function(){var k=s.getAttribute('data-k'),i=K.indexOf(k);V[k]=s.value;for(var n=i+1;n<4;n++)V[K[n]]='';
+  if(!V.ob){draw();return;}fetch('/api/mygeo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,ob:V.ob,di:V.di,lo:V.lo,vg:V.vg})})
+  .then(function(r){return r.json();}).then(function(x){draw(x.ok?'✅ '+T('Сакталды','Сохранено'):'⚠️ '+T('Ката чыкты','Ошибка'));});};});});}
+var started=0;function go(){if(started||!document.getElementById('mp-info'))return;started=1;
+ fetch('/api/mygeo?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){if(!j.ok){started=0;return;}var w=j.value||{};V={ob:w.ob||'',di:w.di||'',lo:w.lo||'',vg:w.vg||''};draw();});}
+new MutationObserver(go).observe(document.body,{childList:true,subtree:true});go();})();</script>
+<style>.bgeo label{display:block;font-weight:800;font-size:15px;margin-bottom:4px}.bgeo .bgh{font-size:12.5px;color:#5A6B82;line-height:1.4;margin-bottom:8px}
+.bgeo.need{border:2px solid #E2B33C!important;background:#FFFBEF!important}
+.bgr{display:flex;flex-direction:column;gap:3px;margin:7px 0}.bgr span{font-size:12.5px;font-weight:800;color:#5A6B82}
+.bgr select{border:1.5px solid #D5DDE9;border-radius:10px;padding:9px 10px;font:inherit;font-size:14.5px;background:#fff;color:#17304F}
+.bgm{font-size:13px;font-weight:700;color:#0E7A54;margin-top:6px;min-height:1px}</style>"""
+
+_myshop_page_bg_base = myshop_page
+
+
+def myshop_page(lang="ky"):
+    return _myshop_page_bg_base(lang).replace("</body>", _BG_JS + "</body>", 1)
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
