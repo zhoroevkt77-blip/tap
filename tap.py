@@ -14537,6 +14537,274 @@ _myshop_page_bg_base = myshop_page
 def myshop_page(lang="ky"):
     return _myshop_page_bg_base(lang).replace("</body>", _BG_JS + "</body>", 1)
 
+
+# ── SMART2: акылдуу издөө ката жазууну, мүчөлөрдү, ү/ө/ң жоктугун, клавиатура тилин, шаар кыскартууларын түшүнөт ──
+import re as _s2re
+import collections as _s2col
+
+_SF = {"t": 0.0, "vocab": {}, "fold": {}, "byfirst": {}}
+_SF_FOLD = str.maketrans({"ү": "у", "ө": "о", "ң": "н", "ё": "е", "ъ": "", "ь": ""})
+_SF_EN = "qwertyuiop[]asdfghjkl;'zxcvbnm,."
+_SF_RU = "йцукенгшщзхъфывапролджэячсмитьбю"
+_SF_LAY = str.maketrans(_SF_EN, _SF_RU)
+_SF_ALIAS = {
+    "бшк": "бишкек", "бишк": "бишкек", "фрунзе": "бишкек", "bishkek": "бишкек", "bishkеk": "бишкек",
+    "жабад": "жалал-абад", "ж-абад": "жалал-абад", "жалалабад": "жалал-абад", "джалалабад": "жалал-абад",
+    "дж-абад": "жалал-абад", "ик": "ысык-көл", "иссыккуль": "ысык-көл", "ысыккөл": "ысык-көл", "ыссык-көл": "ысык-көл",
+    "иссык-куль": "ысык-көл", "чолпоната": "чолпон-ата", "чолпон": "чолпон-ата", "карабалта": "кара-балта",
+    "карабалты": "кара-балта", "каракол": "каракол", "токмак": "токмок", "osh": "ош", "кв": "батир", "кварт": "квартира",
+    "комн": "бөлмө", "ком": "бөлмө", "авто": "унаа", "тачка": "унаа", "мерс": "мерседес", "тойота": "тойота",
+}
+# Кыргызча жана орусча мүчөлөр (узунунан кыскасына)
+_SF_SUF = sorted(set("""лардын лердин лордун лөрдүн тардын тердин дардын дердин лардан лерден лордон лөрдөн тардан терден
+дардан дерден ларга лерге лорго лөргө тарга терге дарга дерге ларды лерди лорду лөрдү тарды терди дарды дерди
+ларда лерде лордо лөрдө тарда терде дарда дерде лар лер лор лөр тар тер тор төр дар дер дор дөр
+нын нин нун нүн дын дин дун дүн тын тин тун түн дан ден дон дөн тан тен тон төн нан нен нон нөн
+га ге го гө ка ке ко кө да де до дө та те то тө ны ни ну нү ды ди ду дү ты ти ту тү ын ин ун үн
+сы си су сү ы и у ү ч чу чү
+ами ями ах ях ов ев ей ой ий ый ая яя ое ее ые ие ом ем ую юю ам ям ою ею а я ы и у ю е о""".split()), key=len, reverse=True)
+
+
+def _sf_fold(w):
+    return w.translate(_SF_FOLD)
+
+
+def _sf_build():
+    if _t.time() - _SF["t"] < 600 and _SF["vocab"]:
+        return
+    cnt = _s2col.Counter()
+    W = _s2re.compile(r"[a-zа-яёүөң][a-zа-яёүөң\-]{2,}")
+
+    def add(txt, n=1):
+        for w in W.findall(str(txt or "").lower()):
+            cnt[w.strip("-")] += n
+    try:
+        for r in core.query("SELECT title, description FROM listings WHERE is_active=1 ORDER BY id DESC LIMIT 6000", fetch="all") or []:
+            r = dict(r)
+            add(r.get("title"), 3)
+            add(r.get("description"), 1)
+    except Exception as e:
+        print("smart2 vocab:", e, flush=True)
+    try:
+        for g in core.SYNS:
+            for w in g:
+                add(w, 5)
+    except Exception:
+        pass
+    for src in ("_AI_CARS", "_AI_PHONE"):
+        for k in (globals().get(src) or {}):
+            add(k, 5)
+    for keys, _v in (globals().get("_AI_OBJ") or []):
+        for k in keys:
+            add(k, 5)
+    for k in tuple(globals().get("_AI_RENT") or ()) + tuple(globals().get("_AI_SALE") or ()):
+        add(k, 2)
+    try:
+        for ob in OBLASTS:
+            add(ob, 5)
+            for di in get_districts(ob):
+                add(str(di).split(" / ")[0], 3)
+    except Exception:
+        pass
+    for v in _SF_ALIAS.values():
+        add(v, 5)
+    vocab = {w: n for w, n in cnt.items() if n >= 2 and len(w) >= 3}
+    fold, byf = {}, {}
+    for w, n in vocab.items():
+        f = _sf_fold(w)
+        if f not in fold or vocab[fold[f]] < n:
+            fold[f] = w
+        byf.setdefault(f[:1], []).append(f)
+    _SF.update(t=_t.time(), vocab=vocab, fold=fold, byfirst=byf)
+
+
+def _sf_dist(a, b, lim):
+    """Дамерау-Левенштейн аралыгы (lim'ден ашса — lim+1)."""
+    if abs(len(a) - len(b)) > lim:
+        return lim + 1
+    prev2, prev = None, list(range(len(b) + 1))
+    for i in range(1, len(a) + 1):
+        cur = [i] + [0] * len(b)
+        best = cur[0]
+        for j in range(1, len(b) + 1):
+            c = 0 if a[i - 1] == b[j - 1] else 1
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + c)
+            if prev2 is not None and i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                cur[j] = min(cur[j], prev2[j - 2] + 1)
+            best = min(best, cur[j])
+        if best > lim:
+            return lim + 1
+        prev2, prev = prev, cur
+    return prev[-1]
+
+
+def _sf_known(w):
+    """Сөздүктө барбы (ү/ө/ң эске алынбайт) — табылса, сөздүктөгү түрүн берет."""
+    if w in _SF["vocab"]:
+        return w
+    return _SF["fold"].get(_sf_fold(w))
+
+
+_SF_SHORT = {"ош": "ош", "үй": "үй", "уй": "үй", "там": "там", "жер": "жер"}
+
+
+def _sf_word(w):
+    if w in _SF_ALIAS:
+        return _SF_ALIAS[w]
+    if w in _SF_SHORT:
+        return _SF_SHORT[w]
+    if len(w) < 3 or w.isdigit() or _s2re.search(r"\d", w):
+        return w
+    for st, canon in _SF_SHORT.items():   # «Ошто», «Оштон», «үйлөр»
+        if w.startswith(st) and w[len(st):] in _SF_SUF:
+            return canon
+    k = _sf_known(w)
+    if k:
+        return k
+    # клавиатура тили алмашпай калган: «rdfhnbhf» → «квартира»
+    if _s2re.fullmatch(r"[a-z\[\];',.]+", w):
+        sw = w.translate(_SF_LAY)
+        k = _sf_known(sw) or (_sf_word(sw) if sw != w else None)
+        if k and k != sw or (k and _sf_known(k)):
+            return k
+        return w   # латынча жазылган кадимки сөз — norm() өзү которот
+    # мүчөлөрдү кесүү: «батирлер», «Ошто», «Бишкектен»
+    for suf in _SF_SUF:
+        if w.endswith(suf) and len(w) - len(suf) >= 3:
+            k = _sf_known(w[:-len(suf)])
+            if k:
+                return k
+    # ката жазуу: эң жакын сөз
+    if len(w) >= 4:
+        f = _sf_fold(w)
+        lim = 1 if len(w) <= 5 else 2
+        best = None
+        for cand in _SF["byfirst"].get(f[:1], []):
+            d = _sf_dist(f, cand, lim)
+            if d <= lim:
+                n = _SF["vocab"].get(_SF["fold"][cand], 0)
+                key = (d, -n)
+                if best is None or key < best[0]:
+                    best = (key, _SF["fold"][cand])
+        if best:
+            return best[1]
+        # мүчөсү менен ката: уңгусун оңдоп көрөбүз
+        for suf in _SF_SUF:
+            if w.endswith(suf) and len(w) - len(suf) >= 4:
+                r = _sf_word(w[:-len(suf)])
+                if r != w[:-len(suf)]:
+                    return r
+    return w
+
+
+import threading as _s2th
+_SFN = _s2th.local()
+
+
+def smartfix(q):
+    """Издөө сабын оңдойт. (оңдолгон сап, өзгөрдүбү)"""
+    raw = " ".join(str(q or "").split())
+    if not raw or getattr(_SFN, "off", False):
+        return raw, False
+    try:
+        _sf_build()
+        t = raw.lower()
+        t = _s2re.sub(r"(\d)\s*[xх]?\s*-?\s*(ком|комн|комн\w*|кв|к|бөл|бол|бөлм|болм)\b", r"\1 бөлмө", t)
+        toks = _s2re.findall(r"[^\s,.;!?«»\"()]+", t)
+        out = [_sf_word(w) for w in toks]
+        fixed = " ".join(out)
+        return fixed, fixed != " ".join(toks)
+    except Exception as e:
+        print("smartfix:", e, flush=True)
+        return raw, False
+
+
+# Акылдуу издөө оңдолгон сап менен иштейт
+_ai_parse_sf_base = _ai_parse
+
+
+def _ai_parse(q):
+    fx, ch = smartfix(q)
+    return _ai_parse_sf_base(fx if ch else q)
+
+
+# Кадимки сөз издөөсү да (чыпкадагы q)
+_core_filters_sf_base = core._filters
+
+
+def _core_filters_sf(q=None, *a, **k):
+    if q and str(q).strip():
+        fx, ch = smartfix(q)
+        if ch:
+            q = fx
+    return _core_filters_sf_base(q, *a, **k)
+
+
+core._filters = _core_filters_sf
+
+# «Баштапкы» шилтемеси — оңдоосуз издөө
+_ai_route_sf_base = _ai_route
+
+
+def _ai_route(qs, q, at, cid, sid):
+    _SFN.off = bool(qs.get("nofix"))
+    if _SFN.off:
+        return None
+    return _ai_route_sf_base(qs, q, at, cid, sid)
+
+
+# «Сиз муну издедиңизби»: оңдолсо — жыйынтыктын үстүндө жазуу
+_ai_bar_sf_base = _ai_bar
+
+
+def _ai_bar(aiq, lang):
+    h = _ai_bar_sf_base(aiq, lang)
+    try:
+        fx, ch = smartfix(aiq)
+        if ch:
+            ru = (lang == "ru")
+            note = ('<div class="sfx">🔎 %s <b>%s</b> · %s <a href="/?%s">%s</a></div>'
+                    % ("Показано по запросу" if ru else "Ушул боюнча көрсөтүлдү:", esc(fx),
+                       "Исходный:" if ru else "Баштапкы:", _aup.urlencode({"q": aiq, "ai": "0", "nofix": "1"}), esc(aiq)))
+            css = ('<style>.sfx{margin:8px 0 2px;padding:9px 12px;border-radius:12px;background:#FFF8E1;color:#5B4300;'
+                   'font-size:13.5px;line-height:1.4}.sfx b{color:#163C8C}.sfx a{color:#7A5B00;text-decoration:underline}</style>')
+            if '<div class="aib">' in h:
+                h = h.replace('<div class="aib">', css + note + '<div class="aib">', 1)
+            else:
+                h = css + note + h
+    except Exception as e:
+        print("smart2 bar:", e, flush=True)
+    return h
+
+
+# Акылдуу издөө түзүмгө айланбаса да (жөн сөз издөө) — оңдолгонун көрсөтөбүз
+_home_sf_base = home
+
+
+def home(q, *a, **k):
+    h = _home_sf_base(q, *a, **k)
+    try:
+        if q and 'class="sfx"' not in h and not getattr(_SFN, "off", False):
+            fx, ch = smartfix(q)
+            if ch:
+                lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
+                bar = _ai_bar_sf_note(q, fx, lang)
+                i = h.find("</header>")
+                if i >= 0:
+                    h = h[:i + 9] + '<div class="wrap">' + bar + '</div>' + h[i + 9:]
+    except Exception as e:
+        print("smart2 home:", e, flush=True)
+    return h
+
+
+def _ai_bar_sf_note(q, fx, lang):
+    ru = (lang == "ru")
+    return ('<style>.sfx{margin:8px 0 2px;padding:9px 12px;border-radius:12px;background:#FFF8E1;color:#5B4300;'
+            'font-size:13.5px;line-height:1.4}.sfx b{color:#163C8C}.sfx a{color:#7A5B00;text-decoration:underline}</style>'
+            '<div class="sfx">🔎 %s <b>%s</b> · %s <a href="/?%s">%s</a></div>'
+            % ("Показано по запросу" if ru else "Ушул боюнча көрсөтүлдү:", esc(fx),
+               "Исходный:" if ru else "Баштапкы:", _aup.urlencode({"q": q, "ai": "0", "nofix": "1"}), esc(q)))
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
