@@ -14336,6 +14336,45 @@ def post_page(lang="ky"):
         print("bizpost:", e, flush=True)
     return h
 
+
+# ── BIZREG: ТАП!+ Бизнес каталогунда аймак тизмесиндеги сандар — жарыялар эмес, бизнестер ──
+_shops_page_br_base = shops_page
+
+
+def shops_page(qs, lang="ky"):
+    ob = getattr(_RS, "cob", None)
+    try:   # аймак алмашса — мурунку облустун районун/айылын таштайбыз
+        di = (qs.get("di", [""])[0] or "").strip()
+        if di and (not ob or di not in list(get_districts(ob))):
+            qs = {k: v for k, v in qs.items() if k not in ("di", "lo", "vg")}
+    except Exception:
+        pass
+    h = _shops_page_br_base(qs, lang)
+    try:
+        rows = _sh_all()
+        locs = _sg_locs()
+        q = (qs.get("q", [""])[0] or "").strip()
+        if q:
+            rows = _sg_q(rows, q)
+
+        def cnt(o):
+            return sum(1 for s in rows if _sg_match(locs.get(str(s["tg_id"]), set()), o, "", "", ""))
+        a = h.find('<div id="rsheet"')
+        if a >= 0:
+            b = h.find('<p class="rsn">', a)
+
+            def fix(m):
+                href = urllib.parse.unquote(m.group(2))
+                n = len(rows) if href == "all" else (cnt(href) if href in OBLASTS else 0)
+                return m.group(1) + (str(n) if n else "") + "</em></a>"
+            blk = _wre.sub(r'(<a class="rsi[^"]*" href="/region/([^"]+)"><span>.*?</span><em>)[^<]*</em></a>', fix, h[a:b])
+            ru = (lang == "ru")
+            blk = blk.replace("📍 Аймакты тандаңыз", "📍 Аймакты тандаңыз · бизнес").replace("📍 Выберите регион", "📍 Выберите регион · бизнес")
+            h = h[:a] + blk + h[b:]
+    except Exception as e:
+        print("bizreg:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
