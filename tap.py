@@ -14851,6 +14851,83 @@ def me_page(lang="ky"):
     return h.replace('<div class="megt">Менин</div>', '<div class="megt">Жеке</div>', 1) \
             .replace('<div class="megt">Моё</div>', '<div class="megt">Личное</div>', 1)
 
+
+# ── BIZBOX: башкы бетте «ТАП!+ Бизнес» плиткасын басканда торчонун ичинде 6 топ ачылат, топту басканда түрлөрү ──
+_BZ_GROUPS = [
+    ("shop", "🛍", "Соода", "Торговля", ["store", "farm", "factory"]),
+    ("svc", "🛠", "Кызмат", "Услуги", ["brigade", "clean", "autosvc", "legal", "salon"]),
+    ("prop", "🏠", "Мүлк", "Жильё", ["realtor", "builder"]),
+    ("auto", "🚗", "Унаа", "Транспорт", ["auto", "transport"]),
+    ("rest", "🍽", "Эс алуу", "Отдых и еда", ["cafe", "toy", "hotel", "travel", "photo"]),
+    ("edu", "🎓", "Билим", "Обучение", ["edu", "fitness", "vet"]),
+]
+
+_BZB_CSS = """<style>
+nav.cats .bzb{grid-column:1/-1;display:none;background:#fff;border:2px solid #2458C6;border-radius:20px;padding:10px;box-shadow:0 8px 20px rgba(22,60,140,.15)}
+nav.cats .bzb.on{display:block;animation:bzo .25s ease}@keyframes bzo{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.bzb .gg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.bzb .gt{position:relative;height:88px;border-radius:16px;background:linear-gradient(180deg,#F4F8FE,#DCEAFB);border:1.5px solid #D5E2F3;padding:8px 9px;
+ box-sizing:border-box;text-align:left;font:inherit;color:#0B1B30;cursor:pointer}
+.bzb .gt b{font-size:14px;font-weight:800;display:block;line-height:1.15}.bzb .gt i{position:absolute;right:8px;bottom:6px;font-style:normal;font-size:32px}
+.bzb .gt em{position:absolute;left:8px;bottom:8px;font-style:normal;font-size:11px;font-weight:800;background:#163C8C;color:#fff;border-radius:99px;padding:2px 7px}
+.bzb .gt.on{border-color:#2458C6;background:linear-gradient(180deg,#E8F0FF,#C9DCFA);box-shadow:inset 0 0 0 1.5px #2458C6}
+.bzb .kk{display:none;flex-wrap:wrap;gap:7px;margin:10px 2px 2px}.bzb .kk.on{display:flex}
+.bzb .kk a{border:1.5px solid #D5DEEA;background:#F6F8FB;border-radius:99px;padding:7px 11px;font-size:13.5px;font-weight:700;color:#17304F;text-decoration:none}
+.bzb .kk a b{color:#163C8C;margin-left:3px}.bzb .kk a.z{opacity:.5}
+.bzb .all{display:block;margin-top:10px;text-align:center;background:#163C8C;color:#fff;border-radius:12px;padding:11px;font-weight:800;text-decoration:none}
+</style>"""
+
+_BZB_JS = r"""<script>(function(){var t=document.querySelector('nav.cats .s-biz'),b=document.getElementById('bzbox');if(!t||!b)return;
+t.addEventListener('click',function(ev){ev.preventDefault();var on=!b.classList.contains('on');b.classList.toggle('on',on);t.classList.toggle('on',on);
+ var al=document.querySelector('nav.cats .s-all');if(al)al.classList.toggle('on',!on&&al.dataset.on==='1');if(on)b.scrollIntoView({behavior:'smooth',block:'nearest'});});
+var al=document.querySelector('nav.cats .s-all');if(al)al.dataset.on=al.classList.contains('on')?'1':'0';
+b.querySelectorAll('.gt').forEach(function(g){g.onclick=function(){var k=g.getAttribute('data-g'),was=g.classList.contains('on');
+ b.querySelectorAll('.gt').forEach(function(x){x.classList.toggle('on',!was&&x===g);});
+ b.querySelectorAll('.kk').forEach(function(x){x.classList.toggle('on',!was&&x.getAttribute('data-g')===k);});};});})();</script>"""
+
+
+def _bzb_html(lang):
+    ru = (lang == "ru")
+    ob = getattr(_RS, "cob", None)
+    rows = _sh_all()
+    if ob:
+        locs = _sg_locs()
+        rows = [s for s in rows if _sg_match(locs.get(str(s["tg_id"]), set()), ob, "", "", "")]
+    cnt = {}
+    for s in rows:
+        cnt[s["_kd"][0]] = cnt.get(s["_kd"][0], 0) + 1
+    gg, kk = "", ""
+    for key, em, ky, rr, kinds in _BZ_GROUPS:
+        n = sum(cnt.get(k, 0) for k in kinds)
+        gg += ('<button type="button" class="gt" data-g="%s"><b>%s</b><i>%s</i>%s</button>'
+               % (key, esc(rr if ru else ky), em, ('<em>%d</em>' % n) if n else ""))
+        ch = ""
+        for k in kinds:
+            K = _tp.KIND[k]
+            nm = _tp.KIND_RU.get(k, K[2]) if ru else K[2]
+            c = cnt.get(k, 0)
+            ch += '<a class="%s" href="/d?k=%s">%s %s%s</a>' % ("" if c else "z", k, K[1], esc(nm), ("<b>%d</b>" % c) if c else "")
+        kk += '<div class="kk" data-g="%s">%s</div>' % (key, ch)
+    return ('<div class="bzb" id="bzbox"><div class="gg">%s</div>%s<a class="all" href="/d">💼 %s · %d ›</a></div>'
+            % (gg, kk, "Весь бизнес" if ru else "Бардык бизнес", len(rows)))
+
+
+_home_bzb_base = home
+
+
+def home(q, *a, **k):
+    h = _home_bzb_base(q, *a, **k)
+    try:
+        i = h.find('class="cat pic s-biz"')
+        if i >= 0:
+            j = h.find("</a>", i) + 4
+            lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
+            h = h[:j] + _bzb_html(lang) + h[j:]
+            h = h.replace("</body>", _BZB_CSS + _BZB_JS + "</body>", 1)
+    except Exception as e:
+        print("bizbox:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
