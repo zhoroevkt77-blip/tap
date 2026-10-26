@@ -15097,6 +15097,77 @@ def shops_page(qs, lang="ky"):
         print("bizkpic:", e, flush=True)
     return h
 
+
+# ── EMOJI3D: сайттагы эмодзилер — 3D сүрөттөр (Microsoft Fluent Emoji 3D, MIT), /e3/<код>.webp ──
+_E3_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "em3d")
+try:
+    _E3_KEYS = sorted(f[:-5] for f in os.listdir(_E3_DIR) if f.endswith(".webp"))
+except Exception:
+    _E3_KEYS = []
+_E3_CACHE = {}
+
+_do_GET_e3_base = H.do_GET
+
+
+def _e3_do_GET(self):
+    p = self.path.split("?", 1)[0]
+    if p.startswith("/e3/") and p.endswith(".webp"):
+        key = os.path.basename(p)[:-5]
+        data = _E3_CACHE.get(key)
+        if data is None and key in _E3_KEYS:
+            try:
+                data = open(os.path.join(_E3_DIR, key + ".webp"), "rb").read()
+                _E3_CACHE[key] = data
+            except Exception:
+                data = None
+        if not data:
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "image/webp")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "public, max-age=2592000, immutable")
+        self.end_headers()
+        self.wfile.write(data)
+        return
+    return _do_GET_e3_base(self)
+
+
+H.do_GET = _e3_do_GET
+
+_E3_JS = r"""<style>img.e3{width:1.2em;height:1.2em;vertical-align:-.24em;display:inline-block;margin:0 .02em;object-fit:contain;pointer-events:none}</style>
+<script>(function(){if(window.__e3)return;window.__e3=1;var K={};'%KEYS%'.split(',').forEach(function(k){K[k]=1;});
+var RE=/(?:[\uD83C-\uD83E][\uDC00-\uDFFF]|[☀-➿⬀-⯿⌀-⏿ℹ‼⁉㊗㊙])️?(?:‍(?:[\uD83C-\uD83E][\uDC00-\uDFFF]|[☀-➿])️?)*/g;
+var SKIP={SCRIPT:1,STYLE:1,TEXTAREA:1,INPUT:1,OPTION:1,SELECT:1,TITLE:1,CODE:1,PRE:1,NOSCRIPT:1};
+function key(s){var o=[];for(var i=0;i<s.length;){var c=s.codePointAt(i);i+=c>0xFFFF?2:1;if(c!==0xFE0F)o.push(c.toString(16));}return o.join('-');}
+function fix(n){var t=n.nodeValue;RE.lastIndex=0;if(!RE.test(t))return;RE.lastIndex=0;var f=document.createDocumentFragment(),last=0,m,hit=0;
+ while((m=RE.exec(t))){var k=key(m[0]);if(!K[k])continue;hit=1;if(m.index>last)f.appendChild(document.createTextNode(t.slice(last,m.index)));
+  var im=document.createElement('img');im.className='e3';im.alt=m[0];im.draggable=false;im.src='/e3/'+k+'.webp';im.onerror=function(){this.replaceWith(document.createTextNode(this.alt));};f.appendChild(im);last=m.index+m[0].length;}
+ if(!hit)return;if(last<t.length)f.appendChild(document.createTextNode(t.slice(last)));n.parentNode.replaceChild(f,n);}
+function scan(root){if(!root)return;if(root.nodeType===3){var p=root.parentNode;if(p&&!SKIP[p.nodeName]&&!(p.closest&&p.closest('[contenteditable],.noe3')))fix(root);return;}
+ if(root.nodeType!==1||SKIP[root.nodeName])return;var w=document.createTreeWalker(root,4,null),a=[],x;while((x=w.nextNode()))a.push(x);
+ a.forEach(function(n){var p=n.parentNode;if(p&&!SKIP[p.nodeName]&&!(p.closest&&p.closest('[contenteditable],.noe3')))fix(n);});}
+var Q=[],busy=0;function flush(){busy=0;var q=Q;Q=[];q.forEach(scan);}
+scan(document.body);
+new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==='characterData')Q.push(m.target);else m.addedNodes.forEach(function(n){if(n.nodeName!=='IMG')Q.push(n);});});
+ if(Q.length&&!busy){busy=1;requestAnimationFrame(flush);}}).observe(document.body,{childList:true,subtree:true,characterData:true});})();</script>"""
+
+_H_send_e3_base = H._send
+
+
+def _H_send_e3(self, body, code=200, cookie=None):
+    try:
+        if _E3_KEYS and isinstance(body, str) and "</body>" in body and "__e3" not in body:
+            body = body.replace("</body>", _E3_JS.replace("%KEYS%", ",".join(_E3_KEYS)) + "</body>", 1)
+    except Exception as e:
+        print("emoji3d:", e, flush=True)
+    return _H_send_e3_base(self, body, code, cookie)
+
+
+H._send = _H_send_e3
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
