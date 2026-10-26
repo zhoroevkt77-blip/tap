@@ -14852,118 +14852,6 @@ def me_page(lang="ky"):
             .replace('<div class="megt">Моё</div>', '<div class="megt">Личное</div>', 1)
 
 
-# ── BIZBOX: башкы бетте «ТАП!+ Бизнес» плиткасын басканда торчонун ичинде 6 топ ачылат, топту басканда түрлөрү ──
-_BZ_GROUPS = [
-    ("shop", "🛍", "Соода", "Торговля", ["store", "farm", "factory"]),
-    ("svc", "🛠", "Кызмат", "Услуги", ["brigade", "clean", "autosvc", "legal", "salon"]),
-    ("prop", "🏠", "Мүлк", "Жильё", ["realtor", "builder"]),
-    ("auto", "🚗", "Унаа", "Транспорт", ["auto", "transport"]),
-    ("rest", "🍽", "Эс алуу", "Отдых и еда", ["cafe", "toy", "hotel", "travel", "photo"]),
-    ("edu", "🎓", "Билим", "Обучение", ["edu", "fitness", "vet"]),
-]
-
-_BZB_CSS = """<style>
-nav.cats .bzb{grid-column:1/-1;display:none;background:#fff;border:2px solid #2458C6;border-radius:20px;padding:10px;box-shadow:0 8px 20px rgba(22,60,140,.15)}
-nav.cats .bzb.on{display:block;animation:bzo .25s ease}@keyframes bzo{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
-.bzb .gg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.bzb .gt{position:relative;height:88px;border-radius:16px;background:linear-gradient(180deg,#F4F8FE,#DCEAFB);border:1.5px solid #D5E2F3;padding:8px 9px;
- box-sizing:border-box;text-align:left;font:inherit;color:#0B1B30;cursor:pointer}
-.bzb .gt b{font-size:14px;font-weight:800;display:block;line-height:1.15}.bzb .gt i{position:absolute;right:8px;bottom:6px;font-style:normal;font-size:32px}
-.bzb .gt em{position:absolute;left:8px;bottom:8px;font-style:normal;font-size:11px;font-weight:800;background:#163C8C;color:#fff;border-radius:99px;padding:2px 7px}
-.bzb .gt.on{border-color:#2458C6;background:linear-gradient(180deg,#E8F0FF,#C9DCFA);box-shadow:inset 0 0 0 1.5px #2458C6}
-.bzb .kk{display:none;flex-wrap:wrap;gap:7px;margin:10px 2px 2px}.bzb .kk.on{display:flex}
-.bzb .kk a{border:1.5px solid #D5DEEA;background:#F6F8FB;border-radius:99px;padding:7px 11px;font-size:13.5px;font-weight:700;color:#17304F;text-decoration:none}
-.bzb .kk a b{color:#163C8C;margin-left:3px}.bzb .kk a.z{opacity:.5}
-.bzb .all{display:block;margin-top:10px;text-align:center;background:#163C8C;color:#fff;border-radius:12px;padding:11px;font-weight:800;text-decoration:none}
-</style>"""
-
-_BZB_JS = r"""<script>(function(){var t=document.querySelector('nav.cats .s-biz'),b=document.getElementById('bzbox');if(!t||!b)return;
-t.addEventListener('click',function(ev){ev.preventDefault();var on=!b.classList.contains('on');b.classList.toggle('on',on);t.classList.toggle('on',on);
- var al=document.querySelector('nav.cats .s-all');if(al)al.classList.toggle('on',!on&&al.dataset.on==='1');if(on)b.scrollIntoView({behavior:'smooth',block:'nearest'});});
-var al=document.querySelector('nav.cats .s-all');if(al)al.dataset.on=al.classList.contains('on')?'1':'0';
-b.querySelectorAll('.gt').forEach(function(g){g.onclick=function(){var k=g.getAttribute('data-g'),was=g.classList.contains('on');
- b.querySelectorAll('.gt').forEach(function(x){x.classList.toggle('on',!was&&x===g);});
- b.querySelectorAll('.kk').forEach(function(x){x.classList.toggle('on',!was&&x.getAttribute('data-g')===k);});};});})();</script>"""
-
-
-def _bzb_html(lang):
-    ru = (lang == "ru")
-    ob = getattr(_RS, "cob", None)
-    rows = _sh_all()
-    if ob:
-        locs = _sg_locs()
-        rows = [s for s in rows if _sg_match(locs.get(str(s["tg_id"]), set()), ob, "", "", "")]
-    cnt = {}
-    for s in rows:
-        cnt[s["_kd"][0]] = cnt.get(s["_kd"][0], 0) + 1
-    gg, kk = "", ""
-    for key, em, ky, rr, kinds in _BZ_GROUPS:
-        n = sum(cnt.get(k, 0) for k in kinds)
-        gg += ('<button type="button" class="gt" data-g="%s"><b>%s</b><i>%s</i>%s</button>'
-               % (key, esc(rr if ru else ky), em, ('<em>%d</em>' % n) if n else ""))
-        ch = ""
-        for k in kinds:
-            K = _tp.KIND[k]
-            nm = _tp.KIND_RU.get(k, K[2]) if ru else K[2]
-            c = cnt.get(k, 0)
-            ch += '<a class="%s" href="/d?k=%s">%s %s%s</a>' % ("" if c else "z", k, K[1], esc(nm), ("<b>%d</b>" % c) if c else "")
-        kk += '<div class="kk" data-g="%s">%s</div>' % (key, ch)
-    return ('<div class="bzb" id="bzbox"><div class="gg">%s</div>%s<a class="all" href="/d">💼 %s · %d ›</a></div>'
-            % (gg, kk, "Весь бизнес" if ru else "Бардык бизнес", len(rows)))
-
-
-_home_bzb_base = home
-
-
-def home(q, *a, **k):
-    h = _home_bzb_base(q, *a, **k)
-    try:
-        i = h.find('class="cat pic s-biz"')
-        if i >= 0:
-            j = h.find("</a>", i) + 4
-            lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
-            h = h[:j] + _bzb_html(lang) + h[j:]
-            h = h.replace("</body>", _BZB_CSS + _BZB_JS + "</body>", 1)
-    except Exception as e:
-        print("bizbox:", e, flush=True)
-    return h
-
-
-# ── BIZPIC: «ТАП!+ Бизнес» топторуна сүрөттөр (Соода, Кызмат, Мүлк, Унаа, Эс алуу, Билим) ──
-_BZP_STYLE = {"shop": ("#D7FCEB", "#1E8E5A"), "svc": ("#E3F1FE", "#2458C6"), "prop": ("#FCF1DF", "#7A4A12"),
-              "auto": ("#FFECF0", "#B0283C"), "rest": ("#EDE7FE", "#4B3BA8"), "edu": ("#D5EAFB", "#17304F")}
-_BZP_CSS = """<style>
-.bzb .gt.gi{height:auto;padding:0;overflow:hidden;display:flex;flex-direction:column;border:1.5px solid rgba(23,48,79,.08);box-shadow:0 2px 6px rgba(11,27,48,.06)}
-.bzb .gt.gi img{display:block;width:100%;aspect-ratio:360/196;object-fit:cover}
-.bzb .gt.gi .ln{display:flex;align-items:center;gap:4px;padding:5px 8px 8px}
-.bzb .gt.gi .ln b{flex:1;min-width:0;font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#0B1B30}
-.bzb .gt.gi .ln em{position:static;font-style:normal;font-size:11px;font-weight:800;background:#163C8C;color:#fff;border-radius:99px;min-width:18px;height:18px;
- display:inline-flex;align-items:center;justify-content:center;padding:0 5px;box-sizing:border-box}
-.bzb .gt.gi .ln s{text-decoration:none;font-weight:900;font-size:17px;line-height:1}
-</style>"""
-
-
-def _bzb_html(lang):
-    ru = (lang == "ru")
-    ob = getattr(_RS, "cob", None)
-    rows = _sh_all()
-    if ob:
-        locs = _sg_locs()
-        rows = [s for s in rows if _sg_match(locs.get(str(s["tg_id"]), set()), ob, "", "", "")]
-    cnt = {}
-    for s in rows:
-        cnt[s["_kd"][0]] = cnt.get(s["_kd"][0], 0) + 1
-    gg = ""
-    for key, em, ky, rr, kinds in _BZ_GROUPS:
-        n = sum(cnt.get(k, 0) for k in kinds)
-        bg, ac = _BZP_STYLE.get(key, ("#EEF4FF", "#163C8C"))
-        gg += ('<a class="gt gi" href="/d?g=%s" style="background:%s"><img src="/si/bzg_%s.jpg?v=%s" alt="" loading="lazy">'
-               '<span class="ln"><b>%s</b>%s<s style="color:%s">›</s></span></a>'
-               % (key, bg, key, secimg.VERSION, esc(rr if ru else ky), ('<em>%d</em>' % n) if n else "", ac))
-    return ('%s<div class="bzb" id="bzbox"><div class="gg">%s</div><a class="all" href="/d">💼 %s · %d ›</a></div>'
-            % (_BZP_CSS, gg, "Весь бизнес" if ru else "Бардык бизнес", len(rows)))
-
-
 # ── KINDPIC: /plus «ТАП+ ким үчүн?» карточкаларында эмодзинин ордуна сүрөт, ар биринин өз түсү ──
 _KP_IMG = {"store": ("shop", "#EAFBF3"), "brigade": ("svc", "#E8F5FE"), "realtor": ("prop", "#FEF6E3"),
            "auto": ("auto", "#FFEAEF"), "builder": ("builder", "#E0F2FE"), "transport": ("taxi", "#FCF4E1"),
@@ -14999,6 +14887,214 @@ def _kl_block(lang):
         h = _KP_CSS + "".join(out)
     except Exception as e:
         print("kindpic:", e, flush=True)
+    return h
+
+
+
+
+# ── BIZNEW: (BIZBOX) башкы бетте «ТАП!+ Бизнес» плиткасын басканда торчонун ичинде 6 топ ачылат, топ каталогду ачат ──
+_BZ_GROUPS = [
+    ("shop", "🛍", "Соода", "Торговля", ["store", "farm", "factory"]),
+    ("svc", "🛠", "Кызмат", "Услуги", ["brigade", "clean", "autosvc", "legal", "salon"]),
+    ("prop", "🏠", "Мүлк", "Жильё", ["realtor", "builder"]),
+    ("auto", "🚗", "Унаа", "Транспорт", ["auto", "transport"]),
+    ("rest", "🍽", "Эс алуу", "Отдых и еда", ["cafe", "toy", "hotel", "travel", "photo"]),
+    ("edu", "🎓", "Билим", "Обучение", ["edu", "fitness", "vet"]),
+]
+
+_BZB_CSS = """<style>
+nav.cats .bzb{grid-column:1/-1;display:none;background:#fff;border:2px solid #2458C6;border-radius:20px;padding:10px;box-shadow:0 8px 20px rgba(22,60,140,.15)}
+nav.cats .bzb.on{display:block;animation:bzo .25s ease}@keyframes bzo{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.bzb .gg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.bzb .gt{display:block;text-decoration:none;position:relative;height:88px;border-radius:16px;background:linear-gradient(180deg,#F4F8FE,#DCEAFB);border:1.5px solid #D5E2F3;padding:8px 9px;
+ box-sizing:border-box;text-align:left;font:inherit;color:#0B1B30;cursor:pointer}
+.bzb .gt b{font-size:14px;font-weight:800;display:block;line-height:1.15}.bzb .gt i{position:absolute;right:8px;bottom:6px;font-style:normal;font-size:32px}
+.bzb .gt em{position:absolute;left:8px;bottom:8px;font-style:normal;font-size:11px;font-weight:800;background:#163C8C;color:#fff;border-radius:99px;padding:2px 7px}
+.bzb .gt.on{border-color:#2458C6;background:linear-gradient(180deg,#E8F0FF,#C9DCFA);box-shadow:inset 0 0 0 1.5px #2458C6}
+.bzb .kk{display:none;flex-wrap:wrap;gap:7px;margin:10px 2px 2px}.bzb .kk.on{display:flex}
+.bzb .kk a{border:1.5px solid #D5DEEA;background:#F6F8FB;border-radius:99px;padding:7px 11px;font-size:13.5px;font-weight:700;color:#17304F;text-decoration:none}
+.bzb .kk a b{color:#163C8C;margin-left:3px}.bzb .kk a.z{opacity:.5}
+.bzb .all{display:block;margin-top:10px;text-align:center;background:#163C8C;color:#fff;border-radius:12px;padding:11px;font-weight:800;text-decoration:none}
+</style>"""
+
+_BZB_JS = r"""<script>(function(){var t=document.querySelector('nav.cats .s-biz'),b=document.getElementById('bzbox');if(!t||!b)return;
+t.addEventListener('click',function(ev){ev.preventDefault();var on=!b.classList.contains('on');b.classList.toggle('on',on);t.classList.toggle('on',on);
+ var al=document.querySelector('nav.cats .s-all');if(al)al.classList.toggle('on',!on&&al.dataset.on==='1');if(on)b.scrollIntoView({behavior:'smooth',block:'nearest'});});
+var al=document.querySelector('nav.cats .s-all');if(al)al.dataset.on=al.classList.contains('on')?'1':'0';
+})();</script>"""
+
+
+def _bzb_html(lang):
+    ru = (lang == "ru")
+    ob = getattr(_RS, "cob", None)
+    rows = _sh_all()
+    if ob:
+        locs = _sg_locs()
+        rows = [s for s in rows if _sg_match(locs.get(str(s["tg_id"]), set()), ob, "", "", "")]
+    cnt = {}
+    for s in rows:
+        cnt[s["_kd"][0]] = cnt.get(s["_kd"][0], 0) + 1
+    gg, kk = "", ""
+    for key, em, ky, rr, kinds in _BZ_GROUPS:
+        n = sum(cnt.get(k, 0) for k in kinds)
+        gg += ('<a class="gt" href="/d?g=%s"><b>%s</b><i>%s</i>%s</a>'
+               % (key, esc(rr if ru else ky), em, ('<em>%d</em>' % n) if n else ""))
+    return ('<div class="bzb" id="bzbox"><div class="gg">%s</div>%s<a class="all" href="/d">💼 %s · %d ›</a></div>'
+            % (gg, kk, "Весь бизнес" if ru else "Бардык бизнес", len(rows)))
+
+
+_home_bzb_base = home
+
+
+def home(q, *a, **k):
+    h = _home_bzb_base(q, *a, **k)
+    try:
+        i = h.find('class="cat pic s-biz"')
+        if i >= 0:
+            j = h.find("</a>", i) + 4
+            lang = k.get("lang") or (a[6] if len(a) > 6 else "ky")
+            h = h[:j] + _bzb_html(lang) + h[j:]
+            h = h.replace("</body>", _BZB_CSS + _BZB_JS + "</body>", 1)
+    except Exception as e:
+        print("bizbox:", e, flush=True)
+    return h
+
+
+# Каталог (/d?g=svc): топтогу түрлөр гана
+import threading as _bzth2
+_BZG = _bzth2.local()
+_sh_all_bzg_base = _sh_all
+
+
+def _sh_all():
+    rows = _sh_all_bzg_base()
+    ks = getattr(_BZG, "kinds", None)
+    return [s for s in rows if s["_kd"][0] in ks] if ks else rows
+
+
+_shops_page_bzg_base = shops_page
+
+
+def shops_page(qs, lang="ky"):
+    gr = (qs.get("g", [""])[0] or "").strip()
+    G = {x[0]: x for x in _BZ_GROUPS}.get(gr)
+    if not G or (qs.get("k", [""])[0] or "").strip():
+        return _shops_page_bzg_base(qs, lang)
+    _BZG.kinds = set(G[4])
+    try:
+        h = _shops_page_bzg_base(qs, lang)
+    finally:
+        _BZG.kinds = None
+    try:
+        ru = (lang == "ru")
+        chip = ('<div style="margin:6px 0 2px"><a href="/d" style="display:inline-flex;gap:6px;align-items:center;background:#163C8C;color:#fff;'
+                'border-radius:99px;padding:7px 13px;font-weight:800;font-size:14px;text-decoration:none">%s %s <span style="opacity:.75">✕</span></a></div>'
+                % (G[1], esc(G[3] if ru else G[2])))
+        h = h.replace('<div class="shk">', chip + '<div class="shk">', 1)
+    except Exception as e:
+        print("bizgroup:", e, flush=True)
+    return h
+
+
+# Топтордун сүрөттөрү (BIZPIC)
+_BZP_STYLE = {"shop": ("#D7FCEB", "#1E8E5A"), "svc": ("#E3F1FE", "#2458C6"), "prop": ("#FCF1DF", "#7A4A12"),
+              "auto": ("#FFECF0", "#B0283C"), "rest": ("#EDE7FE", "#4B3BA8"), "edu": ("#D5EAFB", "#17304F")}
+_BZP_CSS = """<style>
+.bzb .gt.gi{height:auto;padding:0;overflow:hidden;display:flex;flex-direction:column;border:1.5px solid rgba(23,48,79,.08);box-shadow:0 2px 6px rgba(11,27,48,.06)}
+.bzb .gt.gi img{display:block;width:100%;aspect-ratio:360/196;object-fit:cover}
+.bzb .gt.gi .ln{display:flex;align-items:center;gap:4px;padding:5px 8px 8px}
+.bzb .gt.gi .ln b{flex:1;min-width:0;font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#0B1B30}
+.bzb .gt.gi .ln em{position:static;font-style:normal;font-size:11px;font-weight:800;background:#163C8C;color:#fff;border-radius:99px;min-width:18px;height:18px;
+ display:inline-flex;align-items:center;justify-content:center;padding:0 5px;box-sizing:border-box}
+.bzb .gt.gi .ln s{text-decoration:none;font-weight:900;font-size:17px;line-height:1}
+</style>"""
+
+
+def _bzb_html(lang):
+    ru = (lang == "ru")
+    ob = getattr(_RS, "cob", None)
+    rows = _sh_all()
+    if ob:
+        locs = _sg_locs()
+        rows = [s for s in rows if _sg_match(locs.get(str(s["tg_id"]), set()), ob, "", "", "")]
+    cnt = {}
+    for s in rows:
+        cnt[s["_kd"][0]] = cnt.get(s["_kd"][0], 0) + 1
+    gg = ""
+    for key, em, ky, rr, kinds in _BZ_GROUPS:
+        n = sum(cnt.get(k, 0) for k in kinds)
+        bg, ac = _BZP_STYLE.get(key, ("#EEF4FF", "#163C8C"))
+        gg += ('<a class="gt gi" href="/d?g=%s" style="background:%s"><img src="/si/bzg_%s.jpg?v=%s" alt="" loading="lazy">'
+               '<span class="ln"><b>%s</b>%s<s style="color:%s">›</s></span></a>'
+               % (key, bg, key, secimg.VERSION, esc(rr if ru else ky), ('<em>%d</em>' % n) if n else "", ac))
+    return ('%s<div class="bzb" id="bzbox"><div class="gg">%s</div><a class="all" href="/d">💼 %s · %d ›</a></div>'
+            % (_BZP_CSS, gg, "Весь бизнес" if ru else "Бардык бизнес", len(rows)))
+
+
+# Каталогдогу түр чиптеринде да сүрөт (ТАП+ ким үчүн? сүрөттөрү)
+_BZK_IMG = {"store": "shop", "brigade": "svc", "realtor": "prop", "auto": "auto", "builder": "builder", "transport": "taxi",
+            "salon": "beauty", "edu": "edu2", "farm": "farm", "factory": "factory", "cafe": "cafe2", "toy": "rest",
+            "autosvc": "autosvc", "legal": "legal", "fitness": "fitness", "travel": "travel"}
+_BZK_BG = {"shop": "#EAFBF3", "svc": "#E8F5FE", "prop": "#FEF6E3", "auto": "#FFEAEF", "builder": "#E0F2FE", "taxi": "#FCF4E1",
+           "beauty": "#FFE8EE", "edu2": "#E1F3FF", "farm": "#ECE9FC", "factory": "#E5F9F0", "cafe2": "#EEEBFE", "rest": "#EBEAFC",
+           "autosvc": "#E1F1FE", "legal": "#ECE9FC", "fitness": "#FEE9F0", "travel": "#E1F3FF"}
+
+
+def _bzk_logos(h):
+    """Логотиби жок бизнесте эмодзинин ордуна түрүнүн сүрөтү."""
+    if '<i class="lg">' not in h:
+        return h
+    v = secimg.VERSION
+    for k in _tp.KINDS:
+        im = _BZK_IMG.get(k[0])
+        if im:
+            h = h.replace('<i class="lg">%s</i>' % k[1],
+                          '<i class="lg" style="background:%s url(/si/kd_%s.jpg?v=%s) center/contain no-repeat;font-size:0"></i>'
+                          % (_BZK_BG[im], im, v))
+    return h
+
+
+_home_bzk_base = home
+
+
+def home(q, *a, **k):
+    h = _home_bzk_base(q, *a, **k)
+    try:
+        h = _bzk_logos(h)
+    except Exception as e:
+        print("bizklogo:", e, flush=True)
+    return h
+_BZK_CSS = ("<style>.shk a.kpi{display:inline-flex;align-items:center;gap:6px;padding:3px 12px 3px 4px}"
+            ".shk a.kpi img{width:36px;height:27px;border-radius:9px;display:block;flex:none}"
+            ".bzgc img{width:32px;height:24px;border-radius:8px;display:block}</style>")
+
+_shops_page_bzk_base = shops_page
+
+
+def shops_page(qs, lang="ky"):
+    h = _shops_page_bzk_base(qs, lang)
+    try:
+        i = h.rfind('<div class="shk">')
+        if i < 0:
+            return h
+        j = h.find("</div>", i)
+        seg = h[i:j]
+        v = secimg.VERSION
+        for k in _tp.KINDS:
+            im = _BZK_IMG.get(k[0])
+            if not im:
+                continue
+            seg = _wre.sub(r'<a class="(on|)" href="([^"]*)">' + _wre.escape(k[1]) + ' ',
+                           lambda m: '<a class="%s kpi" href="%s"><img src="/si/kd_%s.jpg?v=%s" alt="">' % (m.group(1), m.group(2), im, v), seg)
+        h = h[:i] + seg + h[j:]
+        gr = (qs.get("g", [""])[0] or "").strip()
+        G = {x[0]: x for x in _BZ_GROUPS}.get(gr)
+        if G:
+            h = h.replace('text-decoration:none">%s ' % G[1],
+                          'text-decoration:none" class="bzgc"><img src="/si/bzg_%s.jpg?v=%s" alt="">' % (gr, v), 1)
+        h = _bzk_logos(h).replace("</body>", _BZK_CSS + "</body>", 1)
+    except Exception as e:
+        print("bizkpic:", e, flush=True)
     return h
 
 if __name__ == "__main__":
