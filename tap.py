@@ -15168,6 +15168,34 @@ def _H_send_e3(self, body, code=200, cookie=None):
 
 H._send = _H_send_e3
 
+
+# ── ICON3D: Кабинеттин тизмесиндеги жана ылдыйкы менюдагы сызык иконкалар — 3D сүрөттөр ──
+_I3_JS = r"""<style>img.i3{display:block;object-fit:contain;flex:none}</style>
+<script>(function(){if(window.__i3)return;window.__i3=1;
+var M={'/my':'1f4cb','/fav':'2764','/bal':'1f4b3','/msg':'2753','/lang/ru':'1f310','/lang/ky':'1f310','/about':'2139','/terms':'1f4dc','/privacy':'1f512','/me':'1f464','/':'1f3e0'};
+function code(a){var h=a.getAttribute('href')||'';if(h.indexOf('t.me/')>=0)return '1f4e2';h=h.split('?')[0];return M[h]||'';}
+function run(){document.querySelectorAll('.mrow2 svg, nav.nav a:not(.fab) svg').forEach(function(s){var a=s.closest('a');if(!a)return;var c=code(a);if(!c)return;
+ var r=s.getBoundingClientRect(),w=Math.round(r.width)||22,h=Math.round(r.height)||22,big=a.closest('nav.nav')?4:6;
+ var im=document.createElement('img');im.className='i3';im.alt='';im.src='/e3/'+c+'.webp';im.style.width=(w+big)+'px';im.style.height=(h+big)+'px';
+ var st=getComputedStyle(s);im.style.margin=['Top','Right','Bottom','Left'].map(function(k){return ((parseFloat(st['margin'+k])||0)-big/2)+'px';}).join(' ');
+ im.onerror=function(){im.replaceWith(s);};s.replaceWith(im);});}
+run();var t=0;new MutationObserver(function(){if(t)return;t=requestAnimationFrame(function(){t=0;if(document.querySelector('.mrow2 svg, nav.nav a:not(.fab) svg'))run();});})
+ .observe(document.body,{childList:true,subtree:true});})();</script>"""
+
+_H_send_i3_base = H._send
+
+
+def _H_send_i3(self, body, code=200, cookie=None):
+    try:
+        if isinstance(body, str) and "</body>" in body and "__i3" not in body and ('class="nav"' in body or "mrow2" in body):
+            body = body.replace("</body>", _I3_JS + "</body>", 1)
+    except Exception as e:
+        print("icon3d:", e, flush=True)
+    return _H_send_i3_base(self, body, code, cookie)
+
+
+H._send = _H_send_i3
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
