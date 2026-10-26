@@ -14963,6 +14963,44 @@ def _bzb_html(lang):
     return ('%s<div class="bzb" id="bzbox"><div class="gg">%s</div><a class="all" href="/d">💼 %s · %d ›</a></div>'
             % (_BZP_CSS, gg, "Весь бизнес" if ru else "Бардык бизнес", len(rows)))
 
+
+# ── KINDPIC: /plus «ТАП+ ким үчүн?» карточкаларында эмодзинин ордуна сүрөт, ар биринин өз түсү ──
+_KP_IMG = {"store": ("shop", "#EAFBF3"), "brigade": ("svc", "#E8F5FE"), "realtor": ("prop", "#FEF6E3"),
+           "auto": ("auto", "#FFEAEF"), "builder": ("builder", "#E0F2FE"), "transport": ("taxi", "#FCF4E1"),
+           "salon": ("beauty", "#FFE8EE"), "edu": ("edu2", "#E1F3FF"), "farm": ("farm", "#ECE9FC"),
+           "factory": ("factory", "#E5F9F0"), "cafe": ("cafe2", "#EEEBFE"), "toy": ("rest", "#EBEAFC"),
+           "autosvc": ("autosvc", "#E1F1FE"), "legal": ("legal", "#ECE9FC"), "fitness": ("fitness", "#FEE9F0"),
+           "travel": ("travel", "#E1F3FF")}
+_KP_EMO_BG = {"hotel": "#FCF4E1", "clean": "#E5F9F0", "photo": "#EBEAFC", "vet": "#FFEAEF"}
+_KP_CSS = ("<style>.klg .klc.kp{border-color:rgba(23,48,79,.07);box-shadow:0 2px 6px rgba(11,27,48,.05)}"
+           ".klc.kp .e{width:84px;height:63px;border-radius:14px;overflow:hidden;display:grid;place-items:center;font-size:40px;line-height:1}"
+           ".klc.kp .e img{width:84px;height:63px;display:block}"
+           ".klc.kp span{color:#2A3A50}</style>")
+
+_kl_block_kp_base = _kl_block
+
+
+def _kl_block(lang):
+    h = _kl_block_kp_base(lang)
+    try:
+        keys = [k[0] for k in _tp.KINDS]
+        it = iter(keys)
+        parts = h.split('<button type="button" class="klc">')
+        out = [parts[0]]
+        for p in parts[1:]:
+            key = next(it, "")
+            if key in _KP_IMG:
+                im, bg = _KP_IMG[key]
+                p = _wre.sub(r'^<div class="e">.*?</div>',
+                             '<div class="e"><img src="/si/kd_%s.jpg?v=%s" alt="" loading="lazy"></div>' % (im, secimg.VERSION), p, 1, flags=_wre.S)
+            else:
+                bg = _KP_EMO_BG.get(key, "#EEF4FF")
+            out.append('<button type="button" class="klc kp" style="background:%s">' % bg + p)
+        h = _KP_CSS + "".join(out)
+    except Exception as e:
+        print("kindpic:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
