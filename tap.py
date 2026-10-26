@@ -14928,6 +14928,41 @@ def home(q, *a, **k):
         print("bizbox:", e, flush=True)
     return h
 
+
+# ── BIZPIC: «ТАП!+ Бизнес» топторуна сүрөттөр (Соода, Кызмат, Мүлк, Унаа, Эс алуу, Билим) ──
+_BZP_STYLE = {"shop": ("#D7FCEB", "#1E8E5A"), "svc": ("#E3F1FE", "#2458C6"), "prop": ("#FCF1DF", "#7A4A12"),
+              "auto": ("#FFECF0", "#B0283C"), "rest": ("#EDE7FE", "#4B3BA8"), "edu": ("#D5EAFB", "#17304F")}
+_BZP_CSS = """<style>
+.bzb .gt.gi{height:auto;padding:0;overflow:hidden;display:flex;flex-direction:column;border:1.5px solid rgba(23,48,79,.08);box-shadow:0 2px 6px rgba(11,27,48,.06)}
+.bzb .gt.gi img{display:block;width:100%;aspect-ratio:360/196;object-fit:cover}
+.bzb .gt.gi .ln{display:flex;align-items:center;gap:4px;padding:5px 8px 8px}
+.bzb .gt.gi .ln b{flex:1;min-width:0;font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#0B1B30}
+.bzb .gt.gi .ln em{position:static;font-style:normal;font-size:11px;font-weight:800;background:#163C8C;color:#fff;border-radius:99px;min-width:18px;height:18px;
+ display:inline-flex;align-items:center;justify-content:center;padding:0 5px;box-sizing:border-box}
+.bzb .gt.gi .ln s{text-decoration:none;font-weight:900;font-size:17px;line-height:1}
+</style>"""
+
+
+def _bzb_html(lang):
+    ru = (lang == "ru")
+    ob = getattr(_RS, "cob", None)
+    rows = _sh_all()
+    if ob:
+        locs = _sg_locs()
+        rows = [s for s in rows if _sg_match(locs.get(str(s["tg_id"]), set()), ob, "", "", "")]
+    cnt = {}
+    for s in rows:
+        cnt[s["_kd"][0]] = cnt.get(s["_kd"][0], 0) + 1
+    gg = ""
+    for key, em, ky, rr, kinds in _BZ_GROUPS:
+        n = sum(cnt.get(k, 0) for k in kinds)
+        bg, ac = _BZP_STYLE.get(key, ("#EEF4FF", "#163C8C"))
+        gg += ('<a class="gt gi" href="/d?g=%s" style="background:%s"><img src="/si/bzg_%s.jpg?v=%s" alt="" loading="lazy">'
+               '<span class="ln"><b>%s</b>%s<s style="color:%s">›</s></span></a>'
+               % (key, bg, key, secimg.VERSION, esc(rr if ru else ky), ('<em>%d</em>' % n) if n else "", ac))
+    return ('%s<div class="bzb" id="bzbox"><div class="gg">%s</div><a class="all" href="/d">💼 %s · %d ›</a></div>'
+            % (_BZP_CSS, gg, "Весь бизнес" if ru else "Бардык бизнес", len(rows)))
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
