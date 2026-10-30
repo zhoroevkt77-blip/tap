@@ -283,9 +283,9 @@ MANIFEST = {
     "theme_color": "#17365C",
     "lang": "ky",
     "icons": [
-        {"src": "/pwa/icon-192.png?v=n1", "sizes": "192x192", "type": "image/png"},
-        {"src": "/pwa/icon-512.png?v=n1", "sizes": "512x512", "type": "image/png"},
-        {"src": "/pwa/icon-512-mask.png?v=n1", "sizes": "512x512",
+        {"src": "/pwa/icon-192.png?v=L2", "sizes": "192x192", "type": "image/png"},
+        {"src": "/pwa/icon-512.png?v=L2", "sizes": "512x512", "type": "image/png"},
+        {"src": "/pwa/icon-512-mask.png?v=L2", "sizes": "512x512",
          "type": "image/png", "purpose": "maskable"},
     ],
 }
@@ -15195,6 +15195,29 @@ def _H_send_i3(self, body, code=200, cookie=None):
 
 
 H._send = _H_send_i3
+
+
+# ── NEWLOGO: жаңы ТАП! логотиби — баш бөлүктө оюу менен «Т», колдонмо белгиси, Кабинетте толук логотип ──
+_NL_CSS = ('<style>html:not(#_tap) body .logo .lgi.lgi3.lgt{width:40px!important;height:40px!important;border-radius:11px!important;'
+           'object-fit:cover!important;box-shadow:0 2px 6px rgba(22,60,140,.25)!important;margin:-4px 8px -4px 0!important}'
+           '@media(max-width:360px){html:not(#_tap) body .logo .lgi.lgi3.lgt{width:34px!important;height:34px!important}}</style>')
+_H_send_nl_base = H._send
+
+
+def _H_send_nl(self, body, code=200, cookie=None):
+    try:
+        if isinstance(body, str) and 'class="lgi lgi3" src="/si/brand.jpg' in body:
+            body = body.replace('class="lgi lgi3" src="/si/brand.jpg', 'class="lgi lgi3 lgt" src="/si/logo_t.jpg')
+            body = body.replace("</head>", _NL_CSS + "</head>", 1) if "</head>" in body else body.replace("</body>", _NL_CSS + "</body>", 1)
+        elif isinstance(body, str) and '"/pwa/icon-' in body and "?v=n1" in body:
+            body = body.replace("?v=n1", "?v=L2")
+    except Exception as e:
+        print("newlogo:", e, flush=True)
+    return _H_send_nl_base(self, body, code, cookie)
+
+
+H._send = _H_send_nl
+
 
 if __name__ == "__main__":
     core.init_db()
