@@ -15137,7 +15137,7 @@ def _e3_do_GET(self):
 
 H.do_GET = _e3_do_GET
 
-_E3_JS = r"""<style>img.e3{width:1.2em;height:1.2em;vertical-align:-.24em;display:inline-block;margin:0 .02em;object-fit:contain;pointer-events:none}</style>
+_E3_JS = r"""<style>/* E3FIX */html:not(#_e3) img.e3{width:1.2em!important;height:1.2em!important;max-width:none!important;min-width:0!important;vertical-align:-.24em!important;display:inline-block!important;margin:0 .02em!important;object-fit:contain!important;position:static!important;border-radius:0!important;box-shadow:none!important;background:none!important;pointer-events:none}</style>
 <script>(function(){if(window.__e3)return;window.__e3=1;var K={};'%KEYS%'.split(',').forEach(function(k){K[k]=1;});
 var RE=/(?:[\uD83C-\uD83E][\uDC00-\uDFFF]|[☀-➿⬀-⯿⌀-⏿ℹ‼⁉㊗㊙])️?(?:‍(?:[\uD83C-\uD83E][\uDC00-\uDFFF]|[☀-➿])️?)*/g;
 var SKIP={SCRIPT:1,STYLE:1,TEXTAREA:1,INPUT:1,OPTION:1,SELECT:1,TITLE:1,CODE:1,PRE:1,NOSCRIPT:1};
