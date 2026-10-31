@@ -1046,7 +1046,7 @@ function next(v,lab){S.inp='';S.rest=false;S.hist.push({step:S.step,data:JSON.pa
   api({op:'next',step:S.step,data:S.data,value:v}).then(set).catch(function(){err();});}
 function draw(){
   var v=S.view,h='';
-  h+='<div class="ptop"><button class="pback" id="pb" aria-label="'+T('Артка','Назад')+'"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#17304F" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="psec">'+((S.data&&S.data.adType)?'<img src="/si/'+S.data.adType+'.jpg?v='+SIV+'" alt="">':'')+esc(secName())+'</div></div>';
+  h+='<div class="ptop"><div class="psec">'+((S.data&&S.data.adType)?'<img src="/si/'+S.data.adType+'.jpg?v='+SIV+'" alt="">':'')+esc(secName())+'</div></div>';
   if(!v.done&&S.trail&&S.trail.length){h+='<div class="ptrail">'+S.trail.map(function(x,k){x=String(x);return '<span data-k="'+k+'">'+esc(x.length>32?x.slice(0,31)+'…':x)+'</span>';}).join('')+'</div>';}
   h+='<div class="pq">'+v.text+'</div>';
   if(v.done){
@@ -1078,6 +1078,7 @@ function draw(){
       :'<input id="pi" class="pfld" autocomplete="off" enterkeyhint="next"'+(v.numeric?' inputmode="decimal"':'')+' placeholder="'+esc(v.placeholder)+'">')
       +'<button class="pbtn" id="pnx">'+T('Улантуу','Далее')+'</button>'+(v.long&&v.ai?'<button class="pbtn pbtn2" id="pai">'+T('✨ ИИ жазып берсин','✨ Пусть напишет ИИ')+'</button>':'');}
   }
+  h+='<button class="pbtn pbtn2 pbk" id="pb">'+T('Артка','Назад')+'</button>';   /* PBACK2 */
   if(S.rest)h='<div class="pdraft">'+T('📝 Мурунку долбооруңуз калыбына келди.','📝 Ваш черновик восстановлен.')+' <button id="pdx">'+T('Башынан баштоо','Начать заново')+'</button></div>'+h;
   box.innerHTML=h;dsave();
   var pdx=document.getElementById('pdx'); if(pdx)pdx.onclick=function(){if(confirm(T('Долбоорду өчүрүп, башынан баштайсызбы?','Удалить черновик и начать заново?')))start();};
@@ -1154,6 +1155,7 @@ _POST_CSS = """<style>/* PBACK4 */
 .popt.on{background:#17304F;color:#fff;box-shadow:0 4px 0 #2E9E5B,0 7px 16px rgba(23,48,79,.30)}
 .pbtn{display:block;width:100%;box-sizing:border-box;margin-top:14px;padding:16px;border:0;border-radius:14px;background:#17304F;color:#fff!important;font-size:17px;font-weight:800;text-align:center;text-decoration:none}
 .pbtn2{background:#fff;color:#17304F!important;border:1.5px solid #3A4E6B}
+html:not(#_pbk) body .pbtn.pbk{margin-top:12px!important;background:#fff!important;background-image:none!important;color:#17304F!important;border:1.5px solid #C9D4E3!important;box-shadow:0 2px 6px rgba(11,27,48,.06)!important}
 .pbtn:disabled{opacity:.6}
 .pfld{display:block;width:100%!important;max-width:none!important;box-sizing:border-box;margin-top:12px;padding:14px 16px;border-radius:16px;border:1.5px solid #3A4E6B;background:#fff;color:#0B1B30;font-size:17px;font-family:inherit;line-height:1.4;min-height:56px}/* PFLD */textarea.pfld{min-height:140px;resize:vertical}.pfld:focus{outline:none;border-color:#17304F;box-shadow:0 0 0 3px rgba(46,158,91,.35)}
 .plab{display:block;margin-top:8px;font-weight:800}
