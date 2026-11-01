@@ -1085,6 +1085,7 @@ function draw(){
   var pi1=document.getElementById('pi'); if(pi1){if(S.inp)pi1.value=S.inp;pi1.oninput=function(){S.inp=pi1.value;dsave();};}
   var pb=document.getElementById('pb'); if(pb)pb.onclick=function(){pb.classList.add('tap');   /* TAP_ALL */var x=S.hist.pop();if(!x){start();return;}
     S.inp='';S.rest=false;S.trail=x.trail||[];S.step=x.step;S.data=x.data;api({op:'view',step:x.step,data:x.data}).then(function(j){if(j.ok){S.view=j.view;S.picked=[];draw();}else err(j.err);});};
+  if(pb){var _pbh=pb.onclick;pb.onclick=function(){if(pb.dataset.go)return;pb.dataset.go=1;pb.classList.add('tap');setTimeout(function(){_pbh.call(pb);},230);};}   /* PBTAP */
   box.querySelectorAll('.popt').forEach(function(b){b.onclick=function(){var o=v.options[+b.getAttribute('data-i')];
     if(v.multi){var k=S.picked.indexOf(o.value);if(k>=0)S.picked.splice(k,1);else S.picked.push(o.value);draw();}
     else{b.classList.add('tap');next(o.value,o.label);}};});   // POPT_TAP
@@ -15584,6 +15585,10 @@ H._send = _H_send_mf
 EXTRA_CSS += chr(10) + ("html:not(#_bd) body .c .ph .bdg{left:6px!important;top:6px!important;gap:3px!important}"
     "html:not(#_bd) body .c .ph .bdg span{font-size:9.5px!important;font-weight:700!important;padding:3px 6px!important;border-radius:6px!important;letter-spacing:-.2px!important;box-shadow:0 1px 3px rgba(0,0,0,.18)!important}"
     "html:not(#_bd) body .c .ph .bdg img.e3{width:1.1em!important;height:1.1em!important}")   # BDGSM
+
+
+# PBTAP: «Артка» басылганда көк
+EXTRA_CSS += chr(10) + "html:not(#_pt) body .pbtn.pbk.tap,html:not(#_pt) body .pbtn.pbk:active{background:linear-gradient(180deg,#2458C6,#163C8C)!important;color:#fff!important;border-color:#163C8C!important;box-shadow:0 4px 12px rgba(22,60,140,.30)!important}"
 
 if __name__ == "__main__":
     core.init_db()
