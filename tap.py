@@ -15526,6 +15526,59 @@ try:
 except Exception as _e:
     print("kinds8 rufix:", _e, flush=True)
 
+
+# ── MONTFONT: сайттын шрифти — Montserrat (өз сайттан, /fonts/montserrat.woff2) ──
+_MF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", "montserrat.woff2")
+_MF = {"d": None}
+_do_GET_mf_base = H.do_GET
+
+
+def _mf_do_GET(self):
+    if self.path.split("?", 1)[0] == "/fonts/montserrat.woff2":
+        if _MF["d"] is None:
+            try:
+                _MF["d"] = open(_MF_PATH, "rb").read()
+            except Exception:
+                _MF["d"] = b""
+        d = _MF["d"]
+        if not d:
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "font/woff2")
+        self.send_header("Content-Length", str(len(d)))
+        self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        self.end_headers()
+        self.wfile.write(d)
+        return
+    return _do_GET_mf_base(self)
+
+
+H.do_GET = _mf_do_GET
+
+_MF_CSS = ('<link rel="preload" href="/fonts/montserrat.woff2?v=1" as="font" type="font/woff2" crossorigin>'
+           '<style>@font-face{font-family:"Montserrat";src:url(/fonts/montserrat.woff2?v=1) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}'
+           'html:not(#_mf) body,html:not(#_mf) body *:not(svg):not(path):not(img.e3){font-family:"Montserrat",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important}'
+           'html:not(#_mf) body{font-weight:500}'
+           'html:not(#_mf) body nav.nav a{white-space:nowrap!important;letter-spacing:-.3px}'
+           'html:not(#_mf) body nav.nav a span,html:not(#_mf) body nav.nav a b{white-space:nowrap!important}'
+           'html:not(#_mf):not(#_mf2) body nav.cats .cat.pic .pill{font-size:11.5px!important;letter-spacing:-.45px!important;font-weight:800!important;overflow-wrap:anywhere}</style>')
+_H_send_mf_base = H._send
+
+
+def _H_send_mf(self, body, code=200, cookie=None):
+    try:
+        if isinstance(body, str) and "</head>" in body and "/fonts/montserrat.woff2" not in body:
+            body = body.replace("</head>", _MF_CSS + "</head>", 1)
+    except Exception as e:
+        print("montfont:", e, flush=True)
+    return _H_send_mf_base(self, body, code, cookie)
+
+
+H._send = _H_send_mf
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
