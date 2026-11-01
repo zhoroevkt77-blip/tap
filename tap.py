@@ -15579,6 +15579,12 @@ def _H_send_mf(self, body, code=200, cookie=None):
 
 H._send = _H_send_mf
 
+
+# BDGSM: жарыянын сүрөтүндөгү белгилер (Ээсинен, Алмашуу...) кичирээк
+EXTRA_CSS += chr(10) + ("html:not(#_bd) body .c .ph .bdg{left:6px!important;top:6px!important;gap:3px!important}"
+    "html:not(#_bd) body .c .ph .bdg span{font-size:9.5px!important;font-weight:700!important;padding:3px 6px!important;border-radius:6px!important;letter-spacing:-.2px!important;box-shadow:0 1px 3px rgba(0,0,0,.18)!important}"
+    "html:not(#_bd) body .c .ph .bdg img.e3{width:1.1em!important;height:1.1em!important}")   # BDGSM
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
