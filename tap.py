@@ -15590,6 +15590,39 @@ EXTRA_CSS += chr(10) + ("html:not(#_bd) body .c .ph .bdg{left:6px!important;top:
 # PBTAP: «Артка» басылганда көк
 EXTRA_CSS += chr(10) + "html:not(#_pt) body .pbtn.pbk.tap,html:not(#_pt) body .pbtn.pbk:active{background:linear-gradient(180deg,#2458C6,#163C8C)!important;color:#fff!important;border-color:#163C8C!important;box-shadow:0 4px 12px rgba(22,60,140,.30)!important}"
 
+
+# ── GEO2024: ААР-2024 — айыл аймактары ирилештирилди; эски жарыялардын дареги жаңыга көчөт (бир жолу) ──
+def _geo24_migrate():
+    try:
+        import geo2024
+        core.query("CREATE TABLE IF NOT EXISTS geo_mig (k TEXT PRIMARY KEY, at TEXT)")
+        if core.query("SELECT k FROM geo_mig WHERE k=?", ("aar2024",), fetch="one"):
+            return
+        n = 0
+        for r in core.query("SELECT id, oblast, district, locality, village FROM listings", fetch="all") or []:
+            r = dict(r)
+            m = geo2024.migrate_row(r.get("oblast"), r.get("district"), r.get("locality"), r.get("village"))
+            if m and m != (r.get("oblast") or "", r.get("district") or "", r.get("locality") or "", r.get("village") or ""):
+                core.query("UPDATE listings SET oblast=?, district=?, locality=?, village=? WHERE id=?", (m[0], m[1], m[2], m[3], r["id"]))
+                n += 1
+        k = 0
+        try:
+            for r in core.query("SELECT tg_id, ob, di, lo, vg FROM seller_geo", fetch="all") or []:
+                r = dict(r)
+                m = geo2024.migrate_row(r.get("ob"), r.get("di"), r.get("lo"), r.get("vg"))
+                if m:
+                    core.query("UPDATE seller_geo SET ob=?, di=?, lo=?, vg=? WHERE tg_id=?", (m[0], m[1], m[2], m[3], r["tg_id"]))
+                    k += 1
+        except Exception:
+            pass
+        core.query("INSERT INTO geo_mig (k, at) VALUES (?, ?)", ("aar2024", core.now_str()))
+        print("geo2024: %d жарыя, %d бизнес жаңы дарекке көчтү" % (n, k), flush=True)
+    except Exception as e:
+        print("geo2024 migrate:", e, flush=True)
+
+
+_geo24_migrate()
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
