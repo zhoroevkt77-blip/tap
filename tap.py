@@ -15623,6 +15623,13 @@ def _geo24_migrate():
 
 _geo24_migrate()
 
+
+# MACT3: «Менин жарыяларым» — баскычтар 2 мамыча, 3 катар
+EXTRA_CSS += chr(10) + ("html:not(#_m3) body .minf .mact{display:grid!important;grid-template-columns:1fr 1fr!important;gap:7px!important;margin-top:8px!important}"
+    "html:not(#_m3) body .minf .mact>*{width:auto!important;min-width:0!important;margin:0!important;padding:9px 6px!important;font-size:13.5px!important;white-space:nowrap!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;box-sizing:border-box!important}"
+    "html:not(#_m3) body .minf .mact>*:nth-child(5){grid-column:1/-1!important}"
+    "html:not(#_m3) body .minf .mact img.e3{width:1.1em!important;height:1.1em!important}")   # MACT3
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
