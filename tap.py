@@ -15630,6 +15630,120 @@ EXTRA_CSS += chr(10) + ("html:not(#_m3) body .minf .mact{display:grid!important;
     "html:not(#_m3) body .minf .mact>*:nth-child(5){grid-column:1/-1!important}"
     "html:not(#_m3) body .minf .mact img.e3{width:1.1em!important;height:1.1em!important}")   # MACT3
 
+
+# ── BIZREP: бизнестин барагында «⚠️ Бул бизнеске даттануу» → админге (3+ болсо 🚨) ──
+_BR_RSN = [("scam", "Алдады / акча алып жоголду", "Обманул / взял деньги и пропал"),
+           ("fake", "Барак жалган (мындай бизнес жок)", "Страница фейковая (такого бизнеса нет)"),
+           ("info", "Баасы же маалыматы туура эмес", "Неверные цены или информация"),
+           ("rude", "Орой мамиле", "Грубое обращение"),
+           ("other", "Башка себеп", "Другая причина")]
+_BR = {"ready": False, "rate": {}}
+
+
+def _br_init():
+    if not _BR["ready"]:
+        core.query("CREATE TABLE IF NOT EXISTS biz_reports (id INTEGER PRIMARY KEY, tg_id TEXT, slug TEXT, reason TEXT, txt TEXT, cid TEXT, at TEXT)"
+                   if not getattr(core, "IS_PG", False) else
+                   "CREATE TABLE IF NOT EXISTS biz_reports (id SERIAL PRIMARY KEY, tg_id TEXT, slug TEXT, reason TEXT, txt TEXT, cid TEXT, at TEXT)")
+        _BR["ready"] = True
+
+
+def _br_api(b):
+    slug = str(b.get("slug") or "")[:80]
+    s = _tp.by_slug(slug)
+    if not s:
+        return {"ok": False, "err": "nf"}
+    rs = str(b.get("r") or "other")
+    rs = rs if rs in [x[0] for x in _BR_RSN] else "other"
+    txt = " ".join(str(b.get("t") or "").split())[:300]
+    cid = str(b.get("cid") or "")[:40] or "x"
+    now = _t.time()
+    k = cid + "|" + slug
+    if now - _BR["rate"].get(k, 0) < 3600:
+        return {"ok": False, "err": "rate"}
+    sk = "slug|" + slug
+    day = [x for x in _BR["rate"].get(sk, []) if now - x < 86400] if isinstance(_BR["rate"].get(sk), list) else []
+    if len(day) >= 20:
+        return {"ok": False, "err": "rate"}
+    _BR["rate"][k] = now
+    _BR["rate"][sk] = day + [now]
+    if len(_BR["rate"]) > 5000:
+        _BR["rate"].clear()
+    try:
+        _br_init()
+        tg = str(s.get("tg_id") or "")
+        core.query("INSERT INTO biz_reports (tg_id, slug, reason, txt, cid, at) VALUES (?,?,?,?,?,?)",
+                   (tg, slug, rs, txt, cid, core.now_str()))
+        r = core.query("SELECT COUNT(*) AS n FROM biz_reports WHERE tg_id=?", (tg,), fetch="one") or {}
+        n = int(dict(r).get("n") or 0)
+        e = html.escape
+        lab = dict((x[0], x[1]) for x in _BR_RSN)[rs]
+        ph = str(s.get("phone") or "")
+        body = ("%s <b>Бизнеске даттануу</b>%s\n💼 <b>%s</b>\n⚠️ %s%s\n📊 Бардык даттануулар: <b>%d</b>"
+                % ("🚨" if n >= 3 else "⚠️", " — ШАШЫЛЫШ" if n >= 3 else "", e(str(s.get("name") or slug)), e(lab),
+                   ("\n💬 " + e(txt)) if txt else "", n))
+        kb = [[{"text": "👁 Барагын көрүү", "url": "/d/" + urllib.parse.quote(slug)},
+               {"text": "⚙️ Админде ачуу (Ишеним / мөөнөт)", "url": "/admin/plus?edit=" + urllib.parse.quote(tg)}]]
+        if ph:
+            kb[0].append({"text": "📞 Чалуу", "url": "tel:" + ph})
+        _tp.inbox_add(body, {"inline_keyboard": kb}, "bizrep")
+    except Exception as ex:
+        print("bizrep:", ex, flush=True)
+        return {"ok": False, "err": "server"}
+    return {"ok": True}
+
+
+_EXT_POST["/api/bizrep"] = _br_api
+try:
+    if not any(x[0] == "bizrep" for x in _tp._IB_KINDS):
+        _tp._IB_KINDS.append(("bizrep", "⚠️ Даттануулар"))
+except Exception:
+    pass
+
+
+def _br_html(slug, lang):
+    ru = (lang == "ru")
+    T = (lambda a, b: b if ru else a)
+    opts = "".join('<option value="%s">%s</option>' % (c, esc(r if ru else k)) for c, k, r in _BR_RSN)
+    return ('<details class="brp"><summary>⚠️ %s</summary><div class="brb"><p>%s</p><select id="brr">%s</select>'
+            '<textarea id="brt" rows="3" maxlength="300" placeholder="%s"></textarea><button type="button" id="brgo">%s</button>'
+            '<div id="brm" class="brm"></div></div></details>'
+            '<style>.brp{margin:18px 4px 8px;font-size:14px}.brp summary{color:#8A97AB;cursor:pointer;list-style:none;text-align:center;padding:8px}'
+            '.brp summary::-webkit-details-marker{display:none}.brb{background:#fff;border:1.5px solid #F0C9C9;border-radius:14px;padding:12px}'
+            '.brb p{margin:0 0 8px;font-weight:700;color:#3A4A60}.brb select,.brb textarea{width:100%%;box-sizing:border-box;border:1.5px solid #D5DDE9;'
+            'border-radius:10px;padding:10px;font:inherit;font-size:14.5px;margin:0 0 8px;background:#fff}'
+            '.brb button{width:100%%;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:800;color:#fff;background:#C0392B}'
+            '.brm{margin-top:8px;font-weight:700;font-size:13.5px}</style>'
+            '<script>(function(){var b=document.getElementById("brgo");if(!b)return;var cid;try{cid=localStorage.getItem("tap_cid");'
+            'if(!cid){cid=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem("tap_cid",cid);}}catch(e){cid="x";}'
+            'b.onclick=function(){b.disabled=true;var m=document.getElementById("brm");fetch("/api/bizrep",{method:"POST",headers:{"Content-Type":"application/json"},'
+            'body:JSON.stringify({slug:%s,r:document.getElementById("brr").value,t:document.getElementById("brt").value,cid:cid})})'
+            '.then(function(r){return r.json();}).then(function(j){if(j.ok){m.style.color="#0E7A54";m.textContent=%s;}'
+            'else{b.disabled=false;m.style.color="#C0392B";m.textContent=j.err==="rate"?%s:%s;}})'
+            '.catch(function(){b.disabled=false;m.style.color="#C0392B";m.textContent=%s;});};})();</script>'
+            % (T("Бул бизнеске даттануу", "Пожаловаться на этот бизнес"), T("Себебин тандаңыз:", "Выберите причину:"), opts,
+               T("Эмне болду? Кыскача жазыңыз", "Что случилось? Опишите кратко"), T("Жөнөтүү", "Отправить"),
+               json.dumps(slug), json.dumps(T("✅ Рахмат! Даттанууңуз админге жөнөтүлдү, текшеребиз.", "✅ Спасибо! Жалоба отправлена администратору, мы проверим.")),
+               json.dumps(T("Сиз бул бизнеске жакында эле даттангансыз.", "Вы уже недавно жаловались на этот бизнес.")),
+               json.dumps(T("Ката чыкты, кайра аракет кылыңыз.", "Ошибка, попробуйте ещё раз.")),
+               json.dumps(T("Байланыш катасы.", "Ошибка связи."))))
+
+
+_tp_store_br_base = _tp_store
+
+
+def _tp_store(slug, lang):
+    h = _tp_store_br_base(slug, lang)
+    try:
+        if h and "</main>" in h and 'class="brp"' not in h:
+            i = h.rfind("</main>")
+            h = h[:i] + _br_html(slug, lang) + h[i:]
+        elif h and 'class="brp"' not in h:
+            h = h.replace("</body>", _br_html(slug, lang) + "</body>", 1)
+    except Exception as e:
+        print("bizrep html:", e, flush=True)
+    return h
+
 if __name__ == "__main__":
     core.init_db()
     print(f"\n  TAP! витрина: http://localhost:{PORT}", flush=True)
