@@ -15147,7 +15147,7 @@ var SKIP={SCRIPT:1,STYLE:1,TEXTAREA:1,INPUT:1,OPTION:1,SELECT:1,TITLE:1,CODE:1,P
 function key(s){var o=[];for(var i=0;i<s.length;){var c=s.codePointAt(i);i+=c>0xFFFF?2:1;if(c!==0xFE0F)o.push(c.toString(16));}return o.join('-');}
 function fix(n){var t=n.nodeValue;RE.lastIndex=0;if(!RE.test(t))return;RE.lastIndex=0;var f=document.createDocumentFragment(),last=0,m,hit=0;
  while((m=RE.exec(t))){var k=key(m[0]);if(!K[k])continue;hit=1;if(m.index>last)f.appendChild(document.createTextNode(t.slice(last,m.index)));
-  var im=document.createElement('img');im.className='e3';im.alt=m[0];im.draggable=false;im.src='/e3/'+k+'.webp';im.onerror=function(){this.replaceWith(document.createTextNode(this.alt));};f.appendChild(im);last=m.index+m[0].length;}
+  var im=document.createElement('img');im.className='e3';im.alt=m[0];im.draggable=false;im.src='/e3/'+k+'.webp?v=hd';im.onerror=function(){this.replaceWith(document.createTextNode(this.alt));};f.appendChild(im);last=m.index+m[0].length;}
  if(!hit)return;if(last<t.length)f.appendChild(document.createTextNode(t.slice(last)));n.parentNode.replaceChild(f,n);}
 function scan(root){if(!root)return;if(root.nodeType===3){var p=root.parentNode;if(p&&!SKIP[p.nodeName]&&!(p.closest&&p.closest('[contenteditable],.noe3')))fix(root);return;}
  if(root.nodeType!==1||SKIP[root.nodeName])return;var w=document.createTreeWalker(root,4,null),a=[],x;while((x=w.nextNode()))a.push(x);
@@ -15179,7 +15179,7 @@ var M={'/my':'1f4cb','/fav':'2764','/bal':'1f4b3','/msg':'2753','/lang/ru':'1f31
 function code(a){var h=a.getAttribute('href')||'';if(h.indexOf('t.me/')>=0)return '1f4e2';h=h.split('?')[0];return M[h]||'';}
 function run(){document.querySelectorAll('.mrow2 svg, nav.nav a:not(.fab) svg').forEach(function(s){var a=s.closest('a');if(!a)return;var c=code(a);if(!c)return;
  var r=s.getBoundingClientRect(),w=Math.round(r.width)||22,h=Math.round(r.height)||22,big=a.closest('nav.nav')?4:6;
- var im=document.createElement('img');im.className='i3';im.alt='';im.src='/e3/'+c+'.webp';im.style.width=(w+big)+'px';im.style.height=(h+big)+'px';
+ var im=document.createElement('img');im.className='i3';im.alt='';im.src='/e3/'+c+'.webp?v=hd';im.style.width=(w+big)+'px';im.style.height=(h+big)+'px';
  var st=getComputedStyle(s);im.style.margin=['Top','Right','Bottom','Left'].map(function(k){return ((parseFloat(st['margin'+k])||0)-big/2)+'px';}).join(' ');
  im.onerror=function(){im.replaceWith(s);};s.replaceWith(im);});}
 run();var t=0;new MutationObserver(function(){if(t)return;t=requestAnimationFrame(function(){t=0;if(document.querySelector('.mrow2 svg, nav.nav a:not(.fab) svg'))run();});})
@@ -15746,6 +15746,10 @@ def _tp_store(slug, lang):
     except Exception as e:
         print("bizrep html:", e, flush=True)
     return h
+
+
+# GLASSICO: Кабинеттин тизмесинде иконкалар айнек плиткада
+EXTRA_CSS += chr(10) + 'html:not(#_gl) body .mrow2>img.i3,html:not(#_gl) body .mrow2>span:first-child:has(>img.e3){width:38px!important;height:38px!important;min-width:38px;flex:none;box-sizing:border-box!important;padding:7px!important;display:grid!important;place-items:center!important;margin:-5px 2px -5px -2px!important;font-size:22px!important;line-height:1!important;background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(214,228,250,.6))!important;border-radius:12px!important;box-shadow:0 4px 10px rgba(22,60,140,.12),inset 0 1px 0 #fff,inset 0 0 0 1px rgba(36,88,198,.13)!important}html:not(#_gl) body .mrow2>span:first-child:has(>img.e3)>img.e3{width:24px!important;height:24px!important;margin:0!important;vertical-align:0!important}'
 
 if __name__ == "__main__":
     core.init_db()
