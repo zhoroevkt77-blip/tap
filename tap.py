@@ -15224,17 +15224,17 @@ H._send = _H_send_nl
 
 
 # ── SPLASH: «Башкы бет» баскычын басканда (жана колдонмо ачылганда) ТАП! логотиби 1.5 сек турат ──
-_SP_HTML = r"""<div id="tsplash" aria-hidden="true"><img src="/si/splash.jpg?v=%s" alt="ТАП!"></div>
+_SP_HTML = r"""<div id="tsplash" aria-hidden="true"><img data-src="/si/splash.jpg?v=%s" alt="ТАП!"></div>
 <style>#tsplash{position:fixed;inset:0;z-index:99999;background:#fff;display:flex;align-items:center;justify-content:center;transition:opacity .35s ease}
 #tsplash img{width:min(64vw,300px);height:auto;border-radius:18%%;box-shadow:0 14px 34px rgba(22,60,140,.28);animation:tspi .5s ease both}
 #tsplash.out{opacity:0;pointer-events:none}@keyframes tspi{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:none}}</style>
 <script>(function(){var s=document.getElementById('tsplash'),show=false;
-try{show=sessionStorage.getItem('tap_sp')==='1'||!sessionStorage.getItem('tap_seen');sessionStorage.removeItem('tap_sp');sessionStorage.setItem('tap_seen','1');}catch(e){}
-if(!show){s.parentNode.removeChild(s);return;}document.documentElement.style.overflow='hidden';
-setTimeout(function(){s.classList.add('out');document.documentElement.style.overflow='';setTimeout(function(){if(s.parentNode)s.parentNode.removeChild(s);},400);},1500);})();</script>"""
+try{show=sessionStorage.getItem('tap_sp')==='1';sessionStorage.removeItem('tap_sp');}catch(e){}   /* SPLASH2 */
+if(!show){s.parentNode.removeChild(s);return;}var im=s.querySelector('img');im.src=im.getAttribute('data-src');document.documentElement.style.overflow='hidden';
+setTimeout(function(){s.classList.add('out');document.documentElement.style.overflow='';setTimeout(function(){if(s.parentNode)s.parentNode.removeChild(s);},400);},2000);})();</script>"""
 
 _SP_NAV = r"""<script id="tsnav">document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('nav.nav a');
-if(a&&(a.getAttribute('href')||'').split('?')[0]==='/'){try{sessionStorage.setItem('tap_sp','1');}catch(x){}}},true);</script>"""
+if(a&&(a.classList.contains('fab')||/^\/(add|post)$/.test((a.getAttribute('href')||'').split('?')[0]))){try{sessionStorage.setItem('tap_sp','1');}catch(x){}}},true);</script>"""
 
 _H_send_sp_base = H._send
 
@@ -15243,6 +15243,9 @@ def _H_send_sp(self, body, code=200, cookie=None):
     try:
         if isinstance(body, str) and "</body>" in body and 'class="nav"' in body and 'id="tsnav"' not in body:
             body = body.replace("</body>", _SP_NAV + "</body>", 1)
+        if isinstance(body, str) and 'id="tsplash"' not in body and 'class="nav"' in body and "<body" in body:
+            _i = body.find("<body"); _j = body.find(">", _i) + 1
+            body = body[:_j] + (_SP_HTML % secimg.VERSION) + body[_j:]
     except Exception as e:
         print("splash nav:", e, flush=True)
     return _H_send_sp_base(self, body, code, cookie)
