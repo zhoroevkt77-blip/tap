@@ -3,7 +3,7 @@
 ТАП+ — сатуучулар үчүн акылуу аккаунт жана «✅ Ишеним» белгиси.
 
   • ТАП+ тарифтери: 🥈 Күмүш, 🥇 Алтын, 💎 Алмаз (мөөнөтү менен)
-  • «✅ Ишеним» — акысыз: номери жана дареги текшерилген сатуучу (админ берет)
+  • «✅ Ишеним» — акысыз: номери жана ээси текшерилген сатуучу (админ берет)
   • Дүкөндүн барагы: /d/<slug>
   • Админ: /admin/plus — сатуучуну кошуу, тариф, мөөнөт, Ишеним
 
@@ -181,7 +181,7 @@ def admin(h, uid, q, p, msg, page, k):
             "<label>Тариф</label><select name='tier'><option value=''>— ТАП+ жок —</option>%s</select>"
             "<label>Мөөнөтүн узартуу</label><select name='days'><option value='0'>Өзгөртпөө%s</option>"
             "<option value='30'>+30 күн</option><option value='90'>+90 күн</option><option value='365'>+1 жыл</option></select>"
-            "<label class='ck'><input type='checkbox' name='ishenim' value='1'%s> ✅ Ишеним (номери жана дареги текшерилди)</label>"
+            "<label class='ck'><input type='checkbox' name='ishenim' value='1'%s> ✅ Ишеним (номери жана ээси текшерилди)</label>"
             "<label>Дареги</label><input name='address' value='%s' placeholder='Бишкек, Жибек Жолу 120'>"
             "<label>Иш убактысы</label><input name='hours' value='%s' placeholder='09:00–20:00, дем алышсыз'>"
             "<label>Дүкөн жөнүндө</label><textarea name='about' rows='4'>%s</textarea>"
@@ -192,7 +192,7 @@ def admin(h, uid, q, p, msg, page, k):
                " checked" if int(c.get("ishenim") or 0) else "",
                E(str(c.get("address") or "")), E(str(c.get("hours") or "")), E(str(c.get("about") or ""))))
     info = ("<p style='font-size:13px;color:#5A6982'>Сатуучу MBank'тан которгондон кийин ушул жерден тарифин жана "
-            "мөөнөтүн коёсуз. «✅ Ишеним» — акысыз, номерин жана дарегин текшергенден кийин белгилейсиз.</p>")
+            "мөөнөтүн коёсуз. «✅ Ишеним» — акысыз, номерин текшерип, ээси менен сүйлөшкөндөн кийин белгилейсиз.</p>")
     h._send(page("ТАП+", _ACSS + info + form + "<h2 style='font-size:18px;margin-top:24px'>Сатуучулар</h2>" + t,
                  "pl", msg))
 
@@ -446,7 +446,7 @@ def admin(h, uid, q, p, msg, page, k):
             "<label>Мөөнөтүн узартуу</label><select name='days'><option value='0'>Өзгөртпөө%s</option>"
             "<option value='7'>+7 күн (акысыз сыноо)</option><option value='30'>+30 күн</option>"
             "<option value='90'>+90 күн</option><option value='365'>+1 жыл</option></select>"
-            "<label class='ck'><input type='checkbox' name='ishenim' value='1'%s> ✅ Ишеним (номери жана дареги текшерилди)</label>"
+            "<label class='ck'><input type='checkbox' name='ishenim' value='1'%s> ✅ Ишеним (номери жана ээси текшерилди)</label>"
             "<fieldset><legend>Негизги маалымат</legend>"
             "<label>Дареги</label><input name='address' value='%s' placeholder='Бишкек, Жибек Жолу 120'>"
             "<label>Иш убактысы</label><input name='hours' value='%s' placeholder='09:00–20:00, дем алышсыз'>"
